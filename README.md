@@ -28,8 +28,10 @@ Spheres = {Int, Float}
 
 ## Schedule
 - [x] Initialize flow and save first image 
-- [ ] Define structures for camera, frame etc...
+- [x] Define structures for camera, frame, ray, etc...
 - [x] Spheres as {index to point, radius}
+- [x] Hit spheres with rays
+- [ ] Hit other stuff with rays
 - [ ] First naive shaders 
 - [ ] Triangles
 
