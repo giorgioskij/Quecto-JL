@@ -19,8 +19,7 @@ struct Sphere
     radius::Float32
     color::SVec3f # temp
 
-    Sphere(center, radius) = new(center, radius, (0.35, 0.29, 0.58))
-    Sphere() = new(0, 0, (0, 0, 0))
+    Sphere(center, radius) = new(center, radius, (0.925, 0.36, 0.38))
 end
 
 struct Scene
@@ -36,18 +35,18 @@ struct Ray
 
     Ray(origin, direction, tmin, tmax) = new(origin, direction, tmin, tmax)
     Ray(origin, direction) = new(origin, direction, 0.0, 0.0)
-    Ray() = new((0, 0, 0), (0, 0, 0), 0, 0)
 
 end
 
 
 struct HitObject
     hit::Bool
-    sphereHit::Sphere
-    ray::Ray
+    sphereHit::Union{Sphere,Nothing}
+    ray::Union{Ray,Nothing}
 
     HitObject(hit, sphereHit, ray) = new(hit, sphereHit, ray)
-    HitObject(hit) = new(hit, Sphere(), Ray())
+    HitObject(hit) = new(hit, nothing, nothing)
+
 end
 
 struct Camera
@@ -93,7 +92,8 @@ function run(width, height)
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
     for i in 1:size(image)[1], j in 1:size(image)[2]
-        rgbImage[i, j] = RGB(image[i, j][1]^0.45, image[i, j][2]^0.45, image[i, j][3]^0.45)
+        # rgbImage[i, j] = RGB(image[i, j][1]^0.45, image[i, j][2]^0.45, image[i, j][3]^0.45)
+        rgbImage[i, j] = RGB(image[i, j]...)
     end
     save("prova.png", rgbImage)
 
@@ -147,20 +147,20 @@ end
 function shader(scene::Scene, ray::Ray)::SVec3f
     background = SVec3f(0.105, 0.443, 0.90)
 
-    hits::HitObject = hitSphere(ray, scene, scene.spheres[1])
+    hitObject::HitObject = hitSphere(ray, scene, scene.spheres[1])
 
-    if !hits.hit
+    if !hitObject.hit
         color = background
         return color
     end
 
-    new_ray = hits.ray
+    # new_ray = hits.ray
 
     # compute normal
-    normal = unitVector(new_ray.origin + new_ray.direction * new_ray.tmin)
+    # normal = unitVector(new_ray.origin + new_ray.direction * new_ray.tmin)
 
-    radiance = normal .* hits.sphereHit.color
-    println(normal)
+    # radiance = normal .* hits.sphereHit.color
+    radiance = hitObject.sphereHit.color
     return radiance
 end
 
