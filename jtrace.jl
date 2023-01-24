@@ -133,7 +133,7 @@ function traceSample(i::Int,
     ray = sampleCamera(camera, i, j, imwidth, imheight)
 
     # call the shader
-    radiance = shader(scene, ray)
+    radiance = shader(scene, ray, camera)
 
     return radiance
 
@@ -144,23 +144,28 @@ end
 #     return SVec3f([1, 1, 1])
 # end
 
-function shader(scene::Scene, ray::Ray)::SVec3f
+function shader(scene::Scene, ray::Ray, camera::Camera)::SVec3f
     background = SVec3f(0.105, 0.443, 0.90)
 
-    hitObject::HitObject = hitSphere(ray, scene, scene.spheres[1])
+    hit::HitObject = hitSphere(ray, scene, scene.spheres[1])
 
-    if !hitObject.hit
+    if !hit.hit
         color = background
         return color
     end
 
-    # new_ray = hits.ray
+    ray::Ray = hit.ray
+    sphere::Sphere = hit.sphereHit
+    sphereCenter::SVec3f = scene.points[sphere.center]
 
-    # compute normal
-    # normal = unitVector(new_ray.origin + new_ray.direction * new_ray.tmin)
+    # compute coordinates of point hit
+    pointHit::SVec3f = ray.origin + ray.tmin * ray.direction
 
-    # radiance = normal .* hits.sphereHit.color
-    radiance = hitObject.sphereHit.color
+    # compute normal: n = (p-c) / |p-c|
+    normal = unitVector(pointHit - sphereCenter)
+
+    radiance = 0.5 .* (normal .+ 1) .* sphere.color
+
     return radiance
 end
 
@@ -178,7 +183,7 @@ function hitSphere(ray::Ray, scene::Scene, sphere::Sphere)::HitObject
     if delta < 0
         return HitObject(false)
     else
-        hitDist::Float32 = (-b - sqrt(delta)) / 2 * a
+        hitDist::Float32 = (-b - sqrt(delta)) / (2 * a)
 
         if hitDist::Float32 < ray.tmin
             return HitObject(false)
