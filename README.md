@@ -31,11 +31,21 @@ Spheres = {Int, Float}
 - [x] Define structures for camera, frame, ray, etc...
 - [x] Spheres as {index to point, radius}
 - [x] Hit spheres with rays
+- [x] Normal shading 
+- [x] Antialiasing
+- [x] Eyelight shading
+- [ ] Load triangles
+- [ ] Evaluate normals
+- [ ] Textures
+- [ ] Environment maps
 - [ ] Hit other stuff with rays
-- [ ] First naive shaders 
-- [ ] Triangles
 
 
 ## Benchmarking
 In a starting state, with no computation in the shader, representing the image
 with SVectors as colors is slower.
+
+
+## Long term todo:
+
+Care about RNGs

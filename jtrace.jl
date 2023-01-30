@@ -7,6 +7,7 @@ const SVec2f = SVector{2,Float32}
 # const Frame = SVector{4,Float32}
 
 
+
 struct Frame
     x::SVec3f
     y::SVec3f
@@ -35,7 +36,6 @@ struct Ray
 
     Ray(origin, direction, tmin, tmax) = new(origin, direction, tmin, tmax)
     Ray(origin, direction) = new(origin, direction, 0.0, 0.0)
-
 end
 
 
@@ -46,7 +46,6 @@ struct HitObject
 
     HitObject(hit, sphereHit, ray) = new(hit, sphereHit, ray)
     HitObject(hit) = new(hit, nothing, nothing)
-
 end
 
 struct Camera
@@ -66,13 +65,11 @@ struct Camera
         0
     )
     Camera(frame) = new(frame, 0.05, 0.036, 1.5, 10000, 0)
-
 end
 
 
-
 # main entry point to the program
-function run(width, height)
+function run(width, height, numSamples)
 
     # reads params and initializes stuff
 
@@ -87,7 +84,7 @@ function run(width, height)
     # image = zeros(Float32, height, width, 3)
 
     # call the function to trace samples
-    traceSamples(image, scene, camera, width, height)
+    traceSamples(image, scene, camera, width, height, numSamples)
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
@@ -109,14 +106,20 @@ function generateScene()::Scene
     return Scene(points, spheres)
 end
 
-function traceSamples(image, scene, camera, imwidth, imheight)
+function traceSamples(image, scene, camera, imwidth, imheight, numSamples)
     # loop over pixels
     # TODO: add threads
-    for i in 1:size(image)[2]
-        for j in 1:size(image)[1]
-            color = traceSample(i, j, scene, camera, imwidth, imheight)
-            image[j, i] += color
-            # image[i, j, :] += color
+    for s in 1:numSamples
+        for i in 1:size(image)[2]
+            for j in 1:size(image)[1]
+                color = traceSample(i, j, scene, camera, imwidth, imheight)
+
+                weight::Float32 = 1 / s
+                image[j, i] = linInterp(image[j, i], color, weight)
+
+                # image[j, i] += color
+                # image[i, j, :] += color
+            end
         end
     end
 end
@@ -133,7 +136,7 @@ function traceSample(i::Int,
     ray = sampleCamera(camera, i, j, imwidth, imheight)
 
     # call the shader
-    radiance = shader(scene, ray, camera)
+    radiance = shader(scene, ray)
 
     return radiance
 
@@ -144,30 +147,61 @@ end
 #     return SVec3f([1, 1, 1])
 # end
 
-function shader(scene::Scene, ray::Ray, camera::Camera)::SVec3f
-    background = SVec3f(0.105, 0.443, 0.90)
-
+function shaderNormal(scene::Scene, ray::Ray)::SVec3f
     hit::HitObject = hitSphere(ray, scene, scene.spheres[1])
 
     if !hit.hit
-        color = background
-        return color
+        radiance = evalEnvironment()
+        return radiance
     end
 
     ray::Ray = hit.ray
     sphere::Sphere = hit.sphereHit
     sphereCenter::SVec3f = scene.points[sphere.center]
 
-    # compute coordinates of point hit
-    pointHit::SVec3f = ray.origin + ray.tmin * ray.direction
-
-    # compute normal: n = (p-c) / |p-c|
-    normal = unitVector(pointHit - sphereCenter)
+    normal = evalNormalSphere(ray, sphereCenter)
 
     radiance = 0.5 .* (normal .+ 1) .* sphere.color
 
     return radiance
 end
+
+
+function shaderEyelight(scene::Scene, ray::Ray)
+
+    hit::HitObject = hitSphere(ray, scene, scene.spheres[1])
+
+    if !hit.hit
+        radiance = evalEnvironment()
+        return radiance
+    end
+
+    # find normal
+    sphereCenter::SVec3f = scene.points[hit.sphereHit.center]
+    normal::SVec3f = evalNormalSphere(hit.ray, sphereCenter)
+
+    # opposite of the ray direction
+    outgoing = -hit.ray.direction
+
+    # compute radiance
+    radiance = abs(dot(normal, outgoing)) * hit.sphereHit.color
+
+    return radiance
+end
+
+function evalEnvironment()
+    background = SVec3f(0.105, 0.443, 0.90)
+    return background
+end
+
+function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
+    # compute coordinates of point hit
+    pointHit::SVec3f = ray.origin + ray.tmin * ray.direction
+    # compute normal: n = (p-c) / |p-c|
+    normal = unitVector(pointHit - sphereCenter)
+    return normal
+end
+
 
 
 function hitSphere(ray::Ray, scene::Scene, sphere::Sphere)::HitObject
@@ -196,8 +230,14 @@ end
 
 
 function sampleCamera(camera::Camera, i::Int, j::Int, imwidth::Int, imheight::Int)
-    u::Float32 = i / imwidth
-    v::Float32 = j / imheight
+
+    f1, f2 = rand(Float32, 2)
+
+    u::Float32 = (i + f1) / imwidth
+    v::Float32 = (j + f2) / imheight
+    u = clamp(u, 0, 1)
+    v = clamp(v, 0, 1)
+
     ray = evalCamera(camera, u, v)
     return ray
 end
@@ -213,10 +253,14 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
     # ray direction through the lens center
     dc::SVec3f = -normalize(q)
 
+    # generate random lens_uv
+    uLens, vLens = rand(Float32, 2)
+    uLens, vLens = sampleDisk(uLens, vLens)
+
     # point on the lens
     pointOnLens = SVec3f([
-        u * camera.aperture / 2.0,
-        v * camera.aperture / 2.0, 0
+        uLens * camera.aperture / 2.0,
+        vLens * camera.aperture / 2.0, 0
     ])
 
     # point on the focus plane
@@ -257,9 +301,22 @@ function unitVector(v::SVec3f)::SVec3f
     return v / length(v)
 end
 
+function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
+    return a * (1 - weight) + b * weight
+end
 
-# println(Threads.nthreads())
-run(1080, 720)
+function sampleDisk(u::Float32, v::Float32)::SVec2f
+    r = sqrt(v)
+    phi = 2 * pi * u
+    return cos(phi) * r, sin(phi) * r
+end
+
+
+
+const shader = shaderEyelight
+
+run(1080, 720, 10)
+
 
 
 
