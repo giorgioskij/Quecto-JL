@@ -1,28 +1,6 @@
 using JSON
-using("jtrace.jl")
 using PlyIO
-
-
-struct Scene
-    cameras::Vector{Camera}
-    instances::Vector{Instance}
-    shapes::Vector{Shape}
-end
-
-struct Instance
-    frame::Frame
-    shape::Int64
-
-    Instance() = new( Frame([1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]), -1)
-    Instance(frame, shape) = new(frame, shape)
-end
-
-struct Shape
-    # element data
-
-    # vertex data
-    positions::Vector{SVec3f}
-end
+include("types.jl")
 
 function loadJsonScene(filename)
     json = JSON.parsefile(filename)
@@ -33,19 +11,20 @@ function loadJsonScene(filename)
     #     copyright = element["copyright"]
     # end
 
-    # filenames
-    shapeFilenames = Vector{String}(undef, 0)
-
     # CAMERAS
     if haskey(json, "cameras")
         group = json["cameras"]
-        cameras = Vector{Camera}(undef, length(group))   
+        cameras = Vector{Camera}(undef, length(group))
         # ignore camera_names
         defaultCamera = Camera()
         for (i, element) in enumerate(group)
+
+            f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
+            frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
+
             camera = Camera(
-                get(element, "film", defaultCamera.film),
-                get(element, "frame", defaultCamera.frame),
+                frame,
+                # get(element, "frame", defaultCamera.frame),
                 get(element, "lens", defaultCamera.lens),
                 get(element, "film", defaultCamera.film),
                 get(element, "aspect", defaultCamera.aspect),
@@ -55,11 +34,16 @@ function loadJsonScene(filename)
             # ignore params "ortographics", "name", "lookat"
             cameras[i] = camera
         end
+    end
 
     # SHAPES
+    # shapeFilenames::Vector{string}
+    # filenames
+    shapeFilenames = Vector{String}(undef, 0)
     if haskey(json, "shapes")
         group = json["shapes"]
-        sizehint!(shapeFilenames, length(group))
+        # sizehint!(shapeFilenames, length(group))
+        shapeFilenames = Vector{String}(undef, length(group))
         for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
@@ -71,12 +55,17 @@ function loadJsonScene(filename)
     # INSTANCES
     if haskey(json, "instances")
         group = json["instances"]
-        instances = Vector{Instance}(undef, legnth(group))
+        instances = Vector{Instance}(undef, length(group))
 
-        defaultInstance =Instance()
+        defaultInstance = Instance()
         for (i, element) in enumerate(group)
+
+            f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
+            frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
+
             instance = Instance(
-                get(element, "frame", defaultInstance.frame),
+                frame,
+                #get(element, "frame", defaultInstance.frame),
                 get(element, "shape", defaultInstance.shape)
             )
             # ignore params "name", "material"
@@ -90,18 +79,16 @@ function loadJsonScene(filename)
     shapes = Vector{Shape}(undef, length(shapeFilenames))
 
     for (i, filename) in enumerate(shapeFilenames)
-        shape = loadShape(filename)
+        fullFilename = "02_matte/"
+        shape = loadShape(fullFilename * filename)
         shapes[i] = shape
     end
 
     # ignore load subdivs, textures
 
-
-    
-      
-
-    # TODO: generate the scene from json        
     scene = Scene(cameras, instances, shapes)
+
+    # println(scene)
 
     return scene
 end
@@ -109,7 +96,51 @@ end
 
 function loadShape(filename::String)
     ply = load_ply(filename)
-    
+
+    # check properties
+    vertexProperties = plyname.(ply["vertex"].properties)
+
+    # load positions
+    if "x" in vertexProperties &&
+       "y" in vertexProperties &&
+       "z" in vertexProperties
+        x = ply["vertex"]["x"]
+        y = ply["vertex"]["y"]
+        z = ply["vertex"]["z"]
+        positions = hcat(x, y, z)
+    else
+        positions = Matrix{Float32}(undef, 0, 0)
+    end
+
+    # load normals
+    if "nx" in vertexProperties &&
+       "ny" in vertexProperties &&
+       "nz" in vertexProperties
+        nx = ply["vertex"]["nx"]
+        ny = ply["vertex"]["ny"]
+        nz = ply["vertex"]["nz"]
+        normals = hcat(nx, ny, nz)
+    else
+        normals = Matrix{Float32}(undef, 0, 0)
+    end
+
+    # load texture coordinates
+    if "u" in vertexProperties && "v" in vertexProperties
+        u = ply["vertex"]["u"]
+        v = ply["vertex"]["v"]
+        textureCoords = hcat(u, v)
+    else
+        textureCoords = Matrix{Float32}(undef, 0, 0)
+    end
+
+    if size(ply["face"]["vertex_indices"][1]) != (3,)
+        throw(MissingException("Only implemented triangles right now"))
+    end
+    # load triangles
+    faces = reduce(hcat, (Vector(ply["face"]["vertex_indices"])))'
+
+    # create shape
+    return Shape(faces, positions, normals, textureCoords)
 end
 
-loadJsonScene("julia-pathtracer/02_matte/matte.json")
+#scene = loadJsonScene("02_matte/bunny.json")

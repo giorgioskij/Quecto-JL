@@ -1,30 +1,28 @@
-using Images
+using StaticArrays, Images
 using BenchmarkTools
-using LinearAlgebra
 include("types.jl")
-include("loader.jl")
 
-# struct Sphere
-#     center::UInt32 # indexing Scene.points
-#     radius::Float32
-#     color::SVec3f # temp
+struct Sphere
+    center::UInt32 # indexing Scene.points
+    radius::Float32
+    color::SVec3f # temp
 
-#     Sphere(center, radius) = new(center, radius, (0.925, 0.36, 0.38))
-# end
+    Sphere(center, radius) = new(center, radius, (0.925, 0.36, 0.38))
+end
 
-# struct SphereScene
-#     points::Vector{SVec3f}
-#     spheres::Vector{Sphere}
-# end
+struct SphereScene
+    points::Vector{SVec3f}
+    spheres::Vector{Sphere}
+end
 
-# struct HitObjectSphere
-#     hit::Bool
-#     sphereHit::Union{Sphere,Nothing}
-#     ray::Union{Ray,Nothing}
+struct HitObjectSphere
+    hit::Bool
+    sphereHit::Union{Sphere,Nothing}
+    ray::Union{Ray,Nothing}
 
-#     HitObject(hit, sphereHit, ray) = new(hit, sphereHit, ray)
-#     HitObject(hit) = new(hit, nothing, nothing)
-# end
+    HitObject(hit, sphereHit, ray) = new(hit, sphereHit, ray)
+    HitObject(hit) = new(hit, nothing, nothing)
+end
 
 
 
@@ -35,10 +33,14 @@ function run(width, height, numSamples)
     # reads params and initializes stuff
 
     # generate scene
-    scene = loadJsonScene("02_matte/bunny.json")
+    scene = generateScene()
+
+    # generate camera
+    camera = Camera()
 
     # generate empty starting image
     image = zeros(SVec3f, height, width)
+    # image = zeros(Float32, height, width, 3)
 
     # call the function to trace samples
     traceSamples(image, scene, camera, width, height, numSamples)
@@ -53,8 +55,17 @@ function run(width, height, numSamples)
 
 end
 
-function traceSamples(image, scene, imwidth, imheight, numSamples)
-    camera = scene.cameras[1]
+function generateScene()::Scene
+    # generate point vector
+    points = Vector{SVec3f}([[0, 0, -100]])
+
+    # generate sphere
+    spheres = Vector{Sphere}([Sphere(1, 5.0)])
+
+    return Scene(points, spheres)
+end
+
+function traceSamples(image, scene, camera, imwidth, imheight, numSamples)
     # loop over pixels
     # TODO: add threads
     for s in 1:numSamples
@@ -104,12 +115,10 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
     end
 
     ray::Ray = hit.ray
+    sphere::Sphere = hit.sphereHit
+    sphereCenter::SVec3f = scene.points[sphere.center]
 
-    # compute normal of the point hit
-
-    # sphere::Sphere = hit.sphereHit
-    # sphereCenter::SVec3f = scene.points[sphere.center]
-    # normal = evalNormalSphere(ray, sphereCenter)
+    normal = evalNormalSphere(ray, sphereCenter)
 
     radiance = 0.5 .* (normal .+ 1) .* sphere.color
 
@@ -139,66 +148,6 @@ function shaderEyelight(scene::Scene, ray::Ray)
     return radiance
 end
 
-
-function intersectTriangle(ray::Ray, triangle::Triangle)
-
-    edge1 = triangle.y - triangle.x
-    edge2 = triangle.z - triangle.x
-    pvec = cross(ray.direction, edge2)
-    det = dot(edge1, pvec)
-
-
-    if det == 0
-        return HitObject(false)
-    end
-
-    inverseDet = 1.0f0 / det
-
-    tvec = ray.origin - triangle.x
-    u = dot(tvec, pvec) * inverseDet
-    if u < 0 || u > 1
-        return HitObject(false)
-    end
-
-    qvec = cross(tvec, edge1)
-    v = dot(ray.direction, qvec) * inverseDet
-    if v < 0 || u + v > 1
-        return HitObject(false)
-    end
-
-    t = dot(edge2, qvec) * inverseDet
-    if t < ray.tmin || t > ray.tmax
-        return HitObject(false)
-    end
-
-    newRay = Ray(ray.origin, ray.direction, ray.tmin, t)
-
-    return HitObject(true, u, v, newRay)
-
-end
-
-function intersectScene(ray, scene)
-
-    # in the future this will be a BVH
-    hitObject = HitObject(false)
-    for instance in scene.instances
-        shape = scene.shapes[instance.shape]
-        for triangleIndices in shape.triangles
-            triangle = Triangle(
-                transformPoint(instance.frame, shape.positions[triangleIndices[1]]),
-                transformPoint(instance.frame, shape.positions[triangleIndices[2]]),
-                transformPoint(instance.frame, shape.positions[triangleIndices[3]])
-            )
-            hit = intersectTriangle(ray, triangle)
-            if hit.hit
-                ray = hit.ray
-                hitObject = hit
-            end
-        end
-    end
-    return hitObject
-end
-
 function evalEnvironment()
     background = SVec3f(0.105, 0.443, 0.90)
     return background
@@ -213,14 +162,40 @@ function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
 end
 
 
+
+function hitSphere(ray::Ray, scene::Scene, sphere::Sphere)::HitObject
+
+    sphereCenter::SVec3f = scene.points[sphere.center]
+    oc::SVec3f = ray.origin - sphereCenter
+    a::Float32 = dot(ray.direction, ray.direction)
+    b::Float32 = 2 * dot(oc, ray.direction)
+    c::Float32 = dot(oc, oc) - sphere.radius^2
+
+    delta = b^2 - 4 * a * c
+
+    if delta < 0
+        return HitObject(false)
+    else
+        hitDist::Float32 = (-b - sqrt(delta)) / (2 * a)
+
+        if hitDist::Float32 < ray.tmin
+            return HitObject(false)
+        end
+
+        new_ray = Ray(ray.origin, ray.direction, hitDist, ray.tmax)
+        return HitObject(true, sphere, new_ray)
+    end
+end
+
+
 function sampleCamera(camera::Camera, i::Int, j::Int, imwidth::Int, imheight::Int)
 
     f1, f2 = rand(Float32, 2)
 
     u::Float32 = (i + f1) / imwidth
     v::Float32 = (j + f2) / imheight
-    #u = clamp(u, 0, 1)
-    #v = clamp(v, 0, 1)
+    u = clamp(u, 0, 1)
+    v = clamp(v, 0, 1)
 
     ray = evalCamera(camera, u, v)
     return ray
