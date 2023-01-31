@@ -41,7 +41,7 @@ function run(width, height, numSamples)
     image = zeros(SVec3f, height, width)
 
     # call the function to trace samples
-    traceSamples(image, scene, camera, width, height, numSamples)
+    traceSamples(image, scene, width, height, numSamples)
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
