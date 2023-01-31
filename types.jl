@@ -33,7 +33,6 @@ end
 struct Shape
     # element data
     triangles::Matrix{Int32}
-
     # vertex data
     positions::Matrix{Float32}
     normals::Matrix{Float32}
@@ -63,7 +62,7 @@ struct Ray
     tmax::Float32
 
     Ray(origin, direction, tmin, tmax) = new(origin, direction, tmin, tmax)
-    Ray(origin, direction) = new(origin, direction, 0.0, 0.0)
+    Ray(origin, direction) = new(origin, direction, 0.0001f0, typemax(Float32))
 end
 
 struct HitObject

@@ -40,6 +40,7 @@ function run(width, height, numSamples)
 
     # generate scene
     scene = loadJsonScene("02_matte/bunny.json")
+    println("Scene loaded")
 
     # generate empty starting image
     image = zeros(SVec3f, height, width)
@@ -61,10 +62,11 @@ function traceSamples(image, scene, imwidth, imheight, numSamples)
     camera = scene.cameras[1]
     # loop over pixels
     # TODO: add threads
+    println("Starting creation of image...")
     for s in 1:numSamples
-        for i in 1:size(image)[2]
-            for j in 1:size(image)[1] #Threads.@threads
-                println("Doing sample $s of $numSamples, pixel $i of $(size(image)[2]), line $j of $(size(image)[1])")
+        println("Sample $s")
+        Threads.@threads for i in 1:size(image)[2]
+            Threads.@threads for j in 1:size(image)[1] #Threads.@threads
                 color = traceSample(i, j, scene, camera, imwidth, imheight)
 
                 weight::Float32 = 1 / s
@@ -89,7 +91,7 @@ function traceSample(i::Int,
     ray = sampleCamera(camera, i, j, imwidth, imheight)
 
     # call the shader
-    radiance = shaderColor(scene, ray)
+    radiance = shader(scene, ray)
 
     return radiance
 
@@ -110,7 +112,7 @@ function shaderColor(scene::Scene, ray::Ray)::SVec3f
 
     ray::Ray = hit.ray
 
-    radiance = (0.925, 0.36, 0.38)
+    radiance = SVec3f(0.925, 0.36, 0.38)
 
     return radiance
 end
@@ -317,9 +319,9 @@ end
 
 
 
-const shader = shaderEyelight
+const shader = shaderColor
 
-run(1080, 720, 2)
+run(192, 128, 2)
 
 
 
