@@ -14,7 +14,7 @@ function loadJsonScene(filename)
     # CAMERAS
     if haskey(json, "cameras")
         group = json["cameras"]
-        cameras = Vector{Camera}(undef, length(group))
+        cameras = Vector{Camera}(undef, Base.length(group))
         # ignore camera_names
         defaultCamera = Camera()
         for (i, element) in enumerate(group)
@@ -43,7 +43,7 @@ function loadJsonScene(filename)
     if haskey(json, "shapes")
         group = json["shapes"]
         # sizehint!(shapeFilenames, length(group))
-        shapeFilenames = Vector{String}(undef, length(group))
+        shapeFilenames = Vector{String}(undef, Base.length(group))
         for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
@@ -55,7 +55,7 @@ function loadJsonScene(filename)
     # INSTANCES
     if haskey(json, "instances")
         group = json["instances"]
-        instances = Vector{Instance}(undef, length(group))
+        instances = Vector{Instance}(undef, Base.length(group))
 
         defaultInstance = Instance()
         for (i, element) in enumerate(group)
@@ -76,7 +76,7 @@ function loadJsonScene(filename)
     # LOAD RESOURCES
 
     # load shapes
-    shapes = Vector{Shape}(undef, length(shapeFilenames))
+    shapes = Vector{Shape}(undef, Base.length(shapeFilenames))
 
     for (i, filename) in enumerate(shapeFilenames)
         fullFilename = "02_matte/"

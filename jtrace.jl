@@ -1,3 +1,7 @@
+#import Pkg 
+#Pkg.add("JSON")
+#Pkg.add("PlyIO")
+
 using Images
 using BenchmarkTools
 using LinearAlgebra
@@ -59,7 +63,8 @@ function traceSamples(image, scene, imwidth, imheight, numSamples)
     # TODO: add threads
     for s in 1:numSamples
         for i in 1:size(image)[2]
-            for j in 1:size(image)[1]
+            for j in 1:size(image)[1] #Threads.@threads
+                println("Doing sample $s of $numSamples, pixel $i of $(size(image)[2]), line $j of $(size(image)[1])")
                 color = traceSample(i, j, scene, camera, imwidth, imheight)
 
                 weight::Float32 = 1 / s
@@ -84,7 +89,7 @@ function traceSample(i::Int,
     ray = sampleCamera(camera, i, j, imwidth, imheight)
 
     # call the shader
-    radiance = shader(scene, ray)
+    radiance = shaderColor(scene, ray)
 
     return radiance
 
@@ -95,8 +100,23 @@ end
 #     return SVec3f([1, 1, 1])
 # end
 
+function shaderColor(scene::Scene, ray::Ray)::SVec3f
+    hit::HitObject = intersectScene(ray, scene)
+
+    if !hit.hit
+        radiance = evalEnvironment()
+        return radiance
+    end
+
+    ray::Ray = hit.ray
+
+    radiance = (0.925, 0.36, 0.38)
+
+    return radiance
+end
+
 function shaderNormal(scene::Scene, ray::Ray)::SVec3f
-    hit::HitObject = hitSphere(ray, scene, scene.spheres[1])
+    hit::HitObject = intersectScene(ray, scene)
 
     if !hit.hit
         radiance = evalEnvironment()
@@ -119,7 +139,7 @@ end
 
 function shaderEyelight(scene::Scene, ray::Ray)
 
-    hit::HitObject = hitSphere(ray, scene, scene.spheres[1])
+    hit::HitObject = intersectScene(ray, scene)
 
     if !hit.hit
         radiance = evalEnvironment()
@@ -177,17 +197,17 @@ function intersectTriangle(ray::Ray, triangle::Triangle)
 
 end
 
-function intersectScene(ray, scene)
+function intersectScene(ray::Ray, scene::Scene)::HitObject
 
     # in the future this will be a BVH
     hitObject = HitObject(false)
     for instance in scene.instances
-        shape = scene.shapes[instance.shape]
-        for triangleIndices in shape.triangles
-            triangle = Triangle(
-                transformPoint(instance.frame, shape.positions[triangleIndices[1]]),
-                transformPoint(instance.frame, shape.positions[triangleIndices[2]]),
-                transformPoint(instance.frame, shape.positions[triangleIndices[3]])
+        shape = scene.shapes[instance.shape + 1] # +1 because array in julia starts at 1
+        for triangleIndices in eachrow(shape.triangles)
+            #println(shape.positions[triangleIndices[1]+1, :])
+            triangle = Triangle(transformPoint(instance.frame, SVec3f(shape.positions[triangleIndices[1]+1, :])), 
+                                transformPoint(instance.frame, SVec3f(shape.positions[triangleIndices[2]+1, :])), # +1 because array in julia starts at 1
+                                transformPoint(instance.frame, SVec3f(shape.positions[triangleIndices[3]+1, :])) # +1 because array in julia starts at 1
             )
             hit = intersectTriangle(ray, triangle)
             if hit.hit
@@ -299,7 +319,7 @@ end
 
 const shader = shaderEyelight
 
-run(1080, 720, 10)
+run(1080, 720, 2)
 
 
 
