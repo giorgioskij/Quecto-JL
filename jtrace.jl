@@ -42,7 +42,7 @@ function run(width, height, numSamples)
 
     # generate scene
     scene = loadJsonScene("julia-pathtracer/02_matte/bunny.json")
-    println("Scene loaded")
+    # println("Scene loaded")
 
     # generate empty starting image
     image = zeros(SVec3f, height, width)
@@ -64,9 +64,9 @@ function traceSamples(image, scene, imwidth, imheight, numSamples)
     camera = scene.cameras[1]
     # loop over pixels
     # TODO: add threads
-    println("Starting creation of image...")
+    # println("Starting creation of image...")
     for s in 1:numSamples
-        println("Sample $s")
+        # println("Sample $s")
         Threads.@threads for i in 1:size(image)[2]
             Threads.@threads for j in 1:size(image)[1] #Threads.@threads
                 color = traceSample(i, j, scene, camera, imwidth, imheight)
@@ -207,47 +207,27 @@ function intersectScene(ray::Ray, scene::Scene)::HitObject
     hitObject = HitObject(false)
     for instance in scene.instances
         shape = scene.shapes[instance.shape+1] # +1 because array in julia starts at 1
-        for triangleIndices in eachcol(shape.triangles')
-            @inbounds pointA = shape.positions[triangleIndices[1]+1, :]
-            @inbounds pointB = shape.positions[triangleIndices[2]+1, :]
-            @inbounds pointC = shape.positions[triangleIndices[3]+1, :]
+        for triangleIndices in eachcol(transpose(shape.triangles))
 
-            # nuovo metodo prova (spoiler: inutile, il compilatore lo fa già)
-            # @inbounds pointA = shape.positions'[triangleIndices[1]*3+1:triangleIndices[1]*3+3]
-            # @inbounds pointB = shape.positions'[triangleIndices[2]*3+1:triangleIndices[2]*3+3]
-            # @inbounds pointC = shape.positions'[triangleIndices[3]*3+1:triangleIndices[3]*3+3]
-            triangle = Triangle(transformPoint(instance.frame, SVec3f(pointA)),
-                transformPoint(instance.frame, SVec3f(pointB)),
-                transformPoint(instance.frame, SVec3f(pointC))
+            @inbounds pointA = SVec3f(
+                shape.positions[triangleIndices[1]+1, 1],
+                shape.positions[triangleIndices[1]+1, 2],
+                shape.positions[triangleIndices[1]+1, 3]
             )
-
-            # VETTORI ASTRATTI INFAMI SBOSBOSBSOBSOBSOBFOASD;IFA; SJDGJASDP'
-            # GAWK;' DGBLNKH EGFKLJ;ADJKL;FAJKLSDFJK
-            # mai più vettori astratti di merda solo CONCRETI oh yes baby
-            # T I P I    C O N C R E T I 🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿
-            # 🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝
-            # è tutto commentato qua sotto perché così ti spiego bene domani
-            # il motivo di tutto
-
-            # pointA = SVec3f(
-            #     shape.positions[triangleIndices[1]+1, 1],
-            #     shape.positions[triangleIndices[1]+1, 2],
-            #     shape.positions[triangleIndices[1]+1, 3]
-            # )
-            # pointB = SVec3f(
-            #     shape.positions[triangleIndices[2]+1, 1],
-            #     shape.positions[triangleIndices[2]+1, 2],
-            #     shape.positions[triangleIndices[2]+1, 3]
-            # )
-            # pointC = SVec3f(
-            #     shape.positions[triangleIndices[3]+1, 1],
-            #     shape.positions[triangleIndices[3]+1, 2],
-            #     shape.positions[triangleIndices[3]+1, 3]
-            # )
-            # triangle = Triangle(transformPoint(instance.frame, pointA),
-            #     transformPoint(instance.frame, pointB),
-            #     transformPoint(instance.frame, pointC)
-            # )
+            @inbounds pointB = SVec3f(
+                shape.positions[triangleIndices[2]+1, 1],
+                shape.positions[triangleIndices[2]+1, 2],
+                shape.positions[triangleIndices[2]+1, 3]
+            )
+            @inbounds pointC = SVec3f(
+                shape.positions[triangleIndices[3]+1, 1],
+                shape.positions[triangleIndices[3]+1, 2],
+                shape.positions[triangleIndices[3]+1, 3]
+            )
+            triangle = Triangle(transformPoint(instance.frame, pointA),
+                transformPoint(instance.frame, pointB),
+                transformPoint(instance.frame, pointC)
+            )
 
 
             hit = intersectTriangle(ray, triangle)
@@ -330,7 +310,7 @@ function length(v::SVec3f)::Float32
     return sqrt(dot(v, v))
 end
 
-function transformPoint(frame::Frame, v::SVec3f)::SVec3f
+@inline function transformPoint(frame::Frame, v::SVec3f)::SVec3f
     return frame.x * v[1] + frame.y * v[2] + frame.z * v[3] + frame.o
 end
 
@@ -358,7 +338,6 @@ end
 
 
 
-const shader = shaderColor
 
 # @time run(64, 64, 2)
 

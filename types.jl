@@ -85,6 +85,4 @@ struct Triangle
     z::SVec3f
 end
 
-
-
-end;
+end
