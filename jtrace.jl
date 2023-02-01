@@ -130,11 +130,11 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
     frame::Frame = instance.frame
     shape::Shape = scene.shapes[instance.shapeIndex+1]
 
-    triangleIndices = @view shape.triangles[intersection.elementIndex, :]
+    triangleIndices = intersection.elementIndices
 
-    normalA::SVec3f = SVec3f(@view shape.normals[triangleIndices[1], :])
-    normalB::SVec3f = SVec3f(@view shape.normals[triangleIndices[2], :])
-    normalC::SVec3f = SVec3f(@view shape.normals[triangleIndices[3], :])
+    normalA::SVec3f = SVec3f(@view shape.normals[triangleIndices[1]+1, :])
+    normalB::SVec3f = SVec3f(@view shape.normals[triangleIndices[2]+1, :])
+    normalC::SVec3f = SVec3f(@view shape.normals[triangleIndices[3]+1, :])
 
 
     normal = evalNormal(normalA, normalB, normalC, intersection.u, intersection.v, frame)
@@ -180,7 +180,7 @@ end
 # end
 
 
-function intersectTriangle(ray::Ray, triangle::Triangle, instanceIndex::Int64, triangleIndex::Int64)
+function intersectTriangle(ray::Ray, triangle::Triangle, instanceIndex::Int64, triangleIndices)
 
     edge1 = triangle.y - triangle.x
     edge2 = triangle.z - triangle.x
@@ -211,7 +211,7 @@ function intersectTriangle(ray::Ray, triangle::Triangle, instanceIndex::Int64, t
         return Intersection(false)
     end
 
-    return Intersection(true, instanceIndex, triangleIndex, u, v, t)
+    return Intersection(true, instanceIndex, triangleIndices, u, v, t)
 
 end
 
@@ -245,7 +245,7 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
             )
 
             hit::Intersection = intersectTriangle(
-                ray, triangle, instanceIndex, triangleIndex)
+                ray, triangle, instanceIndex, triangleIndices)
             if hit.hit
                 ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
                 intersection = hit

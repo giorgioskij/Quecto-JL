@@ -73,20 +73,20 @@ end
 struct Intersection
     hit::Bool
     instanceIndex::Int64
-    elementIndex::Int64
+    elementIndices::SVector{3,Int64}
     u::Float32
     v::Float32
     distance::Float32
 
-    Intersection(hit, instanceIndex, elementIndex, u, v, distance) = new(
+    Intersection(hit, instanceIndex, elementIndices, u, v, distance) = new(
         hit,
         instanceIndex,
-        elementIndex,
+        elementIndices,
         u,
         v,
         distance
     )
-    Intersection(hit) = new(hit, -1, -1, 0, 0, 0)
+    Intersection(hit) = new(hit, -1, SVector(-1,-1,-1), 0, 0, 0)
 end
 
 

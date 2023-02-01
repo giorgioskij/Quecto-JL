@@ -4,4 +4,4 @@ include("loader.jl")
 
 
 const shader = shaderNormal
-# run(20, 20, 2)
+run(720, 480, 3)
