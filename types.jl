@@ -1,6 +1,6 @@
 module Types
 
-export SVec3f, SVec2f, Frame, Camera, Instance, Shape, Scene, Ray, HitObject, Triangle
+export SVec3f, SVec2f, Frame, Camera, Instance, Shape, Scene, Ray, Intersection, Triangle
 
 
 using StaticArrays
@@ -37,7 +37,7 @@ end
 
 struct Shape
     # element data
-    triangles::Matrix{Int32}
+    triangles::Matrix{Int64}
     # vertex data
     positions::Matrix{Float32}
     normals::Matrix{Float32}
@@ -46,10 +46,10 @@ end
 
 struct Instance
     frame::Frame
-    shape::Int64
+    shapeIndex::Int64
 
     Instance() = new(Frame([1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]), -1)
-    Instance(frame, shape) = new(frame, shape)
+    Instance(frame, shapeIndex) = new(frame, shapeIndex)
 end
 
 
@@ -70,14 +70,25 @@ struct Ray
     Ray(origin, direction) = new(origin, direction, 0.0001f0, typemax(Float32))
 end
 
-struct HitObject
+struct Intersection
     hit::Bool
+    instanceIndex::Int64
+    elementIndex::Int64
     u::Float32
     v::Float32
-    ray::Union{Ray,Nothing}
-    HitObject(hit, u, v, ray) = new(hit, u, v, ray)
-    HitObject(hit) = new(hit, -1, -1, nothing)
+    distance::Float32
+
+    Intersection(hit, instanceIndex, elementIndex, u, v, distance) = new(
+        hit,
+        instanceIndex,
+        elementIndex,
+        u,
+        v,
+        distance
+    )
+    Intersection(hit) = new(hit, -1, -1, 0, 0, 0)
 end
+
 
 struct Triangle
     x::SVec3f

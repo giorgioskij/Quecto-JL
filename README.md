@@ -34,7 +34,7 @@ Spheres = {Int, Float}
 - [x] Normal shading 
 - [x] Antialiasing
 - [x] Eyelight shading
-- [ ] Load triangles
+- [x] Load triangles
 - [ ] Evaluate normals
 - [ ] Textures
 - [ ] Environment maps

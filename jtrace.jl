@@ -23,13 +23,13 @@ using .Types
 #     spheres::Vector{Sphere}
 # end
 
-# struct HitObjectSphere
+# struct IntersectionSphere
 #     hit::Bool
 #     sphereHit::Union{Sphere,Nothing}
 #     ray::Union{Ray,Nothing}
 
-#     HitObject(hit, sphereHit, ray) = new(hit, sphereHit, ray)
-#     HitObject(hit) = new(hit, nothing, nothing)
+#     Intersection(hit, sphereHit, ray) = new(hit, sphereHit, ray)
+#     Intersection(hit) = new(hit, nothing, nothing)
 # end
 
 
@@ -105,14 +105,12 @@ end
 # end
 
 function shaderColor(scene::Scene, ray::Ray)::SVec3f
-    hit::HitObject = intersectScene(ray, scene)
+    hit::Intersection = intersectScene(ray, scene)
 
     if !hit.hit
         radiance = evalEnvironment()
         return radiance
     end
-
-    ray::Ray = hit.ray
 
     radiance = SVec3f(0.925, 0.36, 0.38)
 
@@ -120,51 +118,69 @@ function shaderColor(scene::Scene, ray::Ray)::SVec3f
 end
 
 function shaderNormal(scene::Scene, ray::Ray)::SVec3f
-    hit::HitObject = intersectScene(ray, scene)
+    intersection::Intersection = intersectScene(ray, scene)
 
-    if !hit.hit
+    if !intersection.hit
         radiance = evalEnvironment()
         return radiance
     end
-
-    ray::Ray = hit.ray
 
     # compute normal of the point hit
+    instance::Instance = scene.instances[intersection.instanceIndex]
+    frame::Frame = instance.frame
+    shape::Shape = scene.shapes[instance.shapeIndex+1]
 
-    # sphere::Sphere = hit.sphereHit
-    # sphereCenter::SVec3f = scene.points[sphere.center]
-    # normal = evalNormalSphere(ray, sphereCenter)
+    triangleIndices = @view shape.triangles[intersection.elementIndex, :]
 
-    radiance = 0.5 .* (normal .+ 1) .* sphere.color
-
-    return radiance
-end
+    normalA::SVec3f = SVec3f(@view shape.normals[triangleIndices[1], :])
+    normalB::SVec3f = SVec3f(@view shape.normals[triangleIndices[2], :])
+    normalC::SVec3f = SVec3f(@view shape.normals[triangleIndices[3], :])
 
 
-function shaderEyelight(scene::Scene, ray::Ray)
+    normal = evalNormal(normalA, normalB, normalC, intersection.u, intersection.v, frame)
 
-    hit::HitObject = intersectScene(ray, scene)
-
-    if !hit.hit
-        radiance = evalEnvironment()
-        return radiance
-    end
-
-    # find normal
-    sphereCenter::SVec3f = scene.points[hit.sphereHit.center]
-    normal::SVec3f = evalNormalSphere(hit.ray, sphereCenter)
-
-    # opposite of the ray direction
-    outgoing = -hit.ray.direction
-
-    # compute radiance
-    radiance = abs(dot(normal, outgoing)) * hit.sphereHit.color
+    # color = SVec3f(0.925, 0.36, 0.38) # TODO change with material color
+    # radiance = 0.5 .* (normal .+ 1) .* color
+    radiance::SVec3f = normal * 0.5 .+ 0.5
 
     return radiance
 end
 
+function evalNormal(normalA::SVec3f, normalB::SVec3f, normalC::SVec3f,
+    u::Float32, v::Float32, frame::Frame)
+    transformNormal(
+        frame,
+        normalize(
+            interpolateTriangle(normalA, normalB, normalC, u, v)
+        )
+    )
+end
 
-function intersectTriangle(ray::Ray, triangle::Triangle)
+
+# function shaderEyelight(scene::Scene, ray::Ray)
+
+#     intersection::Intersection = intersectScene(ray, scene)
+
+#     ifintersection.hit
+#         radiance = evalEnvironment()
+#         return radiance
+#     end
+
+#     # find normal
+#     sphereCenter::SVec3f = scene.points[intersection.sphereHit.center]
+#     normal::SVec3f = evalNormalSphere(intersection.ray, sphereCenter)
+
+#     # opposite of the ray direction
+#     outgoing = -intersection.ray.direction
+
+#     # compute radiance
+#     radiance = abs(dot(normal, outgoing)) *intersection.sphereHit.color
+
+#     return radiance
+# end
+
+
+function intersectTriangle(ray::Ray, triangle::Triangle, instanceIndex::Int64, triangleIndex::Int64)
 
     edge1 = triangle.y - triangle.x
     edge2 = triangle.z - triangle.x
@@ -173,7 +189,7 @@ function intersectTriangle(ray::Ray, triangle::Triangle)
 
 
     if det == 0
-        return HitObject(false)
+        return Intersection(false)
     end
 
     inverseDet = 1.0f0 / det
@@ -181,33 +197,32 @@ function intersectTriangle(ray::Ray, triangle::Triangle)
     tvec = ray.origin - triangle.x
     u = dot(tvec, pvec) * inverseDet
     if u < 0 || u > 1
-        return HitObject(false)
+        return Intersection(false)
     end
 
     qvec = cross(tvec, edge1)
     v = dot(ray.direction, qvec) * inverseDet
     if v < 0 || u + v > 1
-        return HitObject(false)
+        return Intersection(false)
     end
 
     t = dot(edge2, qvec) * inverseDet
     if t < ray.tmin || t > ray.tmax
-        return HitObject(false)
+        return Intersection(false)
     end
 
-    newRay = Ray(ray.origin, ray.direction, ray.tmin, t)
-
-    return HitObject(true, u, v, newRay)
+    return Intersection(true, instanceIndex, triangleIndex, u, v, t)
 
 end
 
-function intersectScene(ray::Ray, scene::Scene)::HitObject
+function intersectScene(ray::Ray, scene::Scene)::Intersection
 
     # in the future this will be a BVH
-    hitObject = HitObject(false)
-    for instance in scene.instances
-        shape = scene.shapes[instance.shape+1] # +1 because array in julia starts at 1
-        for triangleIndices in eachcol(transpose(shape.triangles))
+    intersection = Intersection(false)
+    for (instanceIndex, instance) in enumerate(scene.instances)
+        shape = scene.shapes[instance.shapeIndex+1] # +1 because array in julia starts at 1
+        for (triangleIndex, triangleIndices) in
+            enumerate(eachcol(transpose(shape.triangles)))
 
             @inbounds pointA = SVec3f(
                 shape.positions[triangleIndices[1]+1, 1],
@@ -229,15 +244,15 @@ function intersectScene(ray::Ray, scene::Scene)::HitObject
                 transformPoint(instance.frame, pointC)
             )
 
-
-            hit = intersectTriangle(ray, triangle)
+            hit::Intersection = intersectTriangle(
+                ray, triangle, instanceIndex, triangleIndex)
             if hit.hit
-                ray = hit.ray
-                hitObject = hit
+                ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
+                intersection = hit
             end
         end
     end
-    return hitObject
+    return intersection
 end
 
 function evalEnvironment()
@@ -254,7 +269,7 @@ function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
 end
 
 
-function sampleCamera(camera::Camera, i::Int, j::Int, imwidth::Int, imheight::Int)
+function sampleCamera(camera::Camera, i::Int64, j::Int64, imwidth::Int64, imheight::Int64)
 
     f1, f2 = rand(Float32, 2)
 
@@ -301,7 +316,17 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
     return Ray(ray_origin, ray_direction)
 end
 
-function normalize(v::SVec3f)::SVec3f
+
+@inline function transformNormal(frame::Frame, v::SVec3f)
+    return normalize(transformVector(frame, v))
+end
+
+@inline function interpolateTriangle(p0::SVec3f, p1::SVec3f, p2::SVec3f, u::Float32, v::Float32)::SVec3f
+    return p0 * (1 - u - v) .+ p1 * u + p2 * v
+end
+
+
+@inline function normalize(v::SVec3f)::SVec3f
     l = length(v)
     return (l != 0) ? v / l : v
 end

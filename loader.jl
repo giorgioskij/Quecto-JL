@@ -66,7 +66,7 @@ function loadJsonScene(filename)
             instance = Instance(
                 frame,
                 #get(element, "frame", defaultInstance.frame),
-                get(element, "shape", defaultInstance.shape)
+                get(element, "shape", defaultInstance.shapeIndex)
             )
             # ignore params "name", "material"
             instances[i] = instance
