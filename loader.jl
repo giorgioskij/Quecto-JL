@@ -1,6 +1,6 @@
 using JSON
 using PlyIO
-include("types.jl")
+using .Types
 
 function loadJsonScene(filename)
     json = JSON.parsefile(filename)
@@ -79,7 +79,7 @@ function loadJsonScene(filename)
     shapes = Vector{Shape}(undef, Base.length(shapeFilenames))
 
     for (i, filename) in enumerate(shapeFilenames)
-        fullFilename = "02_matte/"
+        fullFilename = "julia-pathtracer/02_matte/"
         shape = loadShape(fullFilename * filename)
         shapes[i] = shape
     end

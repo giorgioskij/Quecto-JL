@@ -5,8 +5,10 @@
 using Images
 using BenchmarkTools
 using LinearAlgebra
-include("types.jl")
-include("loader.jl")
+using .Types
+
+# include("types.jl")
+# include("loader.jl")
 
 # struct Sphere
 #     center::UInt32 # indexing Scene.points
@@ -39,7 +41,7 @@ function run(width, height, numSamples)
     # reads params and initializes stuff
 
     # generate scene
-    scene = loadJsonScene("02_matte/bunny.json")
+    scene = loadJsonScene("julia-pathtracer/02_matte/bunny.json")
     println("Scene loaded")
 
     # generate empty starting image
@@ -204,13 +206,50 @@ function intersectScene(ray::Ray, scene::Scene)::HitObject
     # in the future this will be a BVH
     hitObject = HitObject(false)
     for instance in scene.instances
-        shape = scene.shapes[instance.shape + 1] # +1 because array in julia starts at 1
-        for triangleIndices in eachrow(shape.triangles)
-            #println(shape.positions[triangleIndices[1]+1, :])
-            triangle = Triangle(transformPoint(instance.frame, SVec3f(shape.positions[triangleIndices[1]+1, :])), 
-                                transformPoint(instance.frame, SVec3f(shape.positions[triangleIndices[2]+1, :])), # +1 because array in julia starts at 1
-                                transformPoint(instance.frame, SVec3f(shape.positions[triangleIndices[3]+1, :])) # +1 because array in julia starts at 1
+        shape = scene.shapes[instance.shape+1] # +1 because array in julia starts at 1
+        for triangleIndices in eachcol(shape.triangles')
+            @inbounds pointA = shape.positions[triangleIndices[1]+1, :]
+            @inbounds pointB = shape.positions[triangleIndices[2]+1, :]
+            @inbounds pointC = shape.positions[triangleIndices[3]+1, :]
+
+            # nuovo metodo prova (spoiler: inutile, il compilatore lo fa già)
+            # @inbounds pointA = shape.positions'[triangleIndices[1]*3+1:triangleIndices[1]*3+3]
+            # @inbounds pointB = shape.positions'[triangleIndices[2]*3+1:triangleIndices[2]*3+3]
+            # @inbounds pointC = shape.positions'[triangleIndices[3]*3+1:triangleIndices[3]*3+3]
+            triangle = Triangle(transformPoint(instance.frame, SVec3f(pointA)),
+                transformPoint(instance.frame, SVec3f(pointB)),
+                transformPoint(instance.frame, SVec3f(pointC))
             )
+
+            # VETTORI ASTRATTI INFAMI SBOSBOSBSOBSOBSOBFOASD;IFA; SJDGJASDP'
+            # GAWK;' DGBLNKH EGFKLJ;ADJKL;FAJKLSDFJK
+            # mai più vettori astratti di merda solo CONCRETI oh yes baby
+            # T I P I    C O N C R E T I 🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿🤶🏿
+            # 🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝🍝
+            # è tutto commentato qua sotto perché così ti spiego bene domani
+            # il motivo di tutto
+
+            # pointA = SVec3f(
+            #     shape.positions[triangleIndices[1]+1, 1],
+            #     shape.positions[triangleIndices[1]+1, 2],
+            #     shape.positions[triangleIndices[1]+1, 3]
+            # )
+            # pointB = SVec3f(
+            #     shape.positions[triangleIndices[2]+1, 1],
+            #     shape.positions[triangleIndices[2]+1, 2],
+            #     shape.positions[triangleIndices[2]+1, 3]
+            # )
+            # pointC = SVec3f(
+            #     shape.positions[triangleIndices[3]+1, 1],
+            #     shape.positions[triangleIndices[3]+1, 2],
+            #     shape.positions[triangleIndices[3]+1, 3]
+            # )
+            # triangle = Triangle(transformPoint(instance.frame, pointA),
+            #     transformPoint(instance.frame, pointB),
+            #     transformPoint(instance.frame, pointC)
+            # )
+
+
             hit = intersectTriangle(ray, triangle)
             if hit.hit
                 ray = hit.ray
@@ -321,7 +360,7 @@ end
 
 const shader = shaderColor
 
-run(192, 128, 2)
+# @time run(64, 64, 2)
 
 
 

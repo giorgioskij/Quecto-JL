@@ -1,3 +1,8 @@
+module Types
+
+export SVec3f, SVec2f, Frame, Camera, Instance, Shape, Scene, Ray, HitObject, Triangle
+
+
 using StaticArrays
 
 const SVec3f = SVector{3,Float32}
@@ -70,7 +75,6 @@ struct HitObject
     u::Float32
     v::Float32
     ray::Union{Ray,Nothing}
-
     HitObject(hit, u, v, ray) = new(hit, u, v, ray)
     HitObject(hit) = new(hit, -1, -1, nothing)
 end
@@ -80,3 +84,7 @@ struct Triangle
     y::SVec3f
     z::SVec3f
 end
+
+
+
+end;
