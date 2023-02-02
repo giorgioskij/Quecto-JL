@@ -38,6 +38,8 @@ end
 struct Shape
     # element data
     triangles::Matrix{Int64}
+    quads::Matrix{Int64}
+
     # vertex data
     positions::Matrix{Float32}
     normals::Matrix{Float32}

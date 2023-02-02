@@ -41,7 +41,7 @@ function run(width, height, numSamples)
     # reads params and initializes stuff
 
     # generate scene
-    scene = loadJsonScene("julia-pathtracer/02_matte/bunny.json")
+    scene = loadJsonScene(sceneFile)
     # println("Scene loaded")
 
     # generate empty starting image
@@ -128,14 +128,13 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
     # compute normal of the point hit
     instance::Instance = scene.instances[intersection.instanceIndex]
     frame::Frame = instance.frame
-    shape::Shape = scene.shapes[instance.shapeIndex+1]
+    shape::Shape = scene.shapes[instance.shapeIndex]
 
-    triangleIndices = @view shape.triangles[intersection.elementIndex, :]
+    (indexA, indexB, indexC) = @view shape.triangles[intersection.elementIndex, :]
 
-    normalA::SVec3f = SVec3f(@view shape.normals[triangleIndices[1]+1, :])
-    normalB::SVec3f = SVec3f(@view shape.normals[triangleIndices[2]+1, :])
-    normalC::SVec3f = SVec3f(@view shape.normals[triangleIndices[3]+1, :])
-
+    normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
+    normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
+    normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
 
     normal = evalNormal(normalA, normalB, normalC, intersection.u, intersection.v, frame)
 
@@ -154,6 +153,36 @@ function evalNormal(normalA::SVec3f, normalB::SVec3f, normalC::SVec3f,
             interpolateTriangle(normalA, normalB, normalC, u, v)
         )
     )
+end
+
+function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
+
+    intersection::Intersection = intersectScene(ray, scene)
+
+    if !intersection.hit
+        radiance = evalEnvironment()
+        return radiance
+    end
+
+    # compute normal of the point hit
+    instance::Instance = scene.instances[intersection.instanceIndex]
+    frame::Frame = instance.frame
+    shape::Shape = scene.shapes[instance.shapeIndex]
+
+    (indexA, indexB, indexC) = @view shape.triangles[intersection.elementIndex, :]
+
+    normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
+    normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
+    normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
+
+    normal = evalNormal(normalA, normalB, normalC, intersection.u, intersection.v, frame)
+    outgoing = -ray.direction
+
+    color = SVec3f(0.925, 0.36, 0.38) # TODO change with material color
+    # radiance = 0.5 .* (normal .+ 1) .* color
+    radiance::SVec3f = abs(dot(normal, outgoing)) .* color
+
+    return radiance
 end
 
 
@@ -220,24 +249,24 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
     # in the future this will be a BVH
     intersection = Intersection(false)
     for (instanceIndex, instance) in enumerate(scene.instances)
-        shape = scene.shapes[instance.shapeIndex+1] # +1 because array in julia starts at 1
+        shape = scene.shapes[instance.shapeIndex]
         for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
             enumerate(eachcol(transpose(shape.triangles)))
 
             @inbounds pointA = SVec3f(
-                shape.positions[pointAindex+1, 1],
-                shape.positions[pointAindex+1, 2],
-                shape.positions[pointAindex+1, 3]
+                shape.positions[pointAindex, 1],
+                shape.positions[pointAindex, 2],
+                shape.positions[pointAindex, 3]
             )
             @inbounds pointB = SVec3f(
-                shape.positions[pointBindex+1, 1],
-                shape.positions[pointBindex+1, 2],
-                shape.positions[pointBindex+1, 3]
+                shape.positions[pointBindex, 1],
+                shape.positions[pointBindex, 2],
+                shape.positions[pointBindex, 3]
             )
             @inbounds pointC = SVec3f(
-                shape.positions[pointCindex+1, 1],
-                shape.positions[pointCindex+1, 2],
-                shape.positions[pointCindex+1, 3]
+                shape.positions[pointCindex, 1],
+                shape.positions[pointCindex, 2],
+                shape.positions[pointCindex, 3]
             )
             triangle = Triangle(transformPoint(instance.frame, pointA),
                 transformPoint(instance.frame, pointB),

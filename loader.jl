@@ -65,8 +65,8 @@ function loadJsonScene(filename)
 
             instance = Instance(
                 frame,
-                #get(element, "frame", defaultInstance.frame),
-                get(element, "shape", defaultInstance.shapeIndex)
+                # +1 because julia arrays starst at 1
+                get(element, "shape", defaultInstance.shapeIndex) + 1
             )
             # ignore params "name", "material"
             instances[i] = instance
@@ -133,14 +133,38 @@ function loadShape(filename::String)
         textureCoords = Matrix{Float32}(undef, 0, 0)
     end
 
-    if size(ply["face"]["vertex_indices"][1]) != (3,)
-        throw(MissingException("Only implemented triangles right now"))
+    faces = ply["face"]["vertex_indices"]
+
+    # count triangles and quads
+    triCount = count(elem -> (size(elem[1])[end] == 3), eachrow(faces))
+    quadCount = count(elem -> (size(elem[1])[end] == 4), eachrow(faces))
+    if triCount + quadCount != size(faces)[1]
+        throw(MissingException("Only implemented triangles and quads"))
     end
-    # load triangles
-    faces = reduce(hcat, (Vector(ply["face"]["vertex_indices"])))'
+
+
+    # load triangles and quads
+    triangles = Matrix{Int64}(undef, triCount, 3)
+    quads = Matrix{Int64}(undef, quadCount, 4)
+    triCounter = 1
+    quadCounter = 1
+    for elem in eachrow(faces)
+        elem = elem[1]
+        if size(elem)[end] == 4
+            quads[quadCounter, :] = transpose(elem)
+            quadCounter += 1
+        elseif size(elem)[end] == 3
+            triangles[triCounter, :] = transpose(elem)
+            triCounter += 1
+        else
+            throw(MissingException("Only implemented triangles and quads"))
+        end
+    end
+
+    # +1 because julia arrays start at 1
+    triangles .+= 1
+    quads .+= 1
 
     # create shape
-    return Shape(faces, positions, normals, textureCoords)
+    return Shape(triangles, quads, positions, normals, textureCoords)
 end
-
-#scene = loadJsonScene("02_matte/bunny.json")
