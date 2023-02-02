@@ -221,23 +221,23 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
     intersection = Intersection(false)
     for (instanceIndex, instance) in enumerate(scene.instances)
         shape = scene.shapes[instance.shapeIndex+1] # +1 because array in julia starts at 1
-        for (triangleIndex, triangleIndices) in
+        for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
             enumerate(eachcol(transpose(shape.triangles)))
 
             @inbounds pointA = SVec3f(
-                shape.positions[triangleIndices[1]+1, 1],
-                shape.positions[triangleIndices[1]+1, 2],
-                shape.positions[triangleIndices[1]+1, 3]
+                shape.positions[pointAindex+1, 1],
+                shape.positions[pointAindex+1, 2],
+                shape.positions[pointAindex+1, 3]
             )
             @inbounds pointB = SVec3f(
-                shape.positions[triangleIndices[2]+1, 1],
-                shape.positions[triangleIndices[2]+1, 2],
-                shape.positions[triangleIndices[2]+1, 3]
+                shape.positions[pointBindex+1, 1],
+                shape.positions[pointBindex+1, 2],
+                shape.positions[pointBindex+1, 3]
             )
             @inbounds pointC = SVec3f(
-                shape.positions[triangleIndices[3]+1, 1],
-                shape.positions[triangleIndices[3]+1, 2],
-                shape.positions[triangleIndices[3]+1, 3]
+                shape.positions[pointCindex+1, 1],
+                shape.positions[pointCindex+1, 2],
+                shape.positions[pointCindex+1, 3]
             )
             triangle = Triangle(transformPoint(instance.frame, pointA),
                 transformPoint(instance.frame, pointB),
