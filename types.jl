@@ -1,6 +1,6 @@
 module Types
 
-export SVec3f, SVec2f, Frame, Camera, Instance, Shape, Scene, Ray, Intersection, Triangle
+export SVec3f, SVec2f, Frame, Camera, Instance, Shape, Scene, Ray, Intersection, Triangle, Quad
 
 
 using StaticArrays
@@ -96,6 +96,17 @@ struct Triangle
     x::SVec3f
     y::SVec3f
     z::SVec3f
+
+    Triangle(x, y, z) = new(x, y, z)
+end
+
+struct Quad
+    a::SVec3f
+    b::SVec3f
+    c::SVec3f
+    d::SVec3f
+
+    Quad(a, b, c, d) = new(a, b, c, d)
 end
 
 end
