@@ -34,7 +34,6 @@ using .Types
 
 
 
-
 # main entry point to the program
 function run(width, height, numSamples)
 
@@ -130,29 +129,13 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
     frame::Frame = instance.frame
     shape::Shape = scene.shapes[instance.shapeIndex]
 
-    (indexA, indexB, indexC) = @view shape.triangles[intersection.elementIndex, :]
-
-    normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
-    normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
-    normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
-
-    normal = evalNormal(normalA, normalB, normalC, intersection.u, intersection.v, frame)
+    normal = evalNormal(shape, intersection, frame)
 
     # color = SVec3f(0.925, 0.36, 0.38) # TODO change with material color
     # radiance = 0.5 .* (normal .+ 1) .* color
     radiance::SVec3f = normal * 0.5 .+ 0.5
 
     return radiance
-end
-
-function evalNormal(normalA::SVec3f, normalB::SVec3f, normalC::SVec3f,
-    u::Float32, v::Float32, frame::Frame)
-    transformNormal(
-        frame,
-        normalize(
-            interpolateTriangle(normalA, normalB, normalC, u, v)
-        )
-    )
 end
 
 function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
@@ -169,13 +152,8 @@ function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
     frame::Frame = instance.frame
     shape::Shape = scene.shapes[instance.shapeIndex]
 
-    (indexA, indexB, indexC) = @view shape.triangles[intersection.elementIndex, :]
+    normal = evalNormal(shape, intersection, frame)
 
-    normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
-    normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
-    normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
-
-    normal = evalNormal(normalA, normalB, normalC, intersection.u, intersection.v, frame)
     outgoing = -ray.direction
 
     color = SVec3f(0.925, 0.36, 0.38) # TODO change with material color
@@ -185,6 +163,41 @@ function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
     return radiance
 end
 
+
+
+function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
+    (indexA, indexB, indexC) = @view shape.triangles[intersection.elementIndex, :]
+
+    if (!isempty(shape.normals))
+        normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
+        normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
+        normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
+        normal = interpolateNormal(
+            normalA,
+            normalB,
+            normalC,
+            intersection.u,
+            intersection.v,
+        )
+    else
+        normal = triangleNormal(
+            SVec3f(@view shape.positions[indexA, :]),
+            SVec3f(@view shape.positions[indexB, :]),
+            SVec3f(@view shape.positions[indexC, :]),
+        )
+    end
+    return transformNormal(frame, normal)
+end
+
+
+function triangleNormal(pointA::SVec3f, pointB::SVec3f, pointC::SVec3f)
+    return normalize(cross(pointB .- pointA, pointC .- pointA))
+end
+
+function interpolateNormal(normalA::SVec3f, normalB::SVec3f, normalC::SVec3f,
+    u::Float32, v::Float32)
+    return normalize(interpolateTriangle(normalA, normalB, normalC, u, v))
+end
 
 # function shaderEyelight(scene::Scene, ray::Ray)
 
