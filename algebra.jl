@@ -3,7 +3,6 @@ module Algebra
 using StaticArrays
 using StaticArrays: cross, dot
 using ..Types
-using ..Types: SVec3f, SVec2f
 
 export evalNormal,
     evalNormalTriangle,

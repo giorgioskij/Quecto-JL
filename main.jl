@@ -10,6 +10,4 @@ const scenePath = joinpath(baseDir, "02_matte/matte.json")
 
 # set shader to use
 const shader = shaderEyelight
-
-# render 
-run(300, 200, 2)
+run(30, 20, 2)

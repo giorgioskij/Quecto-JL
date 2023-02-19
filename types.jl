@@ -1,4 +1,5 @@
 module Types
+using StaticArrays
 
 export SVec4f,
     SVec3f,
@@ -13,8 +14,6 @@ export SVec4f,
     Intersection,
     Triangle,
     Quad
-
-using StaticArrays
 
 const SVec4f = SVector{4,Float32}
 const SVec3f = SVector{3,Float32}

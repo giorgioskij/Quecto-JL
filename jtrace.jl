@@ -3,7 +3,6 @@ using BenchmarkTools
 using LinearAlgebra
 using StaticArrays
 using .Types
-using .Types: SVec3f, SVec2f
 using .Algebra
 
 # main entry point to the program
