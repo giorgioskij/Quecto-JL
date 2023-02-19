@@ -28,7 +28,7 @@ function run(width, height, numSamples)
         # rgbImage[i, j] = RGB(image[i, j][1]^0.45, image[i, j][2]^0.45, image[i, j][3]^0.45)
         rgbImage[i, j] = RGB(image[i, j]...)
     end
-    save("prova.png", rgbImage)
+    save("out/prova.png", rgbImage)
 end
 
 function traceSamples(image, scene, imwidth, imheight, numSamples)
@@ -537,6 +537,21 @@ end
     v::Float32,
 )::SVec3f
     return p0 * (1 - u - v) .+ p1 * u + p2 * v
+end
+
+@inline function interpolateQuad(
+    p0::SVec3f,
+    p1::SVec3f,
+    p2::SVec3f,
+    p3::SVec3f,
+    u::Float32,
+    v::Float32,
+)
+    if (u + v <= 1)
+        return interpolateTriangle(p0, p1, p3, u, v)
+    else
+        return interpolateTriangle(p2, p3, p1, 1 - u, 1 - v)
+    end
 end
 
 @inline function normalize(v::SVec3f)::SVec3f

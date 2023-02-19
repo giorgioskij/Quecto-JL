@@ -7,7 +7,6 @@ const baseDir = dirname(@__FILE__)
 cd(baseDir)
 const scenePath = joinpath(baseDir, "02_matte/matte.json")
 
-# set the shader to use
-const shader = shaderNormal
-
-run(300, 200, 2)
+const sceneFile = "julia-pathtracer/02_matte/matte.json"
+const shader = shaderEyelight
+run(64, 64, 2)
