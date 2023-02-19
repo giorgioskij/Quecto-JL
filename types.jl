@@ -106,9 +106,11 @@ struct Intersection
     v::Float32
     distance::Float32
 
-    Intersection(hit, instanceIndex, elementIndex, u, v, distance) =
-        new(hit, instanceIndex, elementIndex, u, v, distance)
-    Intersection(hit) = new(hit, -1, -1, 0, 0, 0)
+    isTriangle::Bool
+
+    Intersection(hit, instanceIndex, elementIndex, u, v, distance, isTriangle) =
+        new(hit, instanceIndex, elementIndex, u, v, distance, isTriangle)
+    Intersection(hit) = new(hit, -1, -1, 0, 0, 0, true)
 end
 
 struct Triangle
