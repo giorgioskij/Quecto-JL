@@ -38,7 +38,7 @@ function run(width, height, numSamples)
     # reads params and initializes stuff
 
     # generate scene
-    scene = loadJsonScene(sceneFile)
+    scene = loadJsonScene(scenePath)
     # println("Scene loaded")
 
     # generate empty starting image

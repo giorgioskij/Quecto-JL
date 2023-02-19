@@ -2,9 +2,8 @@ using JSON
 using PlyIO
 using .Types
 
-function loadJsonScene(filename)
+function loadJsonScene(filename::String)
     json = JSON.parsefile(filename)
-
 
     # if haskey(json, "asset")
     #     element = json["asset"]
@@ -14,11 +13,10 @@ function loadJsonScene(filename)
     # CAMERAS
     if haskey(json, "cameras")
         group = json["cameras"]
-        cameras = Vector{Camera}(undef, Base.length(group))
+        cameras = Vector{Camera}(undef, size(group, 1))
         # ignore camera_names
         defaultCamera = Camera()
         for (i, element) in enumerate(group)
-
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
@@ -29,21 +27,31 @@ function loadJsonScene(filename)
                 get(element, "film", defaultCamera.film),
                 get(element, "aspect", defaultCamera.aspect),
                 get(element, "focus", defaultCamera.focus),
-                get(element, "aperture", defaultCamera.aperture)
+                get(element, "aperture", defaultCamera.aperture),
             )
             # ignore params "ortographics", "name", "lookat"
             cameras[i] = camera
         end
     end
 
+    # TEXTURES
+    textureFilenames = Vector{String}(undef, 0)
+    if haskey(json, "textures")
+        group = json["textures"]
+        textureFilenames = Vector{String}(undef, size(group, 1))
+        for (i, element) in enumerate(group)
+            if !haskey(element, "uri")
+                throw(MissingException("uri not present"))
+            end
+            textureFilenames[i] = element["uri"]
+        end
+    end
+
     # SHAPES
-    # shapeFilenames::Vector{string}
-    # filenames
     shapeFilenames = Vector{String}(undef, 0)
     if haskey(json, "shapes")
         group = json["shapes"]
-        # sizehint!(shapeFilenames, length(group))
-        shapeFilenames = Vector{String}(undef, Base.length(group))
+        shapeFilenames = Vector{String}(undef, size(group, 1))
         for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
@@ -55,18 +63,17 @@ function loadJsonScene(filename)
     # INSTANCES
     if haskey(json, "instances")
         group = json["instances"]
-        instances = Vector{Instance}(undef, Base.length(group))
+        instances = Vector{Instance}(undef, size(group, 1))
 
         defaultInstance = Instance()
         for (i, element) in enumerate(group)
-
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
             instance = Instance(
                 frame,
                 # +1 because julia arrays starst at 1
-                get(element, "shape", defaultInstance.shapeIndex) + 1
+                get(element, "shape", defaultInstance.shapeIndex) + 1,
             )
             # ignore params "name", "material"
             instances[i] = instance
@@ -74,25 +81,36 @@ function loadJsonScene(filename)
     end
 
     # LOAD RESOURCES
+    # TODO: fix filenames
 
     # load shapes
-    shapes = Vector{Shape}(undef, Base.length(shapeFilenames))
-
+    shapes = Vector{Shape}(undef, size(shapeFilenames, 1))
     for (i, filename) in enumerate(shapeFilenames)
-        fullFilename = "julia-pathtracer/02_matte/"
-        shape = loadShape(fullFilename * filename)
+        path = (dirname(scenePath), filename) |> joinpath
+        shape = loadShape(path)
         shapes[i] = shape
+    end
+
+    # load textures
+    textures = Vector{Texture}(undef, size(textureFilenames, 1))
+    for (i, filename) in enumerate(textureFilenames)
+        path = (dirname(scenePath), filename) |> joinpath
+        texture = loadTexture(path)
+        textures[i] = texture
     end
 
     # ignore load subdivs, textures
 
-    scene = Scene(cameras, instances, shapes)
+    scene = Scene(cameras, instances, shapes, textures)
 
     # println(scene)
 
     return scene
 end
 
+function loadTexture(filename::String)
+    throw(MissingException("texture loader not yet implemented"))
+end
 
 function loadShape(filename::String)
     ply = load_ply(filename)
@@ -141,7 +159,6 @@ function loadShape(filename::String)
     if triCount + quadCount != size(faces)[1]
         throw(MissingException("Only implemented triangles and quads"))
     end
-
 
     # load triangles and quads
     triangles = Matrix{Int64}(undef, triCount, 3)

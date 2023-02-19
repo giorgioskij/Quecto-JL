@@ -1,11 +1,13 @@
 module Types
 
-export SVec3f,
+export SVec4f,
+    SVec3f,
     SVec2f,
     Frame,
     Camera,
     Instance,
     Shape,
+    Texture,
     Scene,
     Ray,
     Intersection,
@@ -14,6 +16,7 @@ export SVec3f,
 
 using StaticArrays
 
+const SVec4f = SVector{4,Float32}
 const SVec3f = SVector{3,Float32}
 const SVec2f = SVector{2,Float32}
 
@@ -56,6 +59,20 @@ struct Shape
     textureCoords::Matrix{Float32}
 end
 
+struct Texture
+    width::Int64
+    hegiht::Int64
+
+    # some parameters from yocto
+    linear::Bool    # textures can be stored in linear or non-linear colorspace
+    nearest::Bool
+    clamp::Bool
+
+    # a texture can be an array of float or byte pixels
+    pixelsf::Vector{SVec4f}
+    pixelsb::Vector{SVec4f}
+end
+
 struct Instance
     frame::Frame
     shapeIndex::Int64
@@ -68,6 +85,7 @@ struct Scene
     cameras::Vector{Camera}
     instances::Vector{Instance}
     shapes::Vector{Shape}
+    textures::Vector{Texture}
 end
 
 struct Ray
