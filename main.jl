@@ -1,4 +1,5 @@
 include("types.jl")
+include("algebra.jl")
 include("jtrace.jl")
 include("loader.jl")
 

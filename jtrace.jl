@@ -1,11 +1,10 @@
-#import Pkg 
-#Pkg.add("JSON")
-#Pkg.add("PlyIO")
-
 using Images
 using BenchmarkTools
 using LinearAlgebra
+using StaticArrays
 using .Types
+using .Types: SVec3f, SVec2f
+using .Algebra
 
 # main entry point to the program
 function run(width, height, numSamples)
@@ -25,7 +24,6 @@ function run(width, height, numSamples)
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
     for i = 1:size(image)[1], j = 1:size(image)[2]
-        # rgbImage[i, j] = RGB(image[i, j][1]^0.45, image[i, j][2]^0.45, image[i, j][3]^0.45)
         rgbImage[i, j] = RGB(image[i, j]...)
     end
     save("out/prova.png", rgbImage)
@@ -37,16 +35,12 @@ function traceSamples(image, scene, imwidth, imheight, numSamples)
     # TODO: add threads
     # println("Starting creation of image...")
     for s = 1:numSamples
-        # println("Sample $s")
         Threads.@threads for i = 1:size(image)[2]
             Threads.@threads for j = 1:size(image)[1] #Threads.@threads
                 color = traceSample(i, j, scene, camera, imwidth, imheight)
 
                 weight::Float32 = 1 / s
                 image[j, i] = linInterp(image[j, i], color, weight)
-
-                # image[j, i] += color
-                # image[i, j, :] += color
             end
         end
     end
@@ -97,7 +91,6 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
 
     normal = evalNormal(shape, intersection, frame)
 
-    # radiance = 0.5 .* (normal .+ 1) .* color
     radiance::SVec3f = normal * 0.5 .+ 0.5
 
     return radiance
@@ -125,110 +118,6 @@ function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
     radiance::SVec3f = abs(dot(normal, outgoing)) .* color
 
     return radiance
-end
-
-function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
-    if intersection.isTriangle
-        return evalNormalTriangle(shape, intersection, frame)
-    else
-        return evalNormalQuad(shape, intersection, frame)
-    end
-end
-
-function evalNormalTriangle(
-    shape::Shape,
-    intersection::Intersection,
-    frame::Frame,
-)
-    (indexA, indexB, indexC) =
-        @view shape.triangles[intersection.elementIndex, :]
-    if (!isempty(shape.normals))
-        normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
-        normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
-        normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
-        normal = interpolateNormal(
-            normalA,
-            normalB,
-            normalC,
-            intersection.u,
-            intersection.v,
-        )
-    else
-        normal = computeNormal(
-            SVec3f(@view shape.positions[indexA, :]),
-            SVec3f(@view shape.positions[indexB, :]),
-            SVec3f(@view shape.positions[indexC, :]),
-        )
-    end
-    return transformNormal(frame, normal)
-end
-
-function evalNormalQuad(shape::Shape, intersection::Intersection, frame::Frame)
-    (indexA, indexB, indexC, indexD) =
-        @view shape.quads[intersection.elementIndex, :]
-    if (!isempty(shape.normals))
-        normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
-        normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
-        normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
-        normalD::SVec3f = SVec3f(@view shape.normals[indexD, :])
-        normal = interpolateNormal(
-            normalA,
-            normalB,
-            normalC,
-            normalD,
-            intersection.u,
-            intersection.v,
-        )
-    else
-        normal = computeNormal(
-            SVec3f(@view shape.positions[indexA, :]),
-            SVec3f(@view shape.positions[indexB, :]),
-            SVec3f(@view shape.positions[indexC, :]),
-            SVec3f(@view shape.positions[indexD, :]),
-        )
-    end
-    return transformNormal(frame, normal)
-end
-
-# computes the normal of a triangle
-function computeNormal(pointA::SVec3f, pointB::SVec3f, pointC::SVec3f)
-    return normalize(cross(pointB .- pointA, pointC .- pointA))
-end
-
-# computes the normal of a quad 
-function computeNormal(
-    pointA::SVec3f,
-    pointB::SVec3f,
-    pointC::SVec3f,
-    pointD::SVec3f,
-)
-    return normalize(
-        computeNormal(pointA, pointB, pointD) +
-        computeNormal(pointC, pointD, pointB),
-    )
-end
-
-# interpolates the normals of a triangle
-function interpolateNormal(
-    normalA::SVec3f,
-    normalB::SVec3f,
-    normalC::SVec3f,
-    u::Float32,
-    v::Float32,
-)
-    return normalize(interpolateTriangle(normalA, normalB, normalC, u, v))
-end
-
-# interpolates the normals of a quad
-function interpolateNormal(
-    normalA::SVec3f,
-    normalB::SVec3f,
-    normalC::SVec3f,
-    normalD::SVec3f,
-    u::Float32,
-    v::Float32,
-)
-    return normalize(interpolateQuad(normalA, normalB, normalC, normalD, u, v))
 end
 
 function intersectTriangle(
@@ -524,74 +413,3 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
 
     return Ray(ray_origin, ray_direction)
 end
-
-@inline function transformNormal(frame::Frame, v::SVec3f)
-    return normalize(transformVector(frame, v))
-end
-
-@inline function interpolateTriangle(
-    p0::SVec3f,
-    p1::SVec3f,
-    p2::SVec3f,
-    u::Float32,
-    v::Float32,
-)::SVec3f
-    return p0 * (1 - u - v) .+ p1 * u + p2 * v
-end
-
-@inline function interpolateQuad(
-    p0::SVec3f,
-    p1::SVec3f,
-    p2::SVec3f,
-    p3::SVec3f,
-    u::Float32,
-    v::Float32,
-)
-    if (u + v <= 1)
-        return interpolateTriangle(p0, p1, p3, u, v)
-    else
-        return interpolateTriangle(p2, p3, p1, 1 - u, 1 - v)
-    end
-end
-
-@inline function normalize(v::SVec3f)::SVec3f
-    l = length(v)
-    return (l != 0) ? v / l : v
-end
-
-@inline function length(v::SVec3f)::Float32
-    return sqrt(dot(v, v))
-end
-
-@inline function transformPoint(frame::Frame, v::SVec3f)::SVec3f
-    return frame.x * v[1] + frame.y * v[2] + frame.z * v[3] + frame.o
-end
-
-@inline function transformVector(frame::Frame, v::SVec3f)::SVec3f
-    return frame.x * v[1] + frame.y * v[2] + frame.z * v[3]
-end
-
-@inline function transformDirection(frame::Frame, v::SVec3f)::SVec3f
-    return normalize(transformVector(frame, v))
-end
-
-@inline function unitVector(v::SVec3f)::SVec3f
-    return v / length(v)
-end
-
-@inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
-    return a * (1 - weight) + b * weight
-end
-
-@inline function sampleDisk(u::Float32, v::Float32)::SVec2f
-    r = sqrt(v)
-    phi = 2 * pi * u
-    return cos(phi) * r, sin(phi) * r
-end
-
-# @time run(64, 64, 2)
-
-#TODO: benchmark iteration order
-#TODO: try out if image is better srotolata or not
-#TODO: check if explicit inlining is possible
-#TODO: check argument passing

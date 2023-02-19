@@ -130,4 +130,5 @@ struct Quad
     Quad(a, b, c, d) = new(a, b, c, d)
 end
 
+# end of module 
 end
