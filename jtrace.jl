@@ -32,8 +32,6 @@ using .Types
 #     Intersection(hit) = new(hit, nothing, nothing)
 # end
 
-
-
 # main entry point to the program
 function run(width, height, numSamples)
 
@@ -51,12 +49,11 @@ function run(width, height, numSamples)
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
-    for i in 1:size(image)[1], j in 1:size(image)[2]
+    for i = 1:size(image)[1], j = 1:size(image)[2]
         # rgbImage[i, j] = RGB(image[i, j][1]^0.45, image[i, j][2]^0.45, image[i, j][3]^0.45)
         rgbImage[i, j] = RGB(image[i, j]...)
     end
     save("prova.png", rgbImage)
-
 end
 
 function traceSamples(image, scene, imwidth, imheight, numSamples)
@@ -64,10 +61,10 @@ function traceSamples(image, scene, imwidth, imheight, numSamples)
     # loop over pixels
     # TODO: add threads
     # println("Starting creation of image...")
-    for s in 1:numSamples
+    for s = 1:numSamples
         # println("Sample $s")
-        Threads.@threads for i in 1:size(image)[2]
-            Threads.@threads for j in 1:size(image)[1] #Threads.@threads
+        Threads.@threads for i = 1:size(image)[2]
+            Threads.@threads for j = 1:size(image)[1] #Threads.@threads
                 color = traceSample(i, j, scene, camera, imwidth, imheight)
 
                 weight::Float32 = 1 / s
@@ -80,12 +77,13 @@ function traceSamples(image, scene, imwidth, imheight, numSamples)
     end
 end
 
-function traceSample(i::Int,
+function traceSample(
+    i::Int,
     j::Int,
     scene::Scene,
     camera::Camera,
     imwidth::Int,
-    imheight::Int
+    imheight::Int,
 )::SVec3f
 
     # send a ray
@@ -95,7 +93,6 @@ function traceSample(i::Int,
     radiance = shader(scene, ray)
 
     return radiance
-
 end
 
 # function intersectEnvironment(ray)::SVec3f
@@ -139,7 +136,6 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
 end
 
 function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
-
     intersection::Intersection = intersectScene(ray, scene)
 
     if !intersection.hit
@@ -163,10 +159,9 @@ function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
     return radiance
 end
 
-
-
 function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
-    (indexA, indexB, indexC) = @view shape.triangles[intersection.elementIndex, :]
+    (indexA, indexB, indexC) =
+        @view shape.triangles[intersection.elementIndex, :]
 
     if (!isempty(shape.normals))
         normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
@@ -189,13 +184,17 @@ function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
     return transformNormal(frame, normal)
 end
 
-
 function triangleNormal(pointA::SVec3f, pointB::SVec3f, pointC::SVec3f)
     return normalize(cross(pointB .- pointA, pointC .- pointA))
 end
 
-function interpolateNormal(normalA::SVec3f, normalB::SVec3f, normalC::SVec3f,
-    u::Float32, v::Float32)
+function interpolateNormal(
+    normalA::SVec3f,
+    normalB::SVec3f,
+    normalC::SVec3f,
+    u::Float32,
+    v::Float32,
+)
     return normalize(interpolateTriangle(normalA, normalB, normalC, u, v))
 end
 
@@ -221,14 +220,16 @@ end
 #     return radiance
 # end
 
-
-function intersectTriangle(ray::Ray, triangle::Triangle, instanceIndex::Int64, triangleIndex::Int64)
-
+function intersectTriangle(
+    ray::Ray,
+    triangle::Triangle,
+    instanceIndex::Int64,
+    triangleIndex::Int64,
+)
     edge1 = triangle.y - triangle.x
     edge2 = triangle.z - triangle.x
     pvec = cross(ray.direction, edge2)
     det = dot(edge1, pvec)
-
 
     if det == 0
         return Intersection(false)
@@ -254,16 +255,36 @@ function intersectTriangle(ray::Ray, triangle::Triangle, instanceIndex::Int64, t
     end
 
     return Intersection(true, instanceIndex, triangleIndex, u, v, t)
-
 end
 
-function intersectQuad(ray::Ray, quad::Quad, instanceIndex::Int64, quadIndex::Int64)
-
-    isec1 = intersectTriangle(ray, Triangle(quad.a, quad.b, quad.d), instanceIndex, quadIndex)
-    isec2 = intersectTriangle(ray, Triangle(quad.c, quad.d, quad.b), instanceIndex, quadIndex)
-    if (isec2.hit) 
+function intersectQuad(
+    ray::Ray,
+    quad::Quad,
+    instanceIndex::Int64,
+    quadIndex::Int64,
+)
+    isec1 = intersectTriangle(
+        ray,
+        Triangle(quad.a, quad.b, quad.d),
+        instanceIndex,
+        quadIndex,
+    )
+    isec2 = intersectTriangle(
+        ray,
+        Triangle(quad.c, quad.d, quad.b),
+        instanceIndex,
+        quadIndex,
+    )
+    if (isec2.hit)
         #println(isec2)
-        isec2 = Intersection(true, instanceIndex, quadIndex, 1 - isec2.u, 1 - isec2.v, isec2.distance)
+        isec2 = Intersection(
+            true,
+            instanceIndex,
+            quadIndex,
+            1 - isec2.u,
+            1 - isec2.v,
+            isec2.distance,
+        )
     end
     # if (isec1.hit)
     #     println(isec1)
@@ -274,10 +295,9 @@ function intersectQuad(ray::Ray, quad::Quad, instanceIndex::Int64, quadIndex::In
         return isec2
     elseif (isec1.hit && isec2.hit)
         return isec1.distance < isec2.distance ? isec1 : isec2
-    else 
+    else
         return isec1
     end
-
 end
 # function IntersectQuads(ray::Ray, quad::Quad, instanceIndex::Int64, quadIndex::Int64)::Intersection
 
@@ -323,7 +343,7 @@ end
 #             v = v1 / det
 #         end
 #     end
-    
+
 #     if (0 <= u2 && u2 <= 1)
 #         pa = linInterp(quad.a, quad.b, u2)
 #         pb = linInterp(e00, e11, u2)
@@ -339,8 +359,6 @@ end
 #         end
 #     end
 
-    
-
 # end
 
 function intersectScene(ray::Ray, scene::Scene)::Intersection
@@ -349,68 +367,68 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
     intersection = Intersection(false)
     for (instanceIndex, instance) in enumerate(scene.instances)
         shape = scene.shapes[instance.shapeIndex]
-        # for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
-        #     enumerate(eachcol(transpose(shape.triangles)))
-
-        #     @inbounds pointA = SVec3f(
-        #         shape.positions[pointAindex, 1],
-        #         shape.positions[pointAindex, 2],
-        #         shape.positions[pointAindex, 3]
-        #     )
-        #     @inbounds pointB = SVec3f(
-        #         shape.positions[pointBindex, 1],
-        #         shape.positions[pointBindex, 2],
-        #         shape.positions[pointBindex, 3]
-        #     )
-        #     @inbounds pointC = SVec3f(
-        #         shape.positions[pointCindex, 1],
-        #         shape.positions[pointCindex, 2],
-        #         shape.positions[pointCindex, 3]
-        #     )
-        #     triangle = Triangle(transformPoint(instance.frame, pointA),
-        #         transformPoint(instance.frame, pointB),
-        #         transformPoint(instance.frame, pointC)
-        #     )
-
-        #     hit::Intersection = intersectTriangle(
-        #         ray, triangle, instanceIndex, triangleIndex)
-        #     if hit.hit
-        #         ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
-        #         intersection = hit
-        #     end
-        # end
-
-        for (quadIndex, (pointAindex, pointBindex, pointCindex, pointDindex)) in
-            enumerate(eachcol(transpose(shape.quads)))
-
+        for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
+            enumerate(eachcol(transpose(shape.triangles)))
             @inbounds pointA = SVec3f(
                 shape.positions[pointAindex, 1],
                 shape.positions[pointAindex, 2],
-                shape.positions[pointAindex, 3]
+                shape.positions[pointAindex, 3],
             )
             @inbounds pointB = SVec3f(
                 shape.positions[pointBindex, 1],
                 shape.positions[pointBindex, 2],
-                shape.positions[pointBindex, 3]
+                shape.positions[pointBindex, 3],
             )
             @inbounds pointC = SVec3f(
                 shape.positions[pointCindex, 1],
                 shape.positions[pointCindex, 2],
-                shape.positions[pointCindex, 3]
+                shape.positions[pointCindex, 3],
+            )
+            triangle = Triangle(
+                transformPoint(instance.frame, pointA),
+                transformPoint(instance.frame, pointB),
+                transformPoint(instance.frame, pointC),
+            )
+
+            hit::Intersection =
+                intersectTriangle(ray, triangle, instanceIndex, triangleIndex)
+            if hit.hit
+                ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
+                intersection = hit
+            end
+        end
+
+        for (quadIndex, (pointAindex, pointBindex, pointCindex, pointDindex)) in
+            enumerate(eachcol(transpose(shape.quads)))
+            @inbounds pointA = SVec3f(
+                shape.positions[pointAindex, 1],
+                shape.positions[pointAindex, 2],
+                shape.positions[pointAindex, 3],
+            )
+            @inbounds pointB = SVec3f(
+                shape.positions[pointBindex, 1],
+                shape.positions[pointBindex, 2],
+                shape.positions[pointBindex, 3],
+            )
+            @inbounds pointC = SVec3f(
+                shape.positions[pointCindex, 1],
+                shape.positions[pointCindex, 2],
+                shape.positions[pointCindex, 3],
             )
             @inbounds pointD = SVec3f(
                 shape.positions[pointDindex, 1],
                 shape.positions[pointDindex, 2],
-                shape.positions[pointDindex, 3]
+                shape.positions[pointDindex, 3],
             )
-            quad = Quad(transformPoint(instance.frame, pointA),
+            quad = Quad(
+                transformPoint(instance.frame, pointA),
                 transformPoint(instance.frame, pointB),
                 transformPoint(instance.frame, pointC),
-                transformPoint(instance.frame, pointD)
+                transformPoint(instance.frame, pointD),
             )
 
-            hit::Intersection = intersectQuad(
-                ray, quad, instanceIndex, quadIndex)
+            hit::Intersection =
+                intersectQuad(ray, quad, instanceIndex, quadIndex)
             if hit.hit
                 ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
                 intersection = hit
@@ -433,9 +451,13 @@ function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
     return normal
 end
 
-
-function sampleCamera(camera::Camera, i::Int64, j::Int64, imwidth::Int64, imheight::Int64)
-
+function sampleCamera(
+    camera::Camera,
+    i::Int64,
+    j::Int64,
+    imwidth::Int64,
+    imheight::Int64,
+)
     f1, f2 = rand(Float32, 2)
 
     u::Float32 = (i + f1) / imwidth
@@ -449,9 +471,11 @@ end
 
 # takes a camera, image coordinates (uv) and generates a ray connecting them
 function evalCamera(camera::Camera, u::Float32, v::Float32)
-    film::SVec2f = (camera.aspect >= 1
-                    ? SVec2f([camera.film, camera.film / camera.aspect])
-                    : SVec2f([camera.film * camera.aspect, camera.film]))
+    film::SVec2f = (
+        camera.aspect >= 1 ?
+        SVec2f([camera.film, camera.film / camera.aspect]) :
+        SVec2f([camera.film * camera.aspect, camera.film])
+    )
 
     q = SVec3f([film[1] * (0.5f0 - u), film[2] * (v - 0.5f0), camera.lens])
 
@@ -465,7 +489,8 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
     # point on the lens
     pointOnLens = SVec3f([
         uLens * camera.aperture / 2.0,
-        vLens * camera.aperture / 2.0, 0
+        vLens * camera.aperture / 2.0,
+        0,
     ])
 
     # point on the focus plane
@@ -474,22 +499,25 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
     # correct ray direction to account for camera focusing
     direction = normalize(pointOnFocusPlane - pointOnLens)
 
-
     ray_origin = transformPoint(camera.frame, pointOnLens)
     ray_direction = transformDirection(camera.frame, direction)
 
     return Ray(ray_origin, ray_direction)
 end
 
-
 @inline function transformNormal(frame::Frame, v::SVec3f)
     return normalize(transformVector(frame, v))
 end
 
-@inline function interpolateTriangle(p0::SVec3f, p1::SVec3f, p2::SVec3f, u::Float32, v::Float32)::SVec3f
+@inline function interpolateTriangle(
+    p0::SVec3f,
+    p1::SVec3f,
+    p2::SVec3f,
+    u::Float32,
+    v::Float32,
+)::SVec3f
     return p0 * (1 - u - v) .+ p1 * u + p2 * v
 end
-
 
 @inline function normalize(v::SVec3f)::SVec3f
     l = length(v)
@@ -526,14 +554,7 @@ function sampleDisk(u::Float32, v::Float32)::SVec2f
     return cos(phi) * r, sin(phi) * r
 end
 
-
-
-
 # @time run(64, 64, 2)
-
-
-
-
 
 #TODO: benchmark iteration order
 #TODO: try out if image is better srotolata or not

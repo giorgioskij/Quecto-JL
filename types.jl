@@ -1,7 +1,16 @@
 module Types
 
-export SVec3f, SVec2f, Frame, Camera, Instance, Shape, Scene, Ray, Intersection, Triangle, Quad
-
+export SVec3f,
+    SVec2f,
+    Frame,
+    Camera,
+    Instance,
+    Shape,
+    Scene,
+    Ray,
+    Intersection,
+    Triangle,
+    Quad
 
 using StaticArrays
 
@@ -29,10 +38,11 @@ struct Camera
         0.036,
         1.5,
         10000,
-        0
+        0,
     )
     Camera(frame) = new(frame, 0.05, 0.036, 1.5, 10000, 0)
-    Camera(frame, lens, film, aspect, focus, aperture) = new(frame, lens, film, aspect, focus, aperture)
+    Camera(frame, lens, film, aspect, focus, aperture) =
+        new(frame, lens, film, aspect, focus, aperture)
 end
 
 struct Shape
@@ -54,12 +64,10 @@ struct Instance
     Instance(frame, shapeIndex) = new(frame, shapeIndex)
 end
 
-
 struct Scene
     cameras::Vector{Camera}
     instances::Vector{Instance}
     shapes::Vector{Shape}
-
 end
 
 struct Ray
@@ -80,17 +88,10 @@ struct Intersection
     v::Float32
     distance::Float32
 
-    Intersection(hit, instanceIndex, elementIndex, u, v, distance) = new(
-        hit,
-        instanceIndex,
-        elementIndex,
-        u,
-        v,
-        distance
-    )
+    Intersection(hit, instanceIndex, elementIndex, u, v, distance) =
+        new(hit, instanceIndex, elementIndex, u, v, distance)
     Intersection(hit) = new(hit, -1, -1, 0, 0, 0)
 end
-
 
 struct Triangle
     x::SVec3f
