@@ -4,6 +4,7 @@ using StaticArrays
 export SVec4f,
     SVec3f,
     SVec2f,
+    SVec3i,
     Frame,
     Camera,
     Instance,
@@ -18,6 +19,7 @@ export SVec4f,
 const SVec4f = SVector{4,Float32}
 const SVec3f = SVector{3,Float32}
 const SVec2f = SVector{2,Float32}
+const SVec3i = SVector{3,Int}
 
 struct Frame
     x::SVec3f

@@ -4,6 +4,7 @@ using LinearAlgebra
 using StaticArrays
 using .Types
 using .Algebra
+using .Bvh
 
 # main entry point to the program
 function run(width, height, numSamples)
@@ -12,7 +13,10 @@ function run(width, height, numSamples)
 
     # generate scene
     scene = loadJsonScene(scenePath)
-    # println("Scene loaded")
+
+    # build bvh
+    bvh = makeSceneBvh(scene)
+    return bvh, scene
 
     # generate empty starting image
     image = zeros(SVec3f, height, width)

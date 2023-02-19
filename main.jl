@@ -1,5 +1,6 @@
 include("types.jl")
 include("algebra.jl")
+include("bvh.jl")
 include("jtrace.jl")
 include("loader.jl")
 
@@ -10,4 +11,4 @@ const scenePath = joinpath(baseDir, "02_matte/matte.json")
 
 # set shader to use
 const shader = shaderEyelight
-run(30, 20, 2)
+bvh, scene = run(30, 20, 2)

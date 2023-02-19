@@ -81,7 +81,6 @@ function loadJsonScene(filename::String)
     end
 
     # LOAD RESOURCES
-    # TODO: fix filenames
 
     # load shapes
     shapes = Vector{Shape}(undef, size(shapeFilenames, 1))
@@ -99,11 +98,9 @@ function loadJsonScene(filename::String)
         textures[i] = texture
     end
 
-    # ignore load subdivs, textures
+    # ignore load subdivs
 
     scene = Scene(cameras, instances, shapes, textures)
-
-    # println(scene)
 
     return scene
 end
