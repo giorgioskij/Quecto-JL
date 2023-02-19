@@ -106,9 +106,24 @@ struct Intersection
     v::Float32
     distance::Float32
 
+<<<<<<< HEAD
     Intersection(hit, instanceIndex, elementIndex, u, v, distance) =
         new(hit, instanceIndex, elementIndex, u, v, distance)
     Intersection(hit) = new(hit, -1, -1, 0, 0, 0)
+=======
+    isTriangle::Bool
+
+    Intersection(hit, instanceIndex, elementIndex, u, v, distance, isTriangle) = new(
+        hit,
+        instanceIndex,
+        elementIndex,
+        u,
+        v,
+        distance,
+        isTriangle
+    )
+    Intersection(hit) = new(hit, -1, -1, 0, 0, 0, true)
+>>>>>>> ef493f3af19f620addda69ff4dff7979d0d4851e
 end
 
 struct Triangle

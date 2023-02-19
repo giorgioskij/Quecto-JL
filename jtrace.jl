@@ -7,31 +7,6 @@ using BenchmarkTools
 using LinearAlgebra
 using .Types
 
-# include("types.jl")
-# include("loader.jl")
-
-# struct Sphere
-#     center::UInt32 # indexing Scene.points
-#     radius::Float32
-#     color::SVec3f # temp
-
-#     Sphere(center, radius) = new(center, radius, (0.925, 0.36, 0.38))
-# end
-
-# struct SphereScene
-#     points::Vector{SVec3f}
-#     spheres::Vector{Sphere}
-# end
-
-# struct IntersectionSphere
-#     hit::Bool
-#     sphereHit::Union{Sphere,Nothing}
-#     ray::Union{Ray,Nothing}
-
-#     Intersection(hit, sphereHit, ray) = new(hit, sphereHit, ray)
-#     Intersection(hit) = new(hit, nothing, nothing)
-# end
-
 # main entry point to the program
 function run(width, height, numSamples)
 
@@ -95,14 +70,8 @@ function traceSample(
     return radiance
 end
 
-# function intersectEnvironment(ray)::SVec3f
-#     # return {1, 1, 1}
-#     return SVec3f([1, 1, 1])
-# end
-
 function shaderColor(scene::Scene, ray::Ray)::SVec3f
     hit::Intersection = intersectScene(ray, scene)
-    #println(hit)
     if !hit.hit
         radiance = evalEnvironment()
         return radiance
@@ -128,7 +97,6 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
 
     normal = evalNormal(shape, intersection, frame)
 
-    # color = SVec3f(0.925, 0.36, 0.38) # TODO change with material color
     # radiance = 0.5 .* (normal .+ 1) .* color
     radiance::SVec3f = normal * 0.5 .+ 0.5
 
@@ -160,9 +128,20 @@ function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
 end
 
 function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
+    if intersection.isTriangle
+        return evalNormalTriangle(shape, intersection, frame)
+    else
+        return evalNormalQuad(shape, intersection, frame)
+    end
+end
+
+function evalNormalTriangle(
+    shape::Shape,
+    intersection::Intersection,
+    frame::Frame,
+)
     (indexA, indexB, indexC) =
         @view shape.triangles[intersection.elementIndex, :]
-
     if (!isempty(shape.normals))
         normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
         normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
@@ -175,7 +154,7 @@ function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
             intersection.v,
         )
     else
-        normal = triangleNormal(
+        normal = computeNormal(
             SVec3f(@view shape.positions[indexA, :]),
             SVec3f(@view shape.positions[indexB, :]),
             SVec3f(@view shape.positions[indexC, :]),
@@ -184,10 +163,52 @@ function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
     return transformNormal(frame, normal)
 end
 
-function triangleNormal(pointA::SVec3f, pointB::SVec3f, pointC::SVec3f)
+function evalNormalQuad(shape::Shape, intersection::Intersection, frame::Frame)
+    (indexA, indexB, indexC, indexD) =
+        @view shape.quads[intersection.elementIndex, :]
+    if (!isempty(shape.normals))
+        normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
+        normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
+        normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
+        normalD::SVec3f = SVec3f(@view shape.normals[indexD, :])
+        normal = interpolateNormal(
+            normalA,
+            normalB,
+            normalC,
+            normalD,
+            intersection.u,
+            intersection.v,
+        )
+    else
+        normal = computeNormal(
+            SVec3f(@view shape.positions[indexA, :]),
+            SVec3f(@view shape.positions[indexB, :]),
+            SVec3f(@view shape.positions[indexC, :]),
+            SVec3f(@view shape.positions[indexD, :]),
+        )
+    end
+    return transformNormal(frame, normal)
+end
+
+# computes the normal of a triangle
+function computeNormal(pointA::SVec3f, pointB::SVec3f, pointC::SVec3f)
     return normalize(cross(pointB .- pointA, pointC .- pointA))
 end
 
+# computes the normal of a quad 
+function computeNormal(
+    pointA::SVec3f,
+    pointB::SVec3f,
+    pointC::SVec3f,
+    pointD::SVec3f,
+)
+    return normalize(
+        computeNormal(pointA, pointB, pointD) +
+        computeNormal(pointC, pointD, pointB),
+    )
+end
+
+# interpolates the normals of a triangle
 function interpolateNormal(
     normalA::SVec3f,
     normalB::SVec3f,
@@ -198,27 +219,17 @@ function interpolateNormal(
     return normalize(interpolateTriangle(normalA, normalB, normalC, u, v))
 end
 
-# function shaderEyelight(scene::Scene, ray::Ray)
-
-#     intersection::Intersection = intersectScene(ray, scene)
-
-#     ifintersection.hit
-#         radiance = evalEnvironment()
-#         return radiance
-#     end
-
-#     # find normal
-#     sphereCenter::SVec3f = scene.points[intersection.sphereHit.center]
-#     normal::SVec3f = evalNormalSphere(intersection.ray, sphereCenter)
-
-#     # opposite of the ray direction
-#     outgoing = -intersection.ray.direction
-
-#     # compute radiance
-#     radiance = abs(dot(normal, outgoing)) *intersection.sphereHit.color
-
-#     return radiance
-# end
+# interpolates the normals of a quad
+function interpolateNormal(
+    normalA::SVec3f,
+    normalB::SVec3f,
+    normalC::SVec3f,
+    normalD::SVec3f,
+    u::Float32,
+    v::Float32,
+)
+    return normalize(interpolateQuad(normalA, normalB, normalC, normalD, u, v))
+end
 
 function intersectTriangle(
     ray::Ray,
@@ -254,7 +265,7 @@ function intersectTriangle(
         return Intersection(false)
     end
 
-    return Intersection(true, instanceIndex, triangleIndex, u, v, t)
+    return Intersection(true, instanceIndex, triangleIndex, u, v, t, true)
 end
 
 function intersectQuad(
@@ -269,6 +280,17 @@ function intersectQuad(
         instanceIndex,
         quadIndex,
     )
+    if (isec1.hit)
+        isec1 = Intersection(
+            true,
+            instanceIndex,
+            quadIndex,
+            isec1.u,
+            isec1.v,
+            isec1.distance,
+            false,
+        )
+    end
     isec2 = intersectTriangle(
         ray,
         Triangle(quad.c, quad.d, quad.b),
@@ -276,7 +298,6 @@ function intersectQuad(
         quadIndex,
     )
     if (isec2.hit)
-        #println(isec2)
         isec2 = Intersection(
             true,
             instanceIndex,
@@ -284,11 +305,10 @@ function intersectQuad(
             1 - isec2.u,
             1 - isec2.v,
             isec2.distance,
+            false,
         )
     end
-    # if (isec1.hit)
-    #     println(isec1)
-    # end
+
     if (isec1.hit && !isec2.hit)
         return isec1
     elseif (isec2.hit && !isec1.hit)
@@ -524,7 +544,7 @@ end
     return (l != 0) ? v / l : v
 end
 
-function length(v::SVec3f)::Float32
+@inline function length(v::SVec3f)::Float32
     return sqrt(dot(v, v))
 end
 
@@ -532,23 +552,23 @@ end
     return frame.x * v[1] + frame.y * v[2] + frame.z * v[3] + frame.o
 end
 
-function transformVector(frame::Frame, v::SVec3f)::SVec3f
+@inline function transformVector(frame::Frame, v::SVec3f)::SVec3f
     return frame.x * v[1] + frame.y * v[2] + frame.z * v[3]
 end
 
-function transformDirection(frame::Frame, v::SVec3f)::SVec3f
+@inline function transformDirection(frame::Frame, v::SVec3f)::SVec3f
     return normalize(transformVector(frame, v))
 end
 
-function unitVector(v::SVec3f)::SVec3f
+@inline function unitVector(v::SVec3f)::SVec3f
     return v / length(v)
 end
 
-function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
+@inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
     return a * (1 - weight) + b * weight
 end
 
-function sampleDisk(u::Float32, v::Float32)::SVec2f
+@inline function sampleDisk(u::Float32, v::Float32)::SVec2f
     r = sqrt(v)
     phi = 2 * pi * u
     return cos(phi) * r, sin(phi) * r
