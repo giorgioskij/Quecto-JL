@@ -2,11 +2,13 @@ include("types.jl")
 include("jtrace.jl")
 include("loader.jl")
 
-# set current working directory to main project dir
+# set global paths
 const baseDir = dirname(@__FILE__)
 cd(baseDir)
 const scenePath = joinpath(baseDir, "02_matte/matte.json")
 
-const sceneFile = "julia-pathtracer/02_matte/matte.json"
+# set shader to use
 const shader = shaderEyelight
-run(64, 64, 2)
+
+# render 
+run(300, 200, 2)
