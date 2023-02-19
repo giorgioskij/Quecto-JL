@@ -28,7 +28,7 @@ function run(width, height, numSamples)
         # rgbImage[i, j] = RGB(image[i, j][1]^0.45, image[i, j][2]^0.45, image[i, j][3]^0.45)
         rgbImage[i, j] = RGB(image[i, j]...)
     end
-    save("prova.png", rgbImage)
+    save("out/prova.png", rgbImage)
 end
 
 function traceSamples(image, scene, imwidth, imheight, numSamples)
@@ -389,37 +389,6 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
         shape = scene.shapes[instance.shapeIndex]
         for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
             enumerate(eachcol(transpose(shape.triangles)))
-            @inbounds pointA = SVec3f(
-                shape.positions[pointAindex, 1],
-                shape.positions[pointAindex, 2],
-                shape.positions[pointAindex, 3],
-            )
-            @inbounds pointB = SVec3f(
-                shape.positions[pointBindex, 1],
-                shape.positions[pointBindex, 2],
-                shape.positions[pointBindex, 3],
-            )
-            @inbounds pointC = SVec3f(
-                shape.positions[pointCindex, 1],
-                shape.positions[pointCindex, 2],
-                shape.positions[pointCindex, 3],
-            )
-            triangle = Triangle(
-                transformPoint(instance.frame, pointA),
-                transformPoint(instance.frame, pointB),
-                transformPoint(instance.frame, pointC),
-            )
-
-            hit::Intersection =
-                intersectTriangle(ray, triangle, instanceIndex, triangleIndex)
-            if hit.hit
-                ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
-                intersection = hit
-            end
-        end
-
-        for (quadIndex, (pointAindex, pointBindex, pointCindex, pointDindex)) in
-            enumerate(eachcol(transpose(shape.quads)))
             @inbounds pointA = SVec3f(
                 shape.positions[pointAindex, 1],
                 shape.positions[pointAindex, 2],

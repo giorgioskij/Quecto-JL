@@ -9,4 +9,4 @@ const scenePath = joinpath(baseDir, "02_matte/matte.json")
 
 const sceneFile = "julia-pathtracer/02_matte/matte.json"
 const shader = shaderEyelight
-run(480, 320, 2)
+run(64, 64, 2)
