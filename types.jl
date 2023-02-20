@@ -179,9 +179,11 @@ end
 struct Instance
     frame::Frame
     shapeIndex::Int64
+    materialIndex::Int64
 
-    Instance() = new(Frame([1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]), -1)
-    Instance(frame, shapeIndex) = new(frame, shapeIndex)
+    Instance() = new(Frame([1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]), -1, -1)
+    Instance(frame, shapeIndex, materialIndex) =
+        new(frame, shapeIndex, materialIndex)
 end
 
 struct Scene

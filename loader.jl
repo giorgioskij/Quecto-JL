@@ -112,6 +112,7 @@ function loadJsonScene(filename::String)
                 frame,
                 # +1 because julia arrays starst at 1
                 get(element, "shape", defaultInstance.shapeIndex) + 1,
+                get(element, "material", defaultInstance.materialIndex) + 1,
             )
             # ignore params "name", "material"
             instances[i] = instance

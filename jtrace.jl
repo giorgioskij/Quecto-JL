@@ -13,7 +13,6 @@ function run(width, height, numSamples)
 
     # generate scene
     scene = loadJsonScene(scenePath)
-    return scene
 
     # build bvh
     bvh = makeSceneBvh(scene)
@@ -77,7 +76,7 @@ function shaderColor(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     end
 
     instance::Instance = scene.instances[intersection.instanceIndex]
-    material::Material = scene.materials[instance.shapeIndex]
+    material::Material = scene.materials[instance.materialIndex]
 
     radiance = material.color
 
@@ -105,11 +104,12 @@ function shaderNormal(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 end
 
 function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
-    # intersection::Intersection = intersectScene(ray, scene)
-    intersection::Intersection = intersectScene(ray, scene, bvh, false)
+    intersection::Intersection = intersectScene(ray, scene)
+    # intersection::Intersection = intersectScene(ray, scene, bvh, false)
 
     if !intersection.hit
         radiance = evalEnvironment(scene, ray.direction)
+        # radiance = SVec3f(0, 0, 0)
         return radiance
     end
 
@@ -117,7 +117,7 @@ function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     instance::Instance = scene.instances[intersection.instanceIndex]
     frame::Frame = instance.frame
     shape::Shape = scene.shapes[instance.shapeIndex]
-    material::Material = scene.materials[instance.shapeIndex]
+    material::Material = scene.materials[instance.materialIndex]
 
     normal = evalNormal(shape, intersection, frame)
 
