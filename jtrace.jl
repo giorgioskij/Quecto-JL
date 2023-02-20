@@ -13,7 +13,6 @@ function run(width, height, numSamples)
 
     # generate scene
     scene = loadJsonScene(scenePath)
-    return scene
 
     # build bvh
     bvh = makeSceneBvh(scene)
@@ -71,7 +70,7 @@ function shaderColor(scene::Scene, ray::Ray)::SVec3f
     intersection::Intersection = intersectScene(ray, scene)
 
     if !intersection.hit
-        radiance = evalEnvironment()
+        radiance = evalEnvironment(scene, ray.direction)
         return radiance
     end
 
@@ -87,7 +86,7 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
     intersection::Intersection = intersectScene(ray, scene)
 
     if !intersection.hit
-        radiance = evalEnvironment()
+        radiance = evalEnvironment(scene, ray.direction)
         return radiance
     end
 
@@ -107,7 +106,7 @@ function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
     intersection::Intersection = intersectScene(ray, scene)
 
     if !intersection.hit
-        radiance = evalEnvironment()
+        radiance = evalEnvironment(scene, ray.direction)
         return radiance
     end
 
@@ -355,9 +354,100 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
     return intersection
 end
 
-function evalEnvironment()
-    background = SVec3f(0.105, 0.443, 0.90)
-    return background
+function evalEnvironment(scene::Scene, direction::SVec3f)::SVec3f
+    # background = SVec3f(0.105, 0.443, 0.90)
+    emission = SVec3f(0, 0, 0)
+    for env in scene.environments
+        emission += evalEnvironment(scene, env, direction)
+    end
+    return emission
+end
+
+function evalEnvironment(
+    scene::Scene,
+    env::Environment,
+    direction::SVec3f,
+)::SVec3f
+    wl::SVec3f = transformDirection(inverse(environment.frame), direction)
+    textureX = atan2(wl[3], wl[1]) / (2 * pi)
+    textureY = acos(clamp(wl[2], -1, 1)) / pi
+
+    if textureX < 0
+        textureX += 1
+    end
+
+    return env.emission *
+           xyz(evalTexture(scene, env.emissionTex, textureX, textureY))
+end
+
+function evalTexture(
+    scene::Scene,
+    textureIdx::Int,
+    textureX::Float32,
+    textureY::Float32,
+)::SVec4f
+    if textureIdx == -1
+        return SVec4f(1, 1, 1, 1)
+    end
+
+    texture = scene.textures[textureIdx]
+    return evalTexture(texture, textureX, textureY)
+end
+
+function evalTexture(
+    texture::Texture,
+    textureX::Float32,
+    textureY::Float32,
+)::SVec4f
+    if isempty(texture.image)
+        return SVec4f(0, 0, 0, 0)
+    end
+    sizeX, sizeY = size(texture.image)
+
+    asLinear = false
+    clampToEdge = texture.clamp
+    noInterpolation = texture.nearest
+    s = 0.0f0
+    t = 0.0f0
+
+    if clampToEdge
+        s = clamp(textureX, 0, 1) * sizeX
+        t = clamp(textureY, 0, 1) * sizeY
+    else
+        s = rem(textureX, 1) * sizeX
+        if (s <= 0)
+            s += sizeX
+        end
+        t = rem(textureY, 1) * sizeY
+        if (t <= 0)
+            t += sizeY
+        end
+    end
+
+    i::Int = clamp(Int(ceil(s)), 1, sizeX)
+    j::Int = clamp(Int(ceil(t)), 1, sizeY)
+
+    ii::Int = (i + 1) % sizeX
+    jj::Int = (j + 1) % sizey
+    u::Float32 = s - i
+    v::Float32 = t - j
+
+    if noInterpolation
+        return lookupTexture(texture, i, j)
+    else
+        return (
+            lookupTexture(texture, i, j) * (1 - u) * (1 - v) +
+            lookupTexture(texture, i, jj) * (1 - u) * v +
+            lookupTexture(texture, ii, j) * u * (1 - v) +
+            lookupTexture(texture, ii, jj) * u * v
+        )
+    end
+end
+
+function lookupTexture(texture::Texture, i::Int, j::Int)::SVec4f
+    rgba = texture.image[i, j]
+    color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
+    return color
 end
 
 function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)

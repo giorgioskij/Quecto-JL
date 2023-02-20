@@ -6,6 +6,7 @@ export SVec4f,
     SVec3f,
     SVec2f,
     SVec3i,
+    Mat3f,
     Frame,
     Camera,
     Instance,
@@ -29,6 +30,15 @@ struct Frame
     y::SVec3f
     z::SVec3f
     o::SVec3f
+end
+
+struct Mat3f
+    x::SVec3f
+    y::SVec3f
+    z::SVec3f
+
+    Mat3f(x, y, z) = new(x, y, z)
+    Mat3f() = new(SVec3f(1, 0, 0), SVec3f(0, 1, 0), SVec3f(0, 0, 1))
 end
 
 struct Camera

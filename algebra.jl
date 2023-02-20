@@ -19,7 +19,13 @@ export evalNormal,
     transformDirection,
     unitVector,
     linInterp,
-    sampleDisk
+    sampleDisk,
+    inverse,
+    rotation,
+    transposeMat,
+    makeFrame,
+    matMulVec,
+    xyz
 
 function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
     if intersection.isTriangle
@@ -186,6 +192,35 @@ end
     r = sqrt(v)
     phi = 2 * pi * u
     return cos(phi) * r, sin(phi) * r
+end
+
+@inline function inverse(frame::Frame)
+    minv::Mat3f = transposeMat(rotation(frame))
+    return makeFrame(minv, -(matMulVec(minv, frame.o)))
+end
+
+@inline function rotation(frame::Frame)::Mat3f
+    return Mat3f(frame.x, frame.y, frame.z)
+end
+
+@inline function transposeMat(mat::Mat3f)::Mat3f
+    return Mat3f(
+        SVec3f(mat.x[1], mat.y[1], mat.z[1]),
+        SVec3f(mat.x[2], mat.y[2], mat.z[2]),
+        SVec3f(mat.x[3], mat.y[3], mat.z[3]),
+    )
+end
+
+@inline function makeFrame(m::Mat3f, t::SVec3f)::Frame
+    return Frame(m.x, m.y, m.z, t)
+end
+
+@inline function matMulVec(a::Mat3f, b::SVec3f)::SVec3f
+    return SVec3f(a.x * b[1] + a.y * b[2] + a.z * b[3])
+end
+
+@inline function xyz(a::SVec4f)::SVec3f
+    return SVec3f(a[1], a[2], a[3])
 end
 
 # end module
