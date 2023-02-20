@@ -64,7 +64,7 @@ function makeSceneBvh(scene::Scene)::SceneBvh
     for (i, instance) in enumerate(scene.instances)
         bboxes[i] =
             isempty(bvhForEachShape[instance.shapeIndex].bvh.nodes) ? Bbox3f() :
-            transformBbox( # bel padulo da dover capire
+            transformBbox(
                 instance.frame,
                 bvhForEachShape[instance.shapeIndex].bvh.nodes[1].bbox,
             )
@@ -78,59 +78,65 @@ function makeSceneBvh(scene::Scene)::SceneBvh
 end
 
 function makeShapeBvh(shape::Shape)::ShapeBvh
-    nTriangles = size(shape.triangles, 1)
-    nQuads = size(shape.quads, 1)
-    bboxes = Vector{Bbox3f}(undef, nTriangles + nQuads)
+    # nTriangles = size(shape.triangles, 1)
+    # nQuads = size(shape.quads, 1)
+    # bboxes = Vector{Bbox3f}(undef, nTriangles + nQuads)
+    bboxes = Bbox3f[]
 
     # bboxes for triangles
-    for (i, (pointAindex, pointBindex, pointCindex)) in
-        enumerate(eachcol(transpose(shape.triangles)))
-        @inbounds pointA = SVec3f(
-            shape.positions[pointAindex, 1],
-            shape.positions[pointAindex, 2],
-            shape.positions[pointAindex, 3],
-        )
-        @inbounds pointB = SVec3f(
-            shape.positions[pointBindex, 1],
-            shape.positions[pointBindex, 2],
-            shape.positions[pointBindex, 3],
-        )
-        @inbounds pointC = SVec3f(
-            shape.positions[pointCindex, 1],
-            shape.positions[pointCindex, 2],
-            shape.positions[pointCindex, 3],
-        )
+    if (!isempty(shape.triangles))
+        bboxes = Vector{Bbox3f}(undef, size(shape.triangles, 1))
 
-        bboxes[i] = triangleBounds(pointA, pointB, pointC)
-    end
+        for (i, (pointAindex, pointBindex, pointCindex)) in
+            enumerate(eachcol(transpose(shape.triangles)))
+            @inbounds pointA = SVec3f(
+                shape.positions[pointAindex, 1],
+                shape.positions[pointAindex, 2],
+                shape.positions[pointAindex, 3],
+            )
+            @inbounds pointB = SVec3f(
+                shape.positions[pointBindex, 1],
+                shape.positions[pointBindex, 2],
+                shape.positions[pointBindex, 3],
+            )
+            @inbounds pointC = SVec3f(
+                shape.positions[pointCindex, 1],
+                shape.positions[pointCindex, 2],
+                shape.positions[pointCindex, 3],
+            )
 
-    # bboxes for quads
-    for (i, (pointAindex, pointBindex, pointCindex, pointDindex)) in zip(
-        Iterators.countfrom(nTriangles + 1),
-        eachcol(transpose(shape.quads)),
-    )
-        @inbounds pointA = SVec3f(
-            shape.positions[pointAindex, 1],
-            shape.positions[pointAindex, 2],
-            shape.positions[pointAindex, 3],
-        )
-        @inbounds pointB = SVec3f(
-            shape.positions[pointBindex, 1],
-            shape.positions[pointBindex, 2],
-            shape.positions[pointBindex, 3],
-        )
-        @inbounds pointC = SVec3f(
-            shape.positions[pointCindex, 1],
-            shape.positions[pointCindex, 2],
-            shape.positions[pointCindex, 3],
-        )
-        @inbounds pointD = SVec3f(
-            shape.positions[pointDindex, 1],
-            shape.positions[pointDindex, 2],
-            shape.positions[pointDindex, 3],
-        )
+            bboxes[i] = triangleBounds(pointA, pointB, pointC)
+        end
+    elseif (!isempty(shape.quads))
+        bboxes = Vector{Bbox3f}(undef, size(shape.quads, 1))
+        # bboxes for quads
+        for (i, (pointAindex, pointBindex, pointCindex, pointDindex)) in
+            enumerate(eachcol(transpose(shape.quads)))
+            @inbounds pointA = SVec3f(
+                shape.positions[pointAindex, 1],
+                shape.positions[pointAindex, 2],
+                shape.positions[pointAindex, 3],
+            )
+            @inbounds pointB = SVec3f(
+                shape.positions[pointBindex, 1],
+                shape.positions[pointBindex, 2],
+                shape.positions[pointBindex, 3],
+            )
+            @inbounds pointC = SVec3f(
+                shape.positions[pointCindex, 1],
+                shape.positions[pointCindex, 2],
+                shape.positions[pointCindex, 3],
+            )
+            @inbounds pointD = SVec3f(
+                shape.positions[pointDindex, 1],
+                shape.positions[pointDindex, 2],
+                shape.positions[pointDindex, 3],
+            )
 
-        bboxes[i] = quadBounds(pointA, pointB, pointC, pointD)
+            bboxes[i] = quadBounds(pointA, pointB, pointC, pointD)
+        end
+    else
+        error("something's not right")
     end
 
     tree::BvhTree = makeBvh(bboxes)
@@ -188,7 +194,8 @@ function makeBvh(bboxes::Vector{Bbox3f})::BvhTree
         newBbox = Bbox3f(newMin, newMax)
 
         # split into two children
-        if (endIdx - startIdx > bvhMaxPrims)
+        # FIX: add >= to compensate for different startindex
+        if (endIdx - startIdx + 1 > bvhMaxPrims)
             # get split
             mid, axis =
                 splitMiddle(primitives, bboxes, centers, startIdx, endIdx)
@@ -197,15 +204,18 @@ function makeBvh(bboxes::Vector{Bbox3f})::BvhTree
             newInternal = true
             newAxis = axis
             newNum = 2
-            newStart = size(nodes, 1)
+            newStart = size(nodes, 1) + 1
             push!(nodes, BvhNode())
             push!(nodes, BvhNode())
             push!(stack, SVec3i(newStart + 0, startIdx, mid))
-            push!(stack, SVec3i(newStart + 1, mid, endIdx))
+            push!(stack, SVec3i(newStart + 1, mid + 1, endIdx))
+
+            # [start, mid) [mid, end)
+            # [start, mid] [mid, end]
         else
             # make leaf node
             newInternal = false
-            newNum = endIdx - startIdx
+            newNum = endIdx - startIdx + 1
             newStart = startIdx
             newAxis = node.axis
         end
@@ -262,7 +272,7 @@ function splitMiddle(
 
     # if we were not able to split, just break the primitives in half
     if middle == startIdx || middle == endIdx
-        middle = Int(floor((startIdx + endIdx) / 2))
+        middle = div((startIdx + endIdx), 2)
     end
 
     return middle, axis

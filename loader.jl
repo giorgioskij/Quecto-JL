@@ -126,8 +126,11 @@ function loadJsonScene(filename::String)
 
         defaultEnvironment = Environment()
         for (i, element) in enumerate(group)
+            f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
+            frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
+
             environments[i] = Environment(
-                get(element, "frame", defaultEnvironment.frame),
+                frame,
                 get(element, "emission", defaultEnvironment.emission),
                 get(element, "emission_tex", defaultEnvironment.emissionTex),
             )

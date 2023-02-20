@@ -12,7 +12,8 @@ cd(baseDir)
 const scenePath = joinpath(baseDir, "02_matte/matte.json")
 # const scenePath = joinpath(baseDir, "02_matte/bunny.json")
 # const scenePath = joinpath(baseDir, "04_envlight/envlight.json")
+# const scenePath = joinpath(baseDir, "12_ecosys/ecosys.json")
 
 # set shader to use
 const shader = shaderEyelight
-run(100, 66, 2)
+b = run(600, 400, 2)

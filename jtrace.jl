@@ -84,7 +84,8 @@ function shaderColor(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 end
 
 function shaderNormal(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
-    intersection::Intersection = intersectScene(ray, scene)
+    # intersection::Intersection = intersectScene(ray, scene)
+    intersection::Intersection = intersectScene(ray, scene, bvh, false)
 
     if !intersection.hit
         radiance = evalEnvironment(scene, ray.direction)
@@ -104,8 +105,8 @@ function shaderNormal(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 end
 
 function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
-    intersection::Intersection = intersectScene(ray, scene)
-    # intersection::Intersection = intersectScene(ray, scene, bvh, false)
+    # intersection::Intersection = intersectScene(ray, scene)
+    intersection::Intersection = intersectScene(ray, scene, bvh, false)
 
     if !intersection.hit
         radiance = evalEnvironment(scene, ray.direction)
@@ -344,7 +345,9 @@ function intersectScene(
                 nodeCur += 1
             end
         else
-            for idx = node.start:node.start+node.num
+            # FIX 1: it seems more correct with -1, but the image is worse. why?
+            # FIX 2: adding +1 instead brings back the decapitated bunny. why?
+            for idx = node.start:node.start+node.num-1
                 instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
 
@@ -441,7 +444,8 @@ function intersectShapeBvh(
                 nodeCur += 1
             end
         elseif !isempty(shape.triangles)
-            for idx = node.start:node.start+node.num
+            # FIX 3 adding +1 to node.num here instead changes nothing
+            for idx = node.start:node.start+node.num-1
                 pointAindex, pointBindex, pointCindex =
                     @view shape.triangles[bvh.primitives[idx], :]
 
@@ -481,7 +485,8 @@ function intersectShapeBvh(
             end
 
         elseif !isempty(shape.quads)
-            for idx = node.start:node.start+node.num
+            # FIX 4 adding +1 or -1 here changes nothing as well - actually -1 seems to make it worse
+            for idx = node.start:node.start+node.num-1
                 pointAindex, pointBindex, pointCindex, pointDindex =
                     @view shape.quads[bvh.primitives[idx], :]
                 @inbounds pointA = SVec3f(
@@ -504,8 +509,11 @@ function intersectShapeBvh(
                     shape.positions[pointDindex, 2],
                     shape.positions[pointDindex, 3],
                 )
+
+                # FIX 5 notice something strange here? eheheh
                 pIntersection =
-                    intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
+                # intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
+                    intersectPrimitiveQuad(ray, pointA, pointB, pointC, pointD)
                 if !pIntersection.hit
                     continue
                 end
@@ -577,13 +585,13 @@ function intersectPrimitiveQuad(
     p3::SVec3f,
 )::PrimitiveIntersection
     if (p2 == p3)
-        return intersectPrimitiveTriangle(ray, p0, p1, p2)
+        return intersectPrimitiveTriangle(ray, p0, p1, p3)
     end
 
     isec1 = intersectPrimitiveTriangle(ray, p0, p1, p3)
-    if (isec1.hit)
-        isec1 = PrimitiveIntersection(true, isec1.u, isec1.v, isec1.distance)
-    end
+    # if (isec1.hit)
+    #     isec1 = PrimitiveIntersection(true, isec1.u, isec1.v, isec1.distance)
+    # end
     isec2 = intersectPrimitiveTriangle(ray, p2, p3, p1)
     if (isec2.hit)
         isec2 = PrimitiveIntersection(
@@ -603,18 +611,6 @@ function intersectPrimitiveQuad(
     else
         return isec1
     end
-end
-
-struct ShapeIntersection
-    hit::Bool
-    elementIndex::Int64
-    u::Float32
-    v::Float32
-    distance::Float32
-
-    ShapeIntersection(hit::Bool) = new(hit, -1, 0, 0, 0)
-    ShapeIntersection(hit, elementIndex, u, v, distance) =
-        new(hit, elementIndex, u, v, distance)
 end
 
 # Intersect a ray with a axis-aligned bounding box

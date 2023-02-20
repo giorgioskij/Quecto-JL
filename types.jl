@@ -218,13 +218,25 @@ struct Intersection
     Intersection(hit) = new(hit, -1, -1, 0, 0, 0)
 end
 
+struct ShapeIntersection
+    hit::Bool
+    elementIndex::Int64
+    u::Float32
+    v::Float32
+    distance::Float32
+
+    ShapeIntersection(hit::Bool) = new(hit, -1, 0, 0, 0)
+    ShapeIntersection(hit, elementIndex, u, v, distance) =
+        new(hit, elementIndex, u, v, distance)
+end
+
 struct PrimitiveIntersection
     hit::Bool
     u::Float32
     v::Float32
     distance::Float32
     PrimitiveIntersection(hit, u, v, distance) = new(hit, u, v, distance)
-    PrimitiveIntersection(hit) = new(hit, 0, 0, 0)
+    PrimitiveIntersection(hit) = new(hit, 0, 0, typemax(Float32))
 end
 
 struct Triangle
