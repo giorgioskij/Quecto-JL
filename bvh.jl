@@ -1,7 +1,7 @@
 # oh yeah baby let's make this big bvh boy
 # boss level - difficulty hard!
 module Bvh
-export makeSceneBvh, SceneBvh
+export makeSceneBvh, SceneBvh, ShapeBvh, Bbox3f
 using ..Types
 using ..Algebra
 

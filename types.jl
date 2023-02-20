@@ -17,6 +17,8 @@ export SVec4f,
     Scene,
     Ray,
     Intersection,
+    PrimitiveIntersection,
+    ShapeIntersection,
     Triangle,
     Quad
 
@@ -209,11 +211,18 @@ struct Intersection
     v::Float32
     distance::Float32
 
-    isTriangle::Bool
+    Intersection(hit, instanceIndex, elementIndex, u, v, distance) =
+        new(hit, instanceIndex, elementIndex, u, v, distance)
+    Intersection(hit) = new(hit, -1, -1, 0, 0, 0)
+end
 
-    Intersection(hit, instanceIndex, elementIndex, u, v, distance, isTriangle) =
-        new(hit, instanceIndex, elementIndex, u, v, distance, isTriangle)
-    Intersection(hit) = new(hit, -1, -1, 0, 0, 0, true)
+struct PrimitiveIntersection
+    hit::Bool
+    u::Float32
+    v::Float32
+    distance::Float32
+    PrimitiveIntersection(hit, u, v, distance) = new(hit, u, v, distance)
+    PrimitiveIntersection(hit) = new(hit, 0, 0, 0)
 end
 
 struct Triangle

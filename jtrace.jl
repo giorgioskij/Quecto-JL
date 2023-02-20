@@ -13,6 +13,7 @@ function run(width, height, numSamples)
 
     # generate scene
     scene = loadJsonScene(scenePath)
+    return scene
 
     # build bvh
     bvh = makeSceneBvh(scene)
@@ -21,7 +22,7 @@ function run(width, height, numSamples)
     image = zeros(SVec3f, height, width)
 
     # call the function to trace samples
-    traceSamples(image, scene, width, height, numSamples)
+    traceSamples(image, scene, width, height, numSamples, bvh)
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
@@ -31,15 +32,15 @@ function run(width, height, numSamples)
     save("out/prova.png", rgbImage)
 end
 
-function traceSamples(image, scene, imwidth, imheight, numSamples)
+function traceSamples(image, scene, imwidth, imheight, numSamples, bvh)
     camera = scene.cameras[1]
     # loop over pixels
     # TODO: add threads
     # println("Starting creation of image...")
     for s = 1:numSamples
         Threads.@threads for i = 1:size(image)[2]
-            Threads.@threads for j = 1:size(image)[1] #Threads.@threads
-                color = traceSample(i, j, scene, camera, imwidth, imheight)
+            Threads.@threads for j = 1:size(image)[1]
+                color = traceSample(i, j, scene, camera, imwidth, imheight, bvh)
 
                 weight::Float32 = 1 / s
                 image[j, i] = linInterp(image[j, i], color, weight)
@@ -55,18 +56,19 @@ function traceSample(
     camera::Camera,
     imwidth::Int,
     imheight::Int,
+    bvh,
 )::SVec3f
 
     # send a ray
     ray = sampleCamera(camera, i, j, imwidth, imheight)
 
     # call the shader
-    radiance = shader(scene, ray)
+    radiance = shader(scene, ray, bvh)
 
     return radiance
 end
 
-function shaderColor(scene::Scene, ray::Ray)::SVec3f
+function shaderColor(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     intersection::Intersection = intersectScene(ray, scene)
 
     if !intersection.hit
@@ -82,7 +84,7 @@ function shaderColor(scene::Scene, ray::Ray)::SVec3f
     return radiance
 end
 
-function shaderNormal(scene::Scene, ray::Ray)::SVec3f
+function shaderNormal(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     intersection::Intersection = intersectScene(ray, scene)
 
     if !intersection.hit
@@ -102,8 +104,9 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
     return radiance
 end
 
-function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
-    intersection::Intersection = intersectScene(ray, scene)
+function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
+    # intersection::Intersection = intersectScene(ray, scene)
+    intersection::Intersection = intersectScene(ray, scene, bvh, false)
 
     if !intersection.hit
         radiance = evalEnvironment(scene, ray.direction)
@@ -132,7 +135,7 @@ function intersectTriangle(
     triangle::Triangle,
     instanceIndex::Int64,
     triangleIndex::Int64,
-)
+)::Intersection
     edge1 = triangle.y - triangle.x
     edge2 = triangle.z - triangle.x
     pvec = cross(ray.direction, edge2)
@@ -161,7 +164,7 @@ function intersectTriangle(
         return Intersection(false)
     end
 
-    return Intersection(true, instanceIndex, triangleIndex, u, v, t, true)
+    return Intersection(true, instanceIndex, triangleIndex, u, v, t)
 end
 
 function intersectQuad(
@@ -170,6 +173,15 @@ function intersectQuad(
     instanceIndex::Int64,
     quadIndex::Int64,
 )
+    if (quad.c == quad.d)
+        return intersectTriangle(
+            ray,
+            Triangle(quad.a, quad.b, quad.c),
+            instanceIndex,
+            quadIndex,
+        )
+    end
+
     isec1 = intersectTriangle(
         ray,
         Triangle(quad.a, quad.b, quad.d),
@@ -184,7 +196,6 @@ function intersectQuad(
             isec1.u,
             isec1.v,
             isec1.distance,
-            false,
         )
     end
     isec2 = intersectTriangle(
@@ -201,7 +212,6 @@ function intersectQuad(
             1 - isec2.u,
             1 - isec2.v,
             isec2.distance,
-            false,
         )
     end
 
@@ -303,14 +313,14 @@ function intersectScene(
         1.0f0 / ray.direction.y,
         1.0f0 / ray.direction.z,
     )
-    rayDSign = SVec3i(ray_dinv.x < 0, ray_dinv.y < 0, ray_dinv.z < 0)
+    rayDSign = SVec3i(rayDInv.x < 0, rayDInv.y < 0, rayDInv.z < 0)
 
     # walking stack
     while (nodeCur != 1)
 
         # grab node
         nodeCur -= 1
-        node = masterBvh.nodes[node_stack[nodeCur]]
+        node = masterBvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
         if !intersectBbox(ray, rayDInv, node.bbox)
@@ -335,15 +345,15 @@ function intersectScene(
             end
         else
             for idx = node.start:node.start+node.num
-                instance = scene.instances[bvh.primitives[idx]]
+                instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
 
                 # to understand this part because we create a lot of objects and then 
                 # we possibly rewrite them, we need to understand the performance impact
                 # and maybe create the objects only at the end of the loop?
                 sIntersection = intersectShapeBvh(
-                    sceneBvh.shapes[instance.shape],
-                    scene.shapes[instance.shape],
+                    sceneBvh.shapes[instance.shapeIndex],
+                    scene.shapes[instance.shapeIndex],
                     invRay,
                     findAny,
                 )
@@ -353,11 +363,10 @@ function intersectScene(
                 intersection = Intersection(
                     true,
                     masterBvh.primitives[idx],
-                    sIntersection.element,
+                    sIntersection.elementIndex,
                     sIntersection.u,
                     sIntersection.v,
-                    sIntersectisn.distance,
-                    sIntersection.isTriangle,
+                    sIntersection.distance,
                 )
                 # change ray tmax
                 ray = Ray(
@@ -378,7 +387,7 @@ end
 function intersectShapeBvh(
     shapeBvh::ShapeBvh,
     shape::Shape,
-    invRay::Ray,
+    ray::Ray,
     findAny::Bool,
 )::ShapeIntersection
     bvh = shapeBvh.bvh
@@ -401,14 +410,14 @@ function intersectShapeBvh(
         1.0f0 / ray.direction.y,
         1.0f0 / ray.direction.z,
     )
-    rayDSign = SVec3i(ray_dinv.x < 0, ray_dinv.y < 0, ray_dinv.z < 0)
+    rayDSign = SVec3i(rayDInv.x < 0, rayDInv.y < 0, rayDInv.z < 0)
 
     # walking stack
     while (nodeCur != 1)
 
         # grab node
         nodeCur -= 1
-        node = bvh.nodes[node_stack[nodeCur]]
+        node = bvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
         if !intersectBbox(ray, rayDInv, node.bbox)
@@ -431,9 +440,169 @@ function intersectShapeBvh(
                 nodeStack[nodeCur] = node.start + 0
                 nodeCur += 1
             end
-        else
-            error("you've gone too far, kid. go back and fix your primitives.")
+        elseif !isempty(shape.triangles)
+            for idx = node.start:node.start+node.num
+                pointAindex, pointBindex, pointCindex =
+                    @view shape.triangles[bvh.primitives[idx], :]
 
+                @inbounds pointA = SVec3f(
+                    shape.positions[pointAindex, 1],
+                    shape.positions[pointAindex, 2],
+                    shape.positions[pointAindex, 3],
+                )
+                @inbounds pointB = SVec3f(
+                    shape.positions[pointBindex, 1],
+                    shape.positions[pointBindex, 2],
+                    shape.positions[pointBindex, 3],
+                )
+                @inbounds pointC = SVec3f(
+                    shape.positions[pointCindex, 1],
+                    shape.positions[pointCindex, 2],
+                    shape.positions[pointCindex, 3],
+                )
+                pIntersection =
+                    intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
+                if !pIntersection.hit
+                    continue
+                end
+                intersection = ShapeIntersection(
+                    true,
+                    bvh.primitives[idx],
+                    pIntersection.u,
+                    pIntersection.v,
+                    pIntersection.distance,
+                )
+                ray = Ray(
+                    ray.origin,
+                    ray.direction,
+                    ray.tmin,
+                    pIntersection.distance,
+                )
+            end
+
+        elseif !isempty(shape.quads)
+            for idx = node.start:node.start+node.num
+                pointAindex, pointBindex, pointCindex, pointDindex =
+                    @view shape.quads[bvh.primitives[idx], :]
+                @inbounds pointA = SVec3f(
+                    shape.positions[pointAindex, 1],
+                    shape.positions[pointAindex, 2],
+                    shape.positions[pointAindex, 3],
+                )
+                @inbounds pointB = SVec3f(
+                    shape.positions[pointBindex, 1],
+                    shape.positions[pointBindex, 2],
+                    shape.positions[pointBindex, 3],
+                )
+                @inbounds pointC = SVec3f(
+                    shape.positions[pointCindex, 1],
+                    shape.positions[pointCindex, 2],
+                    shape.positions[pointCindex, 3],
+                )
+                @inbounds pointD = SVec3f(
+                    shape.positions[pointDindex, 1],
+                    shape.positions[pointDindex, 2],
+                    shape.positions[pointDindex, 3],
+                )
+                pIntersection =
+                    intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
+                if !pIntersection.hit
+                    continue
+                end
+                intersection = ShapeIntersection(
+                    true,
+                    bvh.primitives[idx],
+                    pIntersection.u,
+                    pIntersection.v,
+                    pIntersection.distance,
+                )
+                ray = Ray(
+                    ray.origin,
+                    ray.direction,
+                    ray.tmin,
+                    pIntersection.distance,
+                )
+            end
+        end
+
+        if findAny && intersection.hit
+            return intersection
+        end
+    end
+    return intersection
+end
+
+function intersectPrimitiveTriangle(
+    ray::Ray,
+    p0::SVec3f,
+    p1::SVec3f,
+    p2::SVec3f,
+)::PrimitiveIntersection
+    edge1 = p1 - p0
+    edge2 = p2 - p0
+    pvec = cross(ray.direction, edge2)
+    det = dot(edge1, pvec)
+
+    if det == 0
+        return PrimitiveIntersection(false)
+    end
+
+    inverseDet = 1.0f0 / det
+
+    tvec = ray.origin - p0
+    u = dot(tvec, pvec) * inverseDet
+    if u < 0 || u > 1
+        return PrimitiveIntersection(false)
+    end
+
+    qvec = cross(tvec, edge1)
+    v = dot(ray.direction, qvec) * inverseDet
+    if v < 0 || u + v > 1
+        return PrimitiveIntersection(false)
+    end
+
+    t = dot(edge2, qvec) * inverseDet
+    if t < ray.tmin || t > ray.tmax
+        return PrimitiveIntersection(false)
+    end
+
+    return PrimitiveIntersection(true, u, v, t)
+end
+
+function intersectPrimitiveQuad(
+    ray::Ray,
+    p0::SVec3f,
+    p1::SVec3f,
+    p2::SVec3f,
+    p3::SVec3f,
+)::PrimitiveIntersection
+    if (p2 == p3)
+        return intersectPrimitiveTriangle(ray, p0, p1, p2)
+    end
+
+    isec1 = intersectPrimitiveTriangle(ray, p0, p1, p3)
+    if (isec1.hit)
+        isec1 = PrimitiveIntersection(true, isec1.u, isec1.v, isec1.distance)
+    end
+    isec2 = intersectPrimitiveTriangle(ray, p2, p3, p1)
+    if (isec2.hit)
+        isec2 = PrimitiveIntersection(
+            true,
+            1 - isec2.u,
+            1 - isec2.v,
+            isec2.distance,
+        )
+    end
+
+    if (isec1.hit && !isec2.hit)
+        return isec1
+    elseif (isec2.hit && !isec1.hit)
+        return isec2
+    elseif (isec1.hit && isec2.hit)
+        return isec1.distance < isec2.distance ? isec1 : isec2
+    else
+        return isec1
+    end
 end
 
 struct ShapeIntersection
@@ -443,19 +612,17 @@ struct ShapeIntersection
     v::Float32
     distance::Float32
 
-    isTriangle::Bool
-
-    ShapeIntersection(hit::Bool) = new(hit, -1, 0, 0, 0, true)
-    ShapeIntersection(hit, elementIndex, u, v, distance, isTriangle) =
-        new(hit, elementIndex, u, v, distance, isTriangle)
+    ShapeIntersection(hit::Bool) = new(hit, -1, 0, 0, 0)
+    ShapeIntersection(hit, elementIndex, u, v, distance) =
+        new(hit, elementIndex, u, v, distance)
 end
 
 # Intersect a ray with a axis-aligned bounding box
 @inline function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool
-    it_min::SVec3f = (bbox.min - ray.o) * ray_dinv
-    it_max::SVec3f = (bbox.max - ray.o) * ray_dinv
-    tmin::SVec3f = min.(it_min, it_max)
-    tmax::SVec3f = max.(it_min, it_max)
+    itMin::SVec3f = (bbox.min - ray.origin) .* rayDInv
+    itMax::SVec3f = (bbox.max - ray.origin) .* rayDInv
+    tmin::SVec3f = min.(itMin, itMax)
+    tmax::SVec3f = max.(itMin, itMax)
     t0::Float32 = max(maximum(tmin), ray.tmin)
     t1::Float32 = min(minimum(tmax), ray.tmax)
     t1 *= 1.00000024f0 # for double: 1.0000000000000004
@@ -553,15 +720,15 @@ function evalEnvironment(
     env::Environment,
     direction::SVec3f,
 )::SVec3f
-    wl::SVec3f = transformDirection(inverse(environment.frame), direction)
-    textureX = atan2(wl[3], wl[1]) / (2 * pi)
-    textureY = acos(clamp(wl[2], -1, 1)) / pi
+    wl::SVec3f = transformDirection(inverse(env.frame), direction)
+    textureX::Float32 = atan(wl[3], wl[1]) / (2 * pi)
+    textureY::Float32 = acos(clamp(wl[2], -1, 1)) / pi
 
     if textureX < 0
         textureX += 1
     end
 
-    return env.emission *
+    return env.emission .*
            xyz(evalTexture(scene, env.emissionTex, textureX, textureY))
 end
 

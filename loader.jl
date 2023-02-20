@@ -225,26 +225,46 @@ function loadShape(filename::String)
     end
 
     # load triangles and quads
-    triangles = Matrix{Int64}(undef, triCount, 3)
-    quads = Matrix{Int64}(undef, quadCount, 4)
-    triCounter = 1
-    quadCounter = 1
-    for elem in eachrow(faces)
-        elem = elem[1]
-        if size(elem)[end] == 4
-            quads[quadCounter, :] = transpose(elem)
-            quadCounter += 1
-        elseif size(elem)[end] == 3
-            triangles[triCounter, :] = transpose(elem)
-            triCounter += 1
-        else
-            throw(MissingException("Only implemented triangles and quads"))
+    if quadCount > 0
+        triangles = Matrix{Int64}(undef, 0, 0)
+        quads = Matrix{Int64}(undef, quadCount + triCount, 4)
+        for (i, elem) in enumerate(eachrow(faces))
+            elem = elem[1]
+            if size(elem)[end] == 4
+                quads[i, :] = transpose(elem)
+            else # create fake quad
+                quads[i, :] = [elem[1], elem[2], elem[3], elem[3]]
+            end
         end
+        # +1 because julia arrays start at 1
+        quads .+= 1
+    elseif triCount > 0
+        quads = Matrix{Int64}(undef, 0, 0)
+        triangles = Matrix{Int64}(undef, triCount, 3)
+        for (i, elem) in enumerate(eachrow(faces))
+            elem = elem[1]
+            triangles[i, :] = transpose(elem)
+        end
+        # +1 because julia arrays start at 1
+        triangles .+= 1
+    else
+        error("Zero triangles and zero quads. What?")
     end
 
-    # +1 because julia arrays start at 1
-    triangles .+= 1
-    quads .+= 1
+    # triCounter = 1
+    # quadCounter = 1
+    # for elem in eachrow(faces)
+    #     elem = elem[1]
+    #     if size(elem)[end] == 4
+    #         quads[quadCounter, :] = transpose(elem)
+    #         quadCounter += 1
+    #     elseif size(elem)[end] == 3
+    #         triangles[triCounter, :] = transpose(elem)
+    #         triCounter += 1
+    #     else
+    #         throw(MissingException("Only implemented triangles and quads"))
+    #     end
+    # end
 
     # create shape
     return Shape(triangles, quads, positions, normals, textureCoords)
