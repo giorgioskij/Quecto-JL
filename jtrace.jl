@@ -68,13 +68,17 @@ function traceSample(
 end
 
 function shaderColor(scene::Scene, ray::Ray)::SVec3f
-    hit::Intersection = intersectScene(ray, scene)
-    if !hit.hit
+    intersection::Intersection = intersectScene(ray, scene)
+
+    if !intersection.hit
         radiance = evalEnvironment()
         return radiance
     end
 
-    radiance = SVec3f(0.925, 0.36, 0.38)
+    instance::Instance = scene.instances[intersection.instanceIndex]
+    material::Material = scene.materials[instance.shapeIndex]
+
+    radiance = material.color
 
     return radiance
 end
@@ -111,12 +115,13 @@ function shaderEyelight(scene::Scene, ray::Ray)::SVec3f
     instance::Instance = scene.instances[intersection.instanceIndex]
     frame::Frame = instance.frame
     shape::Shape = scene.shapes[instance.shapeIndex]
+    material::Material = scene.materials[instance.shapeIndex]
 
     normal = evalNormal(shape, intersection, frame)
 
     outgoing = -ray.direction
 
-    color = SVec3f(0.925, 0.36, 0.38) # TODO change with material color
+    color = material.color
     # radiance = 0.5 .* (normal .+ 1) .* color
     radiance::SVec3f = abs(dot(normal, outgoing)) .* color
 

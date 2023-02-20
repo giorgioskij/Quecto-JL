@@ -47,6 +47,34 @@ function loadJsonScene(filename::String)
         end
     end
 
+    # Materials
+    if haskey(json, "materials")
+        group = json["materials"]
+        materials = Vector{Material}(undef, size(group, 1))
+        # ignore material_names
+        defaultMaterial = Material()
+        for (i, element) in enumerate(group)
+            material = Material(
+                get(element, "type", defaultMaterial.type),
+                get(element, "emission", defaultMaterial.emission),
+                get(element, "color", defaultMaterial.color),
+                get(element, "metallic", defaultMaterial.metallic),
+                get(element, "roughness", defaultMaterial.roughness),
+                get(element, "ior", defaultMaterial.ior),
+                get(element, "trdepth", defaultMaterial.trdepth),
+                get(element, "scattering", defaultMaterial.scattering),
+                get(element, "scanisotropy", defaultMaterial.scanisotropy),
+                get(element, "opacity", defaultMaterial.opacity),
+                get(element, "emissionTex", defaultMaterial.emissionTex),
+                get(element, "colorTex", defaultMaterial.colorTex),
+                get(element, "roughnessTex", defaultMaterial.roughnessTex),
+                get(element, "scatteringTex", defaultMaterial.scatteringTex),
+                get(element, "normalTex", defaultMaterial.normalTex),
+            )
+            materials[i] = material
+        end
+    end
+
     # SHAPES
     shapeFilenames = Vector{String}(undef, 0)
     if haskey(json, "shapes")
@@ -100,7 +128,7 @@ function loadJsonScene(filename::String)
 
     # ignore load subdivs
 
-    scene = Scene(cameras, instances, shapes, textures)
+    scene = Scene(cameras, instances, shapes, textures, materials)
 
     return scene
 end
