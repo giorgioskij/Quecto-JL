@@ -11,6 +11,7 @@ export SVec4f,
     Instance,
     Shape,
     Texture,
+    Material,
     Scene,
     Ray,
     Intersection,
@@ -71,6 +72,75 @@ struct Texture
     clamp::Bool
 end
 
+struct Material
+    type::String # TODO: create an enum of material types
+    emission::SVec3f
+    color::SVec3f
+    metallic::Float32
+    roughness::Float32
+    ior::Float32
+    trdepth::Float32
+    scattering::SVec3f
+    scanisotropy::Float32
+    opacity::Float32
+    emissionTex::Int64
+    colorTex::Int64
+    roughnessTex::Int64
+    scatteringTex::Int64
+    normalTex::Int64
+
+    Material() = new(
+        "matte", # TODO: create an enum of material types like 0->matte, 1->metal, 2->glass, etc.
+        [0, 0, 0],
+        [0, 0, 0],
+        0,
+        0,
+        1.5f0,
+        0.01f0,
+        [0, 0, 0],
+        0,
+        1.0f0,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+    )
+    Material(
+        type,
+        emission,
+        color,
+        metallic,
+        roughness,
+        ior,
+        trdepth,
+        scattering,
+        scanisotropy,
+        opacity,
+        emissionTex,
+        colorTex,
+        roughnessTex,
+        scatteringTex,
+        normalTex,
+    ) = new(
+        type,
+        emission,
+        color,
+        metallic,
+        roughness,
+        ior,
+        trdepth,
+        scattering,
+        scanisotropy,
+        opacity,
+        emissionTex,
+        colorTex,
+        roughnessTex,
+        scatteringTex,
+        normalTex,
+    )
+end
+
 struct Instance
     frame::Frame
     shapeIndex::Int64
@@ -84,6 +154,7 @@ struct Scene
     instances::Vector{Instance}
     shapes::Vector{Shape}
     textures::Vector{Texture}
+    materials::Vector{Material}
 end
 
 struct Ray
