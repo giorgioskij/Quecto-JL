@@ -36,8 +36,8 @@ function loadJsonScene(filename::String)
     end
 
     # TEXTURES
-    # textureFilenames = Vector{String}(undef, 0)
-    # textures = Vector{Texture}(undef, 0)
+    textureFilenames = Vector{String}(undef, 0)
+    textures = Vector{Texture}(undef, 0)
     if haskey(json, "textures")
         group = json["textures"]
         textureFilenames = Vector{String}(undef, size(group, 1))
@@ -75,11 +75,11 @@ function loadJsonScene(filename::String)
                 get(element, "scattering", defaultMaterial.scattering),
                 get(element, "scanisotropy", defaultMaterial.scanisotropy),
                 get(element, "opacity", defaultMaterial.opacity),
-                get(element, "emissionTex", defaultMaterial.emissionTex),
-                get(element, "colorTex", defaultMaterial.colorTex),
-                get(element, "roughnessTex", defaultMaterial.roughnessTex),
-                get(element, "scatteringTex", defaultMaterial.scatteringTex),
-                get(element, "normalTex", defaultMaterial.normalTex),
+                get(element, "emission_tex", defaultMaterial.emissionTex),
+                get(element, "color_tex", defaultMaterial.colorTex),
+                get(element, "roughness_tex", defaultMaterial.roughnessTex),
+                get(element, "scatterin_tex", defaultMaterial.scatteringTex),
+                get(element, "normal_tex", defaultMaterial.normalTex),
             )
             materials[i] = material
         end
@@ -118,6 +118,21 @@ function loadJsonScene(filename::String)
         end
     end
 
+    # ENVIRONMENTS
+    if haskey(json, "environments")
+        group = json["environments"]
+        environments = Vector{Environment}(undef, size(group, 1))
+
+        defaultEnvironment = Environment()
+        for (i, element) in enumerate(group)
+            environments[i] = Environment(
+                get(element, "frame", defaultEnvironment.frame),
+                get(element, "emission", defaultEnvironment.emission),
+                get(element, "emission_tex", defaultEnvironment.emissionTex),
+            )
+        end
+    end
+
     # LOAD RESOURCES
 
     # load shapes
@@ -129,7 +144,6 @@ function loadJsonScene(filename::String)
     end
 
     # load textures
-    # textures = Vector{Texture}(undef, size(textureFilenames, 1))
     for (i, filename) in enumerate(textureFilenames)
         path = (dirname(scenePath), filename) |> joinpath
 
@@ -151,7 +165,7 @@ function loadJsonScene(filename::String)
 
     # ignore load subdivs
 
-    scene = Scene(cameras, instances, shapes, textures, materials)
+    scene = Scene(cameras, instances, shapes, textures, materials, environments)
 
     return scene
 end

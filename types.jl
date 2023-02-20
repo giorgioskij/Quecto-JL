@@ -12,6 +12,7 @@ export SVec4f,
     Shape,
     Texture,
     Material,
+    Environment,
     Scene,
     Ray,
     Intersection,
@@ -62,6 +63,25 @@ struct Shape
     textureCoords::Matrix{Float32}
 end
 
+struct Environment
+    frame::Frame
+    emission::SVec3f
+    emissionTex::Int
+
+    Environment(frame, emission, emissionTex) =
+        new(frame, emission, emissionTex)
+    Environment() = new(
+        Frame(
+            SVec3f(1, 0, 0),
+            SVec3f(0, 1, 0),
+            SVec3f(0, 0, 1),
+            SVec3f(0, 0, 0),
+        ),
+        SVec3f(0, 0, 0),
+        -1,
+    )
+end
+
 struct Texture
     # for now a texture is a matrix of bytes
     image::Matrix{RGBA{N0f8}}
@@ -72,7 +92,7 @@ struct Texture
     clamp::Bool
 
     Texture(image, linear, nearest, clamp) = new(image, linear, nearest, clamp)
-    Textures() = new(Matrix{RGBA{N0f8}}(undef, 0, 0), false, false, false)
+    Texture() = new(Matrix{RGBA{N0f8}}(undef, 0, 0), false, false, false)
 end
 
 struct Material
@@ -158,6 +178,7 @@ struct Scene
     shapes::Vector{Shape}
     textures::Vector{Texture}
     materials::Vector{Material}
+    environments::Vector{Environment}
 end
 
 struct Ray

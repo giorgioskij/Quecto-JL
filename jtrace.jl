@@ -13,6 +13,7 @@ function run(width, height, numSamples)
 
     # generate scene
     scene = loadJsonScene(scenePath)
+    return scene
 
     # build bvh
     bvh = makeSceneBvh(scene)
