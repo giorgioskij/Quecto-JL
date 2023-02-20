@@ -277,6 +277,191 @@ end
 
 # end
 
+function intersectScene(
+    ray::Ray,
+    scene::Scene,
+    sceneBvh::SceneBvh,
+    findAny::Bool,
+)::Intersection
+    masterBvh = sceneBvh.bvh
+
+    if (isempty(masterBvh.nodes))
+        return Intersection(false)
+    end
+
+    # node stack
+    nodeCur = 1
+    nodeStack = zeros(Int, 128)
+    nodeStack[nodeCur] = 1
+    nodeCur += 1
+
+    # init intersection
+    intersection::Intersection = Intersection(false)
+
+    rayDInv = SVec3f(
+        1.0f0 / ray.direction.x,
+        1.0f0 / ray.direction.y,
+        1.0f0 / ray.direction.z,
+    )
+    rayDSign = SVec3i(ray_dinv.x < 0, ray_dinv.y < 0, ray_dinv.z < 0)
+
+    # walking stack
+    while (nodeCur != 1)
+
+        # grab node
+        nodeCur -= 1
+        node = masterBvh.nodes[node_stack[nodeCur]]
+
+        # intersect bbox
+        if !intersectBbox(ray, rayDInv, node.bbox)
+            continue
+        end
+
+        # intersect node, switching based on node type
+        # for each type, iterate over the primitive list
+        if node.internal
+            # for internal nodes, attempts to proceed along the
+            # split axis from smallest to largest nodes
+            if (rayDSign[node.axis] != 0)
+                nodeStack[nodeCur] = node.start + 0
+                nodeCur += 1
+                nodeStack[nodeCur] = node.start + 1
+                nodeCur += 1
+            else
+                nodeStack[nodeCur] = node.start + 1
+                nodeCur += 1
+                nodeStack[nodeCur] = node.start + 0
+                nodeCur += 1
+            end
+        else
+            for idx = node.start:node.start+node.num
+                instance = scene.instances[bvh.primitives[idx]]
+                invRay = transformRay(inverse(instance.frame, true), ray)
+
+                # to understand this part because we create a lot of objects and then 
+                # we possibly rewrite them, we need to understand the performance impact
+                # and maybe create the objects only at the end of the loop?
+                sIntersection = intersectShapeBvh(
+                    sceneBvh.shapes[instance.shape],
+                    scene.shapes[instance.shape],
+                    invRay,
+                    findAny,
+                )
+                if (!sIntersection.hit)
+                    continue
+                end
+                intersection = Intersection(
+                    true,
+                    masterBvh.primitives[idx],
+                    sIntersection.element,
+                    sIntersection.u,
+                    sIntersection.v,
+                    sIntersectisn.distance,
+                    sIntersection.isTriangle,
+                )
+                # change ray tmax
+                ray = Ray(
+                    ray.origin,
+                    ray.direction,
+                    ray.tmin,
+                    sIntersection.distance,
+                )
+            end
+        end
+        if (findAny && intersection.hit)
+            return intersection
+        end
+    end
+    return intersection
+end
+
+function intersectShapeBvh(
+    shapeBvh::ShapeBvh,
+    shape::Shape,
+    invRay::Ray,
+    findAny::Bool,
+)::ShapeIntersection
+    bvh = shapeBvh.bvh
+
+    # check empty
+    if isempty(bvh.nodes)
+        return ShapeIntersection(false)
+    end
+
+    # node stack
+    nodeStack = zeros(Int, 128)
+    nodeCur = 1
+    nodeStack[nodeCur] = 1
+    nodeCur += 1
+
+    intersection::ShapeIntersection = ShapeIntersection(false)
+
+    rayDInv = SVec3f(
+        1.0f0 / ray.direction.x,
+        1.0f0 / ray.direction.y,
+        1.0f0 / ray.direction.z,
+    )
+    rayDSign = SVec3i(ray_dinv.x < 0, ray_dinv.y < 0, ray_dinv.z < 0)
+
+    # walking stack
+    while (nodeCur != 1)
+
+        # grab node
+        nodeCur -= 1
+        node = bvh.nodes[node_stack[nodeCur]]
+
+        # intersect bbox
+        if !intersectBbox(ray, rayDInv, node.bbox)
+            continue
+        end
+
+        # intersect node, switching based on node type
+        # for each type, iterate over the primitive list
+        if node.internal
+            # for internal nodes, attempts to proceed along the
+            # split axis from smallest to largest nodes
+            if (rayDSign[node.axis] != 0)
+                nodeStack[nodeCur] = node.start + 0
+                nodeCur += 1
+                nodeStack[nodeCur] = node.start + 1
+                nodeCur += 1
+            else
+                nodeStack[nodeCur] = node.start + 1
+                nodeCur += 1
+                nodeStack[nodeCur] = node.start + 0
+                nodeCur += 1
+            end
+        else
+            error("you've gone too far, kid. go back and fix your primitives.")
+
+end
+
+struct ShapeIntersection
+    hit::Bool
+    elementIndex::Int64
+    u::Float32
+    v::Float32
+    distance::Float32
+
+    isTriangle::Bool
+
+    ShapeIntersection(hit::Bool) = new(hit, -1, 0, 0, 0, true)
+    ShapeIntersection(hit, elementIndex, u, v, distance, isTriangle) =
+        new(hit, elementIndex, u, v, distance, isTriangle)
+end
+
+# Intersect a ray with a axis-aligned bounding box
+@inline function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool
+    it_min::SVec3f = (bbox.min - ray.o) * ray_dinv
+    it_max::SVec3f = (bbox.max - ray.o) * ray_dinv
+    tmin::SVec3f = min.(it_min, it_max)
+    tmax::SVec3f = max.(it_min, it_max)
+    t0::Float32 = max(maximum(tmin), ray.tmin)
+    t1::Float32 = min(minimum(tmax), ray.tmax)
+    t1 *= 1.00000024f0 # for double: 1.0000000000000004
+    return t0 <= t1
+end
+
 function intersectScene(ray::Ray, scene::Scene)::Intersection
 
     # in the future this will be a BVH

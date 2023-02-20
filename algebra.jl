@@ -194,9 +194,26 @@ end
     return cos(phi) * r, sin(phi) * r
 end
 
-@inline function inverse(frame::Frame)
-    minv::Mat3f = transposeMat(rotation(frame))
-    return makeFrame(minv, -(matMulVec(minv, frame.o)))
+@inline function determinant(a::Mat3f)::Float32
+    return dot(a.x, cross(a.y, a.z))
+end
+
+@inline function adjoint(a::Mat3f)::Mat3f
+    return transpose(Mat3f(cross(a.y, a.z), cross(a.z, a.x), cross(a.x, a.y)))
+end
+
+@inline function inverse(a::Mat3f)::Mat3f
+    return adjoint(a) * (1 / determinant(a))
+end
+
+@inline function inverse(frame::Frame, nonRigid::Bool = False)::Frame
+    if nonRigid
+        minv = inverse(rotation(a))
+        return make_frame(minv, -(matMulVec(minv, frame.o)))
+    else
+        minv::Mat3f = transposeMat(rotation(frame))
+        return makeFrame(minv, -(matMulVec(minv, frame.o)))
+    end
 end
 
 @inline function rotation(frame::Frame)::Mat3f
@@ -217,6 +234,10 @@ end
 
 @inline function matMulVec(a::Mat3f, b::SVec3f)::SVec3f
     return SVec3f(a.x * b[1] + a.y * b[2] + a.z * b[3])
+end
+
+@inline function matMulFloat(a::Mat3f, b::Float32)::Mat3f
+    return Mat3f(a.x * b, a.y * b, a.z * b)
 end
 
 @inline function xyz(a::SVec4f)::SVec3f
