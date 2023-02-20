@@ -16,7 +16,6 @@ function run(width, height, numSamples)
 
     # build bvh
     bvh = makeSceneBvh(scene)
-    return bvh, scene
 
     # generate empty starting image
     image = zeros(SVec3f, height, width)

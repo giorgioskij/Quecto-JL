@@ -1,5 +1,6 @@
 module Types
 using StaticArrays
+using Images
 
 export SVec4f,
     SVec3f,
@@ -61,17 +62,13 @@ struct Shape
 end
 
 struct Texture
-    width::Int64
-    hegiht::Int64
+    # for now a texture is a matrix of bytes
+    image::Matrix{RGBA{N0f8}}
 
     # some parameters from yocto
     linear::Bool    # textures can be stored in linear or non-linear colorspace
     nearest::Bool
     clamp::Bool
-
-    # a texture can be an array of float or byte pixels
-    pixelsf::Vector{SVec4f}
-    pixelsb::Vector{SVec4f}
 end
 
 struct Instance

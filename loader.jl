@@ -1,6 +1,7 @@
 using JSON
 using PlyIO
 using .Types
+using Images
 
 function loadJsonScene(filename::String)
     json = JSON.parsefile(filename)
@@ -36,14 +37,21 @@ function loadJsonScene(filename::String)
 
     # TEXTURES
     textureFilenames = Vector{String}(undef, 0)
+    textures = Vector{Texture}(undef, 0)
     if haskey(json, "textures")
         group = json["textures"]
         textureFilenames = Vector{String}(undef, size(group, 1))
+        textures = Vector{Texture}(undef, size(group, 1))
         for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
             end
             textureFilenames[i] = element["uri"]
+            linear = haskey(element, "linear") ? element["linear"] : false
+            nearest = haskey(element, "nearest") ? element["nearest"] : false
+            clamp = haskey(element, "clamp") ? element["clamp"] : false
+            textures[i] =
+                Texture(Matrix{RGBA{N0f8}}(undef, 0, 0), linear, nearest, clamp)
         end
     end
 
@@ -91,11 +99,24 @@ function loadJsonScene(filename::String)
     end
 
     # load textures
-    textures = Vector{Texture}(undef, size(textureFilenames, 1))
+    # textures = Vector{Texture}(undef, size(textureFilenames, 1))
     for (i, filename) in enumerate(textureFilenames)
         path = (dirname(scenePath), filename) |> joinpath
-        texture = loadTexture(path)
-        textures[i] = texture
+
+        # check that extension is png
+        extension = path[findlast(==('.'), path)+1:end]
+        if extension != "png"
+            error("only png textures for now!")
+        end
+
+        image::Matrix{RGBA{N0f8}} = loadTexturePng(path)
+
+        textures[i] = Texture(
+            image,
+            textures[i].linear,
+            textures[i].nearest,
+            textures[i].clamp,
+        )
     end
 
     # ignore load subdivs
@@ -105,8 +126,10 @@ function loadJsonScene(filename::String)
     return scene
 end
 
-function loadTexture(filename::String)
-    throw(MissingException("texture loader not yet implemented"))
+# loads a texture image. only png for now
+function loadTexturePng(filename::String)::Matrix{RGBA{N0f8}}
+    image = load(filename)
+    return image
 end
 
 function loadShape(filename::String)
