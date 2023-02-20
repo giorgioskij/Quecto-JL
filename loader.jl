@@ -36,22 +36,24 @@ function loadJsonScene(filename::String)
     end
 
     # TEXTURES
-    textureFilenames = Vector{String}(undef, 0)
-    textures = Vector{Texture}(undef, 0)
+    # textureFilenames = Vector{String}(undef, 0)
+    # textures = Vector{Texture}(undef, 0)
     if haskey(json, "textures")
         group = json["textures"]
         textureFilenames = Vector{String}(undef, size(group, 1))
         textures = Vector{Texture}(undef, size(group, 1))
+        defaultTexture = Texture()
         for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
             end
             textureFilenames[i] = element["uri"]
-            linear = haskey(element, "linear") ? element["linear"] : false
-            nearest = haskey(element, "nearest") ? element["nearest"] : false
-            clamp = haskey(element, "clamp") ? element["clamp"] : false
-            textures[i] =
-                Texture(Matrix{RGBA{N0f8}}(undef, 0, 0), linear, nearest, clamp)
+            textures[i] = Texture(
+                defaultTexture.image,
+                get(element, "linear", defaultTexture.linear),
+                get(element, "nearest", defaultTexture.nearest),
+                get(element, "clamp", defaultTexture.clamp),
+            )
         end
     end
 
@@ -84,7 +86,7 @@ function loadJsonScene(filename::String)
     end
 
     # SHAPES
-    shapeFilenames = Vector{String}(undef, 0)
+    # shapeFilenames = Vector{String}(undef, 0)
     if haskey(json, "shapes")
         group = json["shapes"]
         shapeFilenames = Vector{String}(undef, size(group, 1))

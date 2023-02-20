@@ -70,6 +70,9 @@ struct Texture
     linear::Bool    # textures can be stored in linear or non-linear colorspace
     nearest::Bool
     clamp::Bool
+
+    Texture(image, linear, nearest, clamp) = new(image, linear, nearest, clamp)
+    Textures() = new(Matrix{RGBA{N0f8}}(undef, 0, 0), false, false, false)
 end
 
 struct Material
