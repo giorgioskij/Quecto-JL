@@ -120,22 +120,23 @@ function loadJsonScene(filename::String)
     end
 
     # ENVIRONMENTS
-    if haskey(json, "environments")
-        group = json["environments"]
-        environments = Vector{Environment}(undef, size(group, 1))
+    environments = Vector{Environment}(undef, 0)
+    # if haskey(json, "environments")
+    #     group = json["environments"]
+    #     environments = Vector{Environment}(undef, size(group, 1))
 
-        defaultEnvironment = Environment()
-        for (i, element) in enumerate(group)
-            f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
-            frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
+    #     defaultEnvironment = Environment()
+    #     for (i, element) in enumerate(group)
+    #         f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
+    #         frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
-            environments[i] = Environment(
-                frame,
-                get(element, "emission", defaultEnvironment.emission),
-                get(element, "emission_tex", defaultEnvironment.emissionTex),
-            )
-        end
-    end
+    #         environments[i] = Environment(
+    #             frame,
+    #             get(element, "emission", defaultEnvironment.emission),
+    #             get(element, "emission_tex", defaultEnvironment.emissionTex),
+    #         )
+    #     end
+    # end
 
     # LOAD RESOURCES
 
@@ -148,24 +149,24 @@ function loadJsonScene(filename::String)
     end
 
     # load textures
-    for (i, filename) in enumerate(textureFilenames)
-        path = (dirname(scenePath), filename) |> joinpath
+    # for (i, filename) in enumerate(textureFilenames)
+    #     path = (dirname(scenePath), filename) |> joinpath
 
-        # check that extension is png
-        extension = path[findlast(==('.'), path)+1:end]
-        if extension != "png"
-            error("only png textures for now!")
-        end
+    #     # check that extension is png
+    #     extension = path[findlast(==('.'), path)+1:end]
+    #     if extension != "png"
+    #         error("only png textures for now!")
+    #     end
 
-        image::Matrix{RGBA{N0f8}} = loadTexturePng(path)
+    #     image::Matrix{RGBA{N0f8}} = loadTexturePng(path)
 
-        textures[i] = Texture(
-            image,
-            textures[i].linear,
-            textures[i].nearest,
-            textures[i].clamp,
-        )
-    end
+    #     textures[i] = Texture(
+    #         image,
+    #         textures[i].linear,
+    #         textures[i].nearest,
+    #         textures[i].clamp,
+    #     )
+    # end
 
     # ignore load subdivs
 

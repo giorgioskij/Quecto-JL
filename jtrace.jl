@@ -6,26 +6,37 @@ using .Types
 using .Algebra
 using .Bvh
 
-const global shapeBvhDepth = 18
+# const global shapeBvhDepth = 25
+# const global masterBvhDepth = 19
+const global shapeBvhDepth = 20
 const global masterBvhDepth = 3
 
-# main entry point to the program
-function run(width = 1920, height = 1080, numSamples = 2)
+# # (ceil(log2(count((n) -> !n.internal, bvh.nodes))) + 2) * 2
+# const global masterBvhDepth =
+#     ceil(log2(size(bvh.bvh.primitives, 1)) + 2) * 2
+# # ( ( [count((n) -> !n.internal, s.bvh.nodes) for s in bvh.shapes] |> max |> log2) + 1) |> ceil * 2
+# const global shapeBvhDepth =
+#     ceil(log2(max([size(s.bvh.primitives, 1) for s in bvh.shapes])) + 2) *
 
-    # reads params and initializes stuff
+# main entry point to the program
+function run(
+    shader::Function = shaderEyelight,
+    width = 1920,
+    height = 1080,
+    numSamples = 2,
+)
 
     # generate scene
     scene = loadJsonScene(scenePath)
 
     # build bvh
     bvh = makeSceneBvh(scene)
-    return bvh
 
     # generate empty starting image
     image = zeros(SVec3f, height, width)
 
     # call the function to trace samples
-    traceSamples(image, scene, width, height, numSamples, bvh)
+    traceSamples(shader, image, scene, width, height, numSamples, bvh)
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
@@ -35,7 +46,7 @@ function run(width = 1920, height = 1080, numSamples = 2)
     save("out/prova.png", rgbImage)
 end
 
-function traceSamples(image, scene, imwidth, imheight, numSamples, bvh)
+function traceSamples(shader, image, scene, imwidth, imheight, numSamples, bvh)
     camera = scene.cameras[1]
     # loop over pixels
     # TODO: add threads
@@ -43,7 +54,16 @@ function traceSamples(image, scene, imwidth, imheight, numSamples, bvh)
     for s = 1:numSamples
         Threads.@threads for i = 1:size(image)[2]
             Threads.@threads for j = 1:size(image)[1]
-                color = traceSample(i, j, scene, camera, imwidth, imheight, bvh)
+                color = traceSample(
+                    shader,
+                    i,
+                    j,
+                    scene,
+                    camera,
+                    imwidth,
+                    imheight,
+                    bvh,
+                )
 
                 weight::Float32 = 1 / s
                 image[j, i] = linInterp(image[j, i], color, weight)
@@ -53,6 +73,7 @@ function traceSamples(image, scene, imwidth, imheight, numSamples, bvh)
 end
 
 function traceSample(
+    shader::Function,
     i::Int,
     j::Int,
     scene::Scene,
@@ -317,7 +338,7 @@ function intersectScene(
 
     # this is very esoteric optimization, be careful with side effects
     # lets pre allocate this guys to pass to the calls of intersectShapeBvh
-    preallocatedNodeStackForMySon = MVector{shapesBvhDepth,UInt32}(undef)
+    preallocatedNodeStackForMySon = MVector{shapeBvhDepth,UInt32}(undef)
 
     nodeStack[nodeCur] = 1
     nodeCur += 1

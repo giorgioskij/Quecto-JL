@@ -15,5 +15,6 @@ const scenePath = joinpath(baseDir, "02_matte/matte.json")
 # const scenePath = joinpath(baseDir, "12_ecosys/ecosys.json")
 
 # set shader to use
-const shader = shaderNormal
-# b = run(1920, 1080, 2)
+shader = shaderNormal
+# const shader = shaderEyelight
+run(shader, 1920, 1080, 2)
