@@ -204,7 +204,8 @@ function makeBvh(bboxes::Vector{Bbox3f})::BvhTree
         if (endIdx - startIdx + 1 > bvhMaxPrims)
             # get split
             mid, axis =
-                splitMiddle(primitives, bboxes, centers, startIdx, endIdx)
+            # splitMiddle(primitives, bboxes, centers, startIdx, endIdx)
+                splitMiddle(primitives, centers, startIdx, endIdx)
 
             # make and internal node
             newInternal = true
@@ -238,7 +239,7 @@ end
 
 function splitMiddle(
     primitives::Vector{Int},
-    bboxes::Vector{Bbox3f},
+    # bboxes::Vector{Bbox3f},
     centers::Vector{SVec3f},
     startIdx::Int,
     endIdx::Int,

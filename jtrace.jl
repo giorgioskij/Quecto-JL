@@ -6,6 +6,9 @@ using .Types
 using .Algebra
 using .Bvh
 
+const global shapeBvhDepth = 18
+const global masterBvhDepth = 3
+
 # main entry point to the program
 function run(width = 1920, height = 1080, numSamples = 2)
 
@@ -16,6 +19,7 @@ function run(width = 1920, height = 1080, numSamples = 2)
 
     # build bvh
     bvh = makeSceneBvh(scene)
+    return bvh
 
     # generate empty starting image
     image = zeros(SVec3f, height, width)
@@ -309,11 +313,11 @@ function intersectScene(
     # With Int16 the speedup is substantial 4.5 --> 5.1 seconds
     # but UInt16 may not be enough, UInt32 should be
     # nodeStack = zeros(MVector{128,UInt32})
-    nodeStack = MVector{128,UInt32}(undef)
+    nodeStack = MVector{masterBvhDepth,UInt32}(undef)
 
     # this is very esoteric optimization, be careful with side effects
     # lets pre allocate this guys to pass to the calls of intersectShapeBvh
-    preallocatedNodeStackForMySon = MVector{128,UInt32}(undef)
+    preallocatedNodeStackForMySon = MVector{shapesBvhDepth,UInt32}(undef)
 
     nodeStack[nodeCur] = 1
     nodeCur += 1
@@ -330,6 +334,9 @@ function intersectScene(
 
     # walking stack
     while (nodeCur != 1)
+        # if nodeCur > maxNodeCur
+        #     println("nodecur")
+        # end
 
         # grab node
         nodeCur -= 1
@@ -403,7 +410,7 @@ function intersectShapeBvh!(
     shape::Shape,
     ray::Ray,
     findAny::Bool,
-    nodeStack::MVector{128,UInt32}, # this is passed to avoid multiple initializations
+    nodeStack::MVector, # this is passed to avoid multiple initializations
 )::ShapeIntersection
     bvh = shapeBvh.bvh
 
@@ -438,6 +445,9 @@ function intersectShapeBvh!(
 
     # walking stack
     while (nodeCur != 1)
+        # if nodeCur > maxNodeCur
+        #     println("nodecur")
+        # end
 
         # grab node
         nodeCur -= 1
