@@ -7,7 +7,7 @@ using .Algebra
 using .Bvh
 
 # main entry point to the program
-function run(width, height, numSamples)
+function run(width = 1920, height = 1080, numSamples = 2)
 
     # reads params and initializes stuff
 
@@ -308,7 +308,12 @@ function intersectScene(
     # with MVector the creation is much faster, at 1800 ms 
     # With Int16 the speedup is substantial 4.5 --> 5.1 seconds
     # but UInt16 may not be enough, UInt32 should be
-    nodeStack = zeros(MVector{128,UInt32})
+    # nodeStack = zeros(MVector{128,UInt32})
+    nodeStack = MVector{128,UInt32}(undef)
+
+    # this is very esoteric optimization, be careful with side effects
+    # lets pre allocate this guys to pass to the calls of intersectShapeBvh
+    preallocatedNodeStackForMySon = MVector{128,UInt32}(undef)
 
     nodeStack[nodeCur] = 1
     nodeCur += 1
@@ -352,7 +357,6 @@ function intersectScene(
                 nodeCur += 1
             end
         else
-            preallocatedNodeStackForMySon = MVector{128,UInt32}(undef)
             for idx = node.start:node.start+node.num-1
                 instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
@@ -638,10 +642,10 @@ end
     # t1::Float32 = min(minimum(tmax), ray.tmax)
     # maybe better version ? 
     # meh doesn't look like much, maybe a tiny bit: 2.8 --> 2.77 seconds
-    maxTmin::Float32 = maximum(min.(itMin, itMax))
-    minTmax::Float32 = minimum(max.(itMin, itMax))
-    t0::Float32 = max(maxTmin, ray.tmin)
-    t1::Float32 = min(minTmax, ray.tmax)
+    maxTmin::Float32 = fastMaximum(fastMin.(itMin, itMax))
+    minTmax::Float32 = fastMinimum(fastMax.(itMin, itMax))
+    t0::Float32 = fastMax(maxTmin, ray.tmin)
+    t1::Float32 = fastMin(minTmax, ray.tmax)
     # mabe better to avoid materialization of the broadcast? nah, compiler probably gets it 
     # maxTmin::Float32 = minMax(itMin, itMax)
     # minTmax::Float32 = maxMin(itMin, itMax)
@@ -649,6 +653,29 @@ end
     # t1::Float32 = min(minTmax, ray.tmax)
     t1 *= 1.00000024f0 # for double: 1.0000000000000004
     return t0 <= t1
+end
+
+@inbounds function fastMinimum(a::SVec3f)
+    if a[1] < a[2]
+        ifelse(a[1] < a[3], a[1], a[3])
+    else
+        ifelse(a[2] < a[3], a[2], a[3])
+    end
+end
+@inbounds function fastMaximum(a::SVec3f)
+    if a[1] > a[2]
+        ifelse(a[1] > a[3], a[1], a[3])
+    else
+        ifelse(a[2] > a[3], a[2], a[3])
+    end
+end
+@inline function fastMin(a::Float32, b::Float32)
+    a_b = a - b
+    (signbit(a_b) || isnan(a)) ? a : b
+end
+@inline function fastMax(a::Float32, b::Float32)
+    b_a = b - a
+    (signbit(b_a) || isnan(a)) ? a : b
 end
 
 # @inline function minMax(a::SVec3f, b::SVec3f)
