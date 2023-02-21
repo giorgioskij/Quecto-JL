@@ -302,7 +302,14 @@ function intersectScene(
 
     # node stack
     nodeCur = 1
-    nodeStack = zeros(Int, 128)
+    # PROF: this is slow - 3200 ms in @profview (1920, 1080, 2)
+    # nodeStack = zeros(Int, 128)
+    # let's try with mvector
+    # with MVector the creation is much faster, at 1800 ms 
+    # With Int16 the speedup is substantial 4.5 --> 5.1 seconds
+    # but UInt16 may not be enough, UInt32 should be
+    nodeStack = zeros(MVector{128,UInt32})
+
     nodeStack[nodeCur] = 1
     nodeCur += 1
 
@@ -400,7 +407,15 @@ function intersectShapeBvh(
 
     # node stack
     # nodeStack = zeros(Int, 128)
-    nodeStack = Vector{Int}(undef, 128)
+    # PROF: same thing here. we need MVectors
+    # nodeStack = Vector{Int}(undef, 128)
+    # just going from vector to Mvector we speed up, but smaller ints are even better
+    # UInt16 is definitely not enough :(, we get truncation error
+    # OMFG GOING FROM Int64 to UInt32 we go from 4.05 seconds to 2.8!!!!!!!!
+    # also huge reduction in memory, from 16GB to 9.6 !!!!
+    # this section is still a HUGE bottleneck, needs to be optimized TO THE CORE
+    nodeStack = zeros(MVector{128,UInt32})
+
     nodeCur = 1
     nodeStack[nodeCur] = 1
     nodeCur += 1
@@ -612,13 +627,40 @@ end
 @inline function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool
     itMin::SVec3f = (bbox.min - ray.origin) .* rayDInv
     itMax::SVec3f = (bbox.max - ray.origin) .* rayDInv
-    tmin::SVec3f = min.(itMin, itMax)
-    tmax::SVec3f = max.(itMin, itMax)
-    t0::Float32 = max(maximum(tmin), ray.tmin)
-    t1::Float32 = min(minimum(tmax), ray.tmax)
+    # PROF: this is a decent bottleneck. any way to make this min and max faster?
+    # we see that of tmin we only need the max, and of tmax we only need the min
+    # tmin::SVec3f = min.(itMin, itMax)
+    # tmax::SVec3f = max.(itMin, itMax)
+    # t0::Float32 = max(maximum(tmin), ray.tmin)
+    # t1::Float32 = min(minimum(tmax), ray.tmax)
+    # maybe better version ? 
+    # meh doesn't look like much, maybe a tiny bit: 2.8 --> 2.77 seconds
+    maxTmin::Float32 = maximum(min.(itMin, itMax))
+    minTmax::Float32 = minimum(max.(itMin, itMax))
+    t0::Float32 = max(maxTmin, ray.tmin)
+    t1::Float32 = min(minTmax, ray.tmax)
+    # mabe better to avoid materialization of the broadcast? nah, compiler probably gets it 
+    # maxTmin::Float32 = minMax(itMin, itMax)
+    # minTmax::Float32 = maxMin(itMin, itMax)
+    # t0::Float32 = max(maxTmin, ray.tmin)
+    # t1::Float32 = min(minTmax, ray.tmax)
     t1 *= 1.00000024f0 # for double: 1.0000000000000004
     return t0 <= t1
 end
+
+# @inline function minMax(a::SVec3f, b::SVec3f)
+#     x1 = min(a[1], b[1])
+#     x2 = min(a[2], b[2])
+#     x3 = min(a[3], b[3])
+#     return max(x1, x2, x3)
+# end
+
+# @inline function maxMin(a::SVec3f, b::SVec3f)
+#     x1 = max(a[1], b[1])
+#     x2 = max(a[2], b[2])
+#     x3 = max(a[3], b[3])
+#     return min(x1, x2, x3)
+# end
 
 function intersectScene(ray::Ray, scene::Scene)::Intersection
 
@@ -809,6 +851,7 @@ function sampleCamera(
     imheight::Int64,
 )
     # f1, f2 = rand(Float32, 2)
+    # PROF: two separate randoms are much better, we don't create a vector 
     f1 = rand(Float32)
     f2 = rand(Float32)
 
@@ -822,37 +865,66 @@ function sampleCamera(
 end
 
 # takes a camera, image coordinates (uv) and generates a ray connecting them
+# PROF: this function takes 2166 ms on profview run(1920, 1080, 2)
+# PROF: after fixing takes 437 ms 
 function evalCamera(camera::Camera, u::Float32, v::Float32)
     film::SVec2f = (
         camera.aspect >= 1 ?
-        SVec2f([camera.film, camera.film / camera.aspect]) :
-        SVec2f([camera.film * camera.aspect, camera.film])
+        SVec2f(camera.film, camera.film / camera.aspect) :
+        SVec2f(camera.film * camera.aspect, camera.film)
     )
 
-    q = SVec3f([film[1] * (0.5f0 - u), film[2] * (v - 0.5f0), camera.lens])
+    # PROF: AYAYAYAYAY once again the square brackets no no no
+    # q = SVec3f([film[1] * (0.5f0 - u), film[2] * (v - 0.5f0), camera.lens])
+    q = SVec3f(film[1] * (0.5f0 - u), film[2] * (v - 0.5f0), camera.lens)
 
     # ray direction through the lens center
-    dc::SVec3f = -normalize(q)
+    # FIX: normalize is from LinearAlgebra, we need our Norm
+    # i think adding the explicit module is the easiest solution to understand
+    dc::SVec3f = -Algebra.norm(q)
 
     # generate random lens_uv
     # uLens, vLens = rand(Float32, 2)
+    # PROF: 2 separate rands are better
     uLens = rand(Float32)
     vLens = rand(Float32)
 
     uLens, vLens = sampleDisk(uLens, vLens)
 
     # point on the lens
-    pointOnLens = SVec3f([
-        uLens * camera.aperture / 2.0,
-        vLens * camera.aperture / 2.0,
-        0,
-    ])
+    # PROF: AYAYAYAYAYAYAAYAYAYAYAAY look at those square brackets no no no no 
+    # we are making a heap dynamic vector and trashing it right away no no no
+    # pointOnLens = SVec3f([
+    #     uLens * camera.aperture / 2.0,
+    #     vLens * camera.aperture / 2.0,
+    #     0,
+    # ])
+    # corrected version
+    pointOnLens =
+        SVec3f(uLens * camera.aperture / 2.0, vLens * camera.aperture / 2.0, 0)
+
+    # # PROF: lets destructure this point on lens
+    # pointOnLensX = uLens * camera.aperture / 2.0f0
+    # pointOnLensY = vLens * camera.aperture / 2.0f0
+    # # pointOnLensZ = 0.0f0
 
     # point on the focus plane
     pointOnFocusPlane = dc * camera.focus / abs(dc[3])
 
     # correct ray direction to account for camera focusing
-    direction = normalize(pointOnFocusPlane - pointOnLens)
+    # FIX: problema: la nostra funzione si chiama norm. questa è normalize di 
+    # LinearAlgebra. Non sono la stessa cosa. Come fa a funzionare?
+    # ok, la norm di pellacini (e nostra) fa la l-infinity norm, quella di 
+    # linearalgebra fa di default la l-2
+    direction = Algebra.norm(pointOnFocusPlane - pointOnLens)
+    # PROF: destructure this
+    # direction = normalize(
+    #     SVec3f(
+    #         pointOnFocusPlane[1] - pointOnLensX,
+    #         pointOnFocusPlane[2] - pointOnLensY,
+    #         pointOnFocusPlane[3],
+    #     ),
+    # )
 
     ray_origin = transformPoint(camera.frame, pointOnLens)
     ray_direction = transformDirection(camera.frame, direction)

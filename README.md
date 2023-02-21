@@ -53,7 +53,11 @@ Spheres = {Int, Float}
 for this scene the construction of the bvh is roughly 230 ms
 so only test much bigger than that are significative for rendering speed
 
-Fixing randoms: (1920, 1080, 2) 6.5 -->  5.3 seconds
+- Fixing randoms: (1920, 1080, 2) 6.5 -->  5.3 seconds
+
+- Zeros from Vector to MVector 5.3 --> 4.5 seconds
+
+- More square brackets in evalCamera
 
 ## Benchmarking
 In a starting state, with no computation in the shader, representing the image

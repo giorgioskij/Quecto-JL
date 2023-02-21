@@ -16,12 +16,18 @@ struct Bbox3f
     Bbox3f(min, max) = new(min, max)
 end
 
+# PROF: let's try to make this bvh node lighter
+# 16 GB of allocations previosly (all Int64)
+# It looks a bit faster: 4.11 -> 4.05 seconds, kinda worth
+# I wanted to check if it's faster to waste bits to make it aligned (num: Int16)
+# Mh, it's pretty comparable. lets use Int16 so that the struct is exactly 256 bits
 struct BvhNode
-    bbox::Bbox3f
-    start::Int # indicizzazione a vettore come fosse un albero
-    num::Int # numero di figli di questo nodo, se interno = 2, se foglia = da 0 a 4 
-    axis::Int  # no idea what this is for
-    internal::Bool
+    bbox::Bbox3f   # 6x32 = 192 bits
+    start::UInt32  # 32 bits
+    num::UInt16    # 16 bits
+    axis::UInt8    # 8 bits
+    internal::Bool # 8 bits
+    # total: 256 bits
 
     BvhNode() = new(Bbox3f(), 1, 0, 1, false)
     BvhNode(bbox, start, num, axis, internal) =

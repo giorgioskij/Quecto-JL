@@ -163,7 +163,11 @@ end
 # end
 
 # computes the normal of a triangle
-function computeTriangleNormal(pointA::SVec3f, pointB::SVec3f, pointC::SVec3f)
+@inline function computeTriangleNormal(
+    pointA::SVec3f,
+    pointB::SVec3f,
+    pointC::SVec3f,
+)
     return norm(cross(pointB .- pointA, pointC .- pointA))
 end
 
