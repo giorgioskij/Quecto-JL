@@ -808,7 +808,9 @@ function sampleCamera(
     imwidth::Int64,
     imheight::Int64,
 )
-    f1, f2 = rand(Float32, 2)
+    # f1, f2 = rand(Float32, 2)
+    f1 = rand(Float32)
+    f2 = rand(Float32)
 
     u::Float32 = (i + f1) / imwidth
     v::Float32 = (j + f2) / imheight
@@ -833,7 +835,10 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
     dc::SVec3f = -normalize(q)
 
     # generate random lens_uv
-    uLens, vLens = rand(Float32, 2)
+    # uLens, vLens = rand(Float32, 2)
+    uLens = rand(Float32)
+    vLens = rand(Float32)
+
     uLens, vLens = sampleDisk(uLens, vLens)
 
     # point on the lens

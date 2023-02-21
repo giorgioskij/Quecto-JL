@@ -43,8 +43,17 @@ Spheres = {Int, Float}
 
 ## Timings 
 
-(1920, 1080, 2), Bvh, shader normal, 02_matte/matte.json: 6.5 s
-(3000, 2000, 2): Bvh, shader normal, 02_matte/matte.json: 2s
+
+### Tests with shader normal on 02_matte/matte.json
+
+(1920, 1080, 2): 6.5 s
+(3000, 2000, 2): 2s
+(300,200,2): 389.5 +- 42 ms
+
+for this scene the construction of the bvh is roughly 230 ms
+so only test much bigger than that are significative for rendering speed
+
+Fixing randoms: (1920, 1080, 2) 6.5 -->  5.3 seconds
 
 ## Benchmarking
 In a starting state, with no computation in the shader, representing the image

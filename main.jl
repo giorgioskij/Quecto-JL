@@ -16,4 +16,4 @@ const scenePath = joinpath(baseDir, "02_matte/matte.json")
 
 # set shader to use
 const shader = shaderNormal
-b = run(1920, 1080, 2)
+# b = run(1920, 1080, 2)
