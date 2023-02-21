@@ -59,6 +59,8 @@ so only test much bigger than that are significative for rendering speed
 
 - More square brackets in evalCamera
 
+- Zeros from Vector to MVector in IntersectShapeBvh WITH UINT 32: 4.5 --> 2.8
+
 ## Benchmarking
 In a starting state, with no computation in the shader, representing the image
 with SVectors as colors is slower.

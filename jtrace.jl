@@ -352,6 +352,7 @@ function intersectScene(
                 nodeCur += 1
             end
         else
+            preallocatedNodeStackForMySon = MVector{128,UInt32}(undef)
             for idx = node.start:node.start+node.num-1
                 instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
@@ -359,11 +360,12 @@ function intersectScene(
                 # to understand this part because we create a lot of objects and then 
                 # we possibly rewrite them, we need to understand the performance impact
                 # and maybe create the objects only at the end of the loop?
-                sIntersection = intersectShapeBvh(
+                sIntersection = intersectShapeBvh!(
                     sceneBvh.shapes[instance.shapeIndex],
                     scene.shapes[instance.shapeIndex],
                     invRay,
                     findAny,
+                    preallocatedNodeStackForMySon,
                 )
                 if (!sIntersection.hit)
                     continue
@@ -392,11 +394,12 @@ function intersectScene(
     return intersection
 end
 
-function intersectShapeBvh(
+function intersectShapeBvh!(
     shapeBvh::ShapeBvh,
     shape::Shape,
     ray::Ray,
     findAny::Bool,
+    nodeStack::MVector{128,UInt32}, # this is passed to avoid multiple initializations
 )::ShapeIntersection
     bvh = shapeBvh.bvh
 
@@ -414,7 +417,7 @@ function intersectShapeBvh(
     # OMFG GOING FROM Int64 to UInt32 we go from 4.05 seconds to 2.8!!!!!!!!
     # also huge reduction in memory, from 16GB to 9.6 !!!!
     # this section is still a HUGE bottleneck, needs to be optimized TO THE CORE
-    nodeStack = zeros(MVector{128,UInt32})
+    # nodeStack = zeros(MVector{128,UInt32})
 
     nodeCur = 1
     nodeStack[nodeCur] = 1
