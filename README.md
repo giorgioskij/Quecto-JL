@@ -41,6 +41,11 @@ Spheres = {Int, Float}
 - [ ] Hit other stuff with rays
 
 
+## Timings 
+
+(1920, 1080, 2), Bvh, shader normal, 02_matte/matte.json: 6.5 s
+(3000, 2000, 2): Bvh, shader normal, 02_matte/matte.json: 2s
+
 ## Benchmarking
 In a starting state, with no computation in the shader, representing the image
 with SVectors as colors is slower.

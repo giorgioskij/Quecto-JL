@@ -345,8 +345,6 @@ function intersectScene(
                 nodeCur += 1
             end
         else
-            # FIX 1: it seems more correct with -1, but the image is worse. why?
-            # FIX 2: adding +1 instead brings back the decapitated bunny. why?
             for idx = node.start:node.start+node.num-1
                 instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
@@ -401,7 +399,8 @@ function intersectShapeBvh(
     end
 
     # node stack
-    nodeStack = zeros(Int, 128)
+    # nodeStack = zeros(Int, 128)
+    nodeStack = Vector{Int}(undef, 128)
     nodeCur = 1
     nodeStack[nodeCur] = 1
     nodeCur += 1
@@ -444,7 +443,6 @@ function intersectShapeBvh(
                 nodeCur += 1
             end
         elseif !isempty(shape.triangles)
-            # FIX 3 adding +1 to node.num here instead changes nothing
             for idx = node.start:node.start+node.num-1
                 pointAindex, pointBindex, pointCindex =
                     @view shape.triangles[bvh.primitives[idx], :]
@@ -485,7 +483,6 @@ function intersectShapeBvh(
             end
 
         elseif !isempty(shape.quads)
-            # FIX 4 adding +1 or -1 here changes nothing as well - actually -1 seems to make it worse
             for idx = node.start:node.start+node.num-1
                 pointAindex, pointBindex, pointCindex, pointDindex =
                     @view shape.quads[bvh.primitives[idx], :]
@@ -510,9 +507,7 @@ function intersectShapeBvh(
                     shape.positions[pointDindex, 3],
                 )
 
-                # FIX 5 notice something strange here? eheheh
                 pIntersection =
-                # intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
                     intersectPrimitiveQuad(ray, pointA, pointB, pointC, pointD)
                 if !pIntersection.hit
                     continue
