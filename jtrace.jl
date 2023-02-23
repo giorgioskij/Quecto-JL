@@ -19,7 +19,12 @@ const global masterBvhDepth = 19
 #     ceil(log2(max([size(s.bvh.primitives, 1) for s in bvh.shapes])) + 2) *
 
 # main entry point to the program
-function run(shader::Function = shaderMaterial, width = 1920, numSamples = 2)
+function run(
+    scenePath::String,
+    shader::Function = shaderMaterial,
+    width = 1920,
+    numSamples = 2,
+)
     # generate scene
     scene = loadJsonScene(joinpath(baseDir, scenePath))
     # return scene
