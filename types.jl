@@ -95,16 +95,23 @@ struct Environment
 end
 
 struct Texture
-    # for now a texture is a matrix of bytes
     image::Matrix{RGBA{N0f8}}
+    hdrImage::Matrix{RGB{N0f16}}
 
     # some parameters from yocto
     linear::Bool    # textures can be stored in linear or non-linear colorspace
     nearest::Bool
     clamp::Bool
 
-    Texture(image, linear, nearest, clamp) = new(image, linear, nearest, clamp)
-    Texture() = new(Matrix{RGBA{N0f8}}(undef, 0, 0), false, false, false)
+    Texture(image, hdrImage, linear, nearest, clamp) =
+        new(image, hdrImage, linear, nearest, clamp)
+    Texture() = new(
+        Matrix{RGBA{N0f8}}(undef, 0, 0),
+        Matrix{RGB{N0f16}}(undef, 0, 0),
+        false,
+        false,
+        false,
+    )
 end
 
 struct Material

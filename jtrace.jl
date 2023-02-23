@@ -8,26 +8,25 @@ using .Bvh
 
 # const global shapeBvhDepth = 25
 # const global masterBvhDepth = 19
-const global shapeBvhDepth = 20
-const global masterBvhDepth = 3
-
-# # (ceil(log2(count((n) -> !n.internal, bvh.nodes))) + 2) * 2
-# const global masterBvhDepth =
-#     ceil(log2(size(bvh.bvh.primitives, 1)) + 2) * 2
-# # ( ( [count((n) -> !n.internal, s.bvh.nodes) for s in bvh.shapes] |> max |> log2) + 1) |> ceil * 2
-# const global shapeBvhDepth =
-#     ceil(log2(max([size(s.bvh.primitives, 1) for s in bvh.shapes])) + 2) *
+# ↑ for ecosys, ↓ for matte
+# const global shapeBvhDepth = 20
+# const global masterBvhDepth = 3
+const global shapeBvhDepth = 25
+const global masterBvhDepth = 20
 
 # main entry point to the program
 function run(
+    scenePath::String,
     shader::Function = shaderEyelight,
     width = 1920,
-    height = 1080,
     numSamples = 2,
 )
-
     # generate scene
-    scene = loadJsonScene(scenePath)
+    scene = loadJsonScene(joinpath(baseDir, scenePath))
+    # return scene
+
+    camera = scene.cameras[1]
+    height = Int(round(width / camera.aspect))
 
     # build bvh
     bvh = makeSceneBvh(scene)
@@ -36,7 +35,7 @@ function run(
     image = zeros(SVec3f, height, width)
 
     # call the function to trace samples
-    traceSamples(shader, image, scene, width, height, numSamples, bvh)
+    traceSamples(shader, image, scene, width, height, numSamples, bvh, camera)
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
@@ -46,8 +45,17 @@ function run(
     save("out/prova.png", rgbImage)
 end
 
-function traceSamples(shader, image, scene, imwidth, imheight, numSamples, bvh)
-    camera = scene.cameras[1]
+function traceSamples(
+    shader,
+    image,
+    scene,
+    imwidth,
+    imheight,
+    numSamples,
+    bvh,
+    camera,
+)
+    # camera = scene.cameras[1]
     # loop over pixels
     # TODO: add threads
     # println("Starting creation of image...")
@@ -150,6 +158,7 @@ function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     outgoing = -ray.direction
 
     color = material.color
+
     # radiance = 0.5 .* (normal .+ 1) .* color
     radiance::SVec3f = abs(dot(normal, outgoing)) .* color
 
@@ -251,67 +260,6 @@ function intersectQuad(
         return isec1
     end
 end
-# function IntersectQuads(ray::Ray, quad::Quad, instanceIndex::Int64, quadIndex::Int64)::Intersection
-
-#     e10 = quad.b - quad.a
-#     e11 = quad.c - quad.b
-#     e00 = quad.d - quad.a
-#     qn = cross(e10, quad.b - quad.c)
-#     q00 = quad.a - ray.origin
-#     q10 = quad.b - ray.origin
-#     a = dot(cross(q00, ray.direction), e00)
-#     c = dot(qn, ray.direction)
-#     b = dot(cross(q10, ray.direction), e11)
-
-#     b-= a + c
-#     det = b^2 - 4f0 * a * c
-#     if det < 0
-#         return Intersection(false)
-#     end
-#     det = sqrt(det)
-#     u1 = 0f0
-#     u2 = 0f0
-#     t = ray.tmax
-#     if (c == 0)
-#         u1 = -a/b
-#         u2 = -1f0
-#     else
-#         u1 = (-b - copysignf(det, b)) / 2f0
-#         u2 = a / u1
-#         u1 /= c
-#     end
-
-#     if (0 <= u1 && u1 <= 1)
-#         pa = linInterp(quad.a, quad.b, u1)
-#         pb = linInterp(e00, e11, u1)
-#         n = cross(ray.direction, pb)
-#         det = dot(n, n)
-#         n = cross(n, pa)
-#         t1 = dot(n, pb)
-#         v1 = dot(n, ray.direction)
-#         if (t1 > 0 && 0 <= v1 && v1 <= det)
-#             t = t1 / det
-#             u = u1
-#             v = v1 / det
-#         end
-#     end
-
-#     if (0 <= u2 && u2 <= 1)
-#         pa = linInterp(quad.a, quad.b, u2)
-#         pb = linInterp(e00, e11, u2)
-#         n = cross(ray.direction, pb)
-#         det = dot(n, n)
-#         n = cross(n, pa)
-#         t2 = dot(n, pb) / det
-#         v2 = dot(n, ray.direction)
-#         if (0 <= v2 && v2 <= det && t > t2 && t2 > 0)
-#             t = t2
-#             u = u2
-#             v = v2 / det
-#         end
-#     end
-
-# end
 
 function intersectScene(
     ray::Ray,
@@ -637,9 +585,7 @@ function intersectPrimitiveQuad(
     end
 
     isec1 = intersectPrimitiveTriangle(ray, p0, p1, p3)
-    # if (isec1.hit)
-    #     isec1 = PrimitiveIntersection(true, isec1.u, isec1.v, isec1.distance)
-    # end
+
     isec2 = intersectPrimitiveTriangle(ray, p2, p3, p1)
     if (isec2.hit)
         isec2 = PrimitiveIntersection(
@@ -708,20 +654,6 @@ end
     b_a = b - a
     (signbit(b_a) || isnan(a)) ? a : b
 end
-
-# @inline function minMax(a::SVec3f, b::SVec3f)
-#     x1 = min(a[1], b[1])
-#     x2 = min(a[2], b[2])
-#     x3 = min(a[3], b[3])
-#     return max(x1, x2, x3)
-# end
-
-# @inline function maxMin(a::SVec3f, b::SVec3f)
-#     x1 = max(a[1], b[1])
-#     x2 = max(a[2], b[2])
-#     x3 = max(a[3], b[3])
-#     return min(x1, x2, x3)
-# end
 
 function intersectScene(ray::Ray, scene::Scene)::Intersection
 
@@ -845,14 +777,19 @@ function evalTexture(
     textureX::Float32,
     textureY::Float32,
 )::SVec4f
-    if isempty(texture.image)
-        return SVec4f(0, 0, 0, 0)
+    if !isempty(texture.image)
+        sizeX, sizeY = size(texture.image)
+    elseif !isempty(texture.hdrImage)
+        (texture.hdrImage)
+        sizeX, sizeY = size(texture.hdrImage)
+    else
+        error("Texture contains no image")
     end
-    sizeX, sizeY = size(texture.image)
 
     asLinear = false
     clampToEdge = texture.clamp
-    noInterpolation = texture.nearest
+    # noInterpolation = texture.nearest
+    noInterpolation = true
     s = 0.0f0
     t = 0.0f0
 
@@ -874,7 +811,7 @@ function evalTexture(
     j::Int = clamp(Int(ceil(t)), 1, sizeY)
 
     ii::Int = (i + 1) % sizeX
-    jj::Int = (j + 1) % sizey
+    jj::Int = (j + 1) % sizeY
     u::Float32 = s - i
     v::Float32 = t - j
 
@@ -891,8 +828,15 @@ function evalTexture(
 end
 
 function lookupTexture(texture::Texture, i::Int, j::Int)::SVec4f
-    rgba = texture.image[i, j]
-    color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
+    if !isempty(texture.image)
+        rgba = texture.image[i, j]
+        color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
+    elseif !isempty(texture.hdrImage)
+        rgb = texture.hdrImage[i, j]
+        color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
+    else
+        error("Texture contains no image")
+    end
     return color
 end
 
