@@ -270,9 +270,12 @@ function splitMiddle(
 
     # split the space in the middle along the largest axis
     split = center(cbbox)[axis]
-    middle = partition!(
+    middle, primitives = partition_centers(
         primitives,
-        (primitive) -> centers[primitive][axis] < split,
+        centers,
+        split,
+        axis,
+        #(primitive) -> centers[primitive][axis] < split, I love this but it is slow!
         startIdx,
         endIdx,
     )
@@ -286,19 +289,26 @@ function splitMiddle(
 end
 
 # partitions the vector based on the value of the function
-function partition!(v::Vector{Int}, fn::Function, lo::Int, hi::Int)
-    # iswap = 1
+function partition_centers(
+    v::Vector{Int},
+    centers::Vector{SVec3f},
+    split::Float32,
+    axis::Int,
+    lo::Int,
+    hi::Int,
+)
     iswap = lo
-    # for i in eachindex(v)
+
     for i = lo:hi
-        if fn(v[i])
+        if (centers[v[i]][axis] < split)
             if iswap != i
                 v[iswap], v[i] = v[i], v[iswap]
             end
-            iswap = iswap + 1
+            iswap += 1
         end
     end
-    return iswap
+
+    return iswap, v
 end
 
 @inline function merge(minVec::SVec3f, maxVec::SVec3f, b::SVec3f)

@@ -32,6 +32,9 @@ struct Frame
     y::SVec3f
     z::SVec3f
     o::SVec3f
+
+    Frame(x, y, z, o) = new(x, y, z, o)
+    Frame(x, y, z) = new(x, y, z, SVec3f(0, 0, 0))
 end
 
 struct Mat3f

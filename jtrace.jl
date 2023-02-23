@@ -6,21 +6,20 @@ using .Types
 using .Algebra
 using .Bvh
 
-# const global shapeBvhDepth = 25
-# const global masterBvhDepth = 19
-# ↑ for ecosys, ↓ for matte
-# const global shapeBvhDepth = 20
-# const global masterBvhDepth = 3
 const global shapeBvhDepth = 25
-const global masterBvhDepth = 20
+const global masterBvhDepth = 19
+#const global shapeBvhDepth = 20
+#const global masterBvhDepth = 3
+
+# # (ceil(log2(count((n) -> !n.internal, bvh.nodes))) + 2) * 2
+# const global masterBvhDepth =
+#     ceil(log2(size(bvh.bvh.primitives, 1)) + 2) * 2
+# # ( ( [count((n) -> !n.internal, s.bvh.nodes) for s in bvh.shapes] |> max |> log2) + 1) |> ceil * 2
+# const global shapeBvhDepth =
+#     ceil(log2(max([size(s.bvh.primitives, 1) for s in bvh.shapes])) + 2) *
 
 # main entry point to the program
-function run(
-    scenePath::String,
-    shader::Function = shaderEyelight,
-    width = 1920,
-    numSamples = 2,
-)
+function run(shader::Function = shaderMaterial, width = 1920, numSamples = 2)
     # generate scene
     scene = loadJsonScene(joinpath(baseDir, scenePath))
     # return scene
@@ -39,8 +38,10 @@ function run(
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
-    for i = 1:size(image)[1], j = 1:size(image)[2]
-        rgbImage[i, j] = RGB(image[i, j]...)
+    Threads.@threads for i = 1:size(image)[1]
+        Threads.@threads for j = 1:size(image)[2]
+            rgbImage[i, j] = RGB(image[i, j]...)
+        end
     end
     save("out/prova.png", rgbImage)
 end
@@ -57,7 +58,6 @@ function traceSamples(
 )
     # camera = scene.cameras[1]
     # loop over pixels
-    # TODO: add threads
     # println("Starting creation of image...")
     for s = 1:numSamples
         Threads.@threads for i = 1:size(image)[2]
@@ -74,7 +74,8 @@ function traceSamples(
                 )
 
                 weight::Float32 = 1 / s
-                image[j, i] = linInterp(image[j, i], color, weight)
+                image[j, i] =
+                    clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
             end
         end
     end
@@ -160,9 +161,205 @@ function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     color = material.color
 
     # radiance = 0.5 .* (normal .+ 1) .* color
-    radiance::SVec3f = abs(dot(normal, outgoing)) .* color
+    radiance::SVec3f = abs(dot(normal, outgoing)) .* material.color
 
     return radiance
+end
+
+function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
+    # intersection::Intersection = intersectScene(ray, scene)
+    radiance = SVec3f(0, 0, 0)
+    maxBounce = 4
+
+    for b = 1:maxBounce
+        intersection::Intersection = intersectScene(ray, scene, bvh, false)
+
+        if !intersection.hit
+            radiance = evalEnvironment(scene, ray.direction)
+            # radiance = SVec3f(0, 0, 0)
+            return radiance
+        end
+
+        # compute normal of the point hit
+        instance::Instance = scene.instances[intersection.instanceIndex]
+        frame::Frame = instance.frame
+        shape::Shape = scene.shapes[instance.shapeIndex]
+        material::Material = scene.materials[instance.materialIndex]
+
+        radiance = material.emission
+        normal = evalNormal(shape, intersection, frame)
+
+        # do positions
+        #position = evalPosition(shape, intersection, frame)
+        outgoing = -ray.direction
+
+        if material.type == "matte"
+            incoming = sampleHemisphereCos(normal)
+            if dot(normal, incoming) * dot(normal, outgoing) <= 0
+                return SVec3f(0, 0, 0)
+            end
+            radiance += material.color / pi .* abs(dot(normal, outgoing))
+        elseif material.type == "reflective"
+            incoming = reflect(outgoing, normal)
+            if dot(normal, incoming) * dot(normal, outgoing) <= 0
+                return SVec3f(0, 0, 0)
+            end
+            up_normal = dot(normal, outgoing) <= 0 ? -normal : normal
+            halfway = normalize(incoming + outgoing)
+            F = fresnelConductor(
+                reflectivityToEta(material.color),
+                SVec3f(0, 0, 0),
+                halfway,
+                incoming,
+            )
+            D = microfacetDistribution(material.roughness, up_normal, halfway)
+            G = microfacetShadowing(
+                material.roughness,
+                up_normal,
+                halfway,
+                outgoing,
+                incoming,
+            )
+            radiance +=
+                material.color .* F .* D .* G ./
+                (4 .* dot(up_normal, outgoing) .* dot(up_normal, incoming)) .*
+                abs(dot(up_normal, incoming))
+
+            # elseif material.roughness == 0
+
+        else
+            radiance = abs(dot(normal, outgoing)) .* material.color
+        end
+
+        # radiance = 0.5 .* (normal .+ 1) .* color
+        #radiance::SVec3f = abs(dot(normal, outgoing)) .* radiance
+    end
+    return radiance
+end
+
+function reflectivityToEta(color::SVec3f)::SVec3f
+    reflectivity::SVec3f = clamp.(color, 0.0f0, 1.0f0)
+    return (1.0f0 .+ sqrt.(reflectivity)) ./ (1.0f0 .- sqrt.(reflectivity))
+end
+
+function reflect(w::SVec3f, n::SVec3f)::SVec3f
+    return w + 2.0f0 * dot(w, n) * n
+end
+
+@inline function fresnelConductor(
+    eta::SVec3f,
+    etak::SVec3f,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)::SVec3f
+    cosw::Float32 = dot(normal, outgoing)
+    if cosw <= 0
+        return SVec3f(0, 0, 0)
+    end
+    cosw = clamp(cosw, -1.0f0, 1.0f0)
+    cos2::Float32 = cosw * cosw
+    sin2::Float32 = clamp(1 - cos2, 0.0f0, 1.0f0)
+    eta2::SVec3f = eta .* eta
+    etak2::SVec3f = etak .* etak
+
+    t0::SVec3f = eta2 .- etak2 .- sin2
+    a2plusb2::SVec3f = sqrt.(t0 .* t0 .+ 4.0f0 .* eta2 .* etak2)
+    t1::SVec3f = a2plusb2 .+ cos2
+    a::SVec3f = sqrt.((a2plusb2 .+ t0) ./ 2.0f0)
+    t2::SVec3f = 2.0f0 .* a .* cosw
+    rs::SVec3f = (t1 .- t2) ./ (t1 .+ t2)
+
+    t3::SVec3f = cos2 .* a2plusb2 .+ sin2 .* sin2
+    t4::SVec3f = t2 .* sin2
+    rp::SVec3f = rs .* (t3 .- t4) ./ (t3 .+ t4)
+
+    return (rp .+ rs) ./ 2.0f0
+end
+
+@inline function microfacetDistribution(
+    roughness::Float32,
+    normal::SVec3f,
+    halfway::SVec3f,
+    ggx::Bool = true,
+)::Float32
+    cosine = dot(normal, halfway)
+    if cosine <= 0
+        return 0.0f0
+    end
+    roughness2 = roughness * roughness
+    cosine2 = cosine * cosine
+    if ggx
+        # maybe this is wrong because of the + 1 with no parentesis?
+        return roughness2 / ((pi * (cosine2 * roughness2 + 1 - cosine2)^2))
+    else
+        return exp((cosine2 - 1) / (roughness2 * cosine2)) /
+               (pi * roughness2 * cosine2 * cosine2)
+    end
+end
+
+@inline function microfacetShadowing(
+    roughness::Float32,
+    normal::SVec3f,
+    halfway::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+    ggx::Bool = true,
+)
+    return microfacetShadowing1(roughness, normal, halfway, outgoing, ggx) *
+           microfacetShadowing1(roughness, normal, halfway, incoming, ggx)
+end
+
+@inline function microfacetShadowing1(
+    roughness::Float32,
+    normal::SVec3f,
+    halfway::SVec3f,
+    direction::SVec3f,
+    ggx::Bool,
+)
+    cosine = dot(normal, direction)
+    cosineh = dot(halfway, direction)
+    if cosine * cosineh <= 0
+        return 0.0f0
+    end
+    roughness2 = roughness * roughness
+    cosine2 = cosine * cosine
+    if ggx
+        return 2 * abs(cosine) /
+               (abs(cosine) + sqrt(cosine2 - roughness2 * cosine2 + roughness2))
+    else
+        ci = abs(cosine) / (roughness * sqrt(1 - cosine2))
+        return ci < 1.6f0 ?
+               (3.535f0 * ci + 2.181f0 * ci * ci) /
+               (1.0f0 + 2.276f0 * ci + 2.577f0 * ci * ci) : 1.0f0
+    end
+end
+
+function sampleHemisphere(normal::SVec3f)::SVec3f
+    ruvx = rand()
+    z = rand()  # ruvy
+    r = sqrt(clamp(1 - z * z, 0.0f0, 1.0f0))
+    phi = 2 * pi * ruvx
+    localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
+    return transformDirection(basisFromz(normal), localDirection)
+end
+
+function sampleHemisphereCos(normal::SVec3f)::SVec3f
+    ruvx = rand()
+    z = sqrt(rand())  # ruvy
+    r = sqrt(clamp(1 - z * z, 0.0f0, 1.0f0))
+    phi = 2 * pi * ruvx
+    localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
+    return transformDirection(basisFromz(normal), localDirection)
+end
+
+function basisFromz(v::SVec3f)
+    z = normalize(v)
+    sign = copysign(1.0f0, z.z)
+    a = -1.0f0 / (sign + z.z)
+    b = z.x * z.y * a
+    x = SVec3f(1.0f0 + sign * z.x * z.x * a, sign * b, -sign * z.x)
+    y = SVec3f(b, sign + z.y * z.y * a, -z.y)
+    return Frame(x, y, z)
 end
 
 function intersectTriangle(
@@ -405,12 +602,8 @@ function intersectShapeBvh!(
 
     intersection::ShapeIntersection = ShapeIntersection(false)
 
-    rayDInv = SVec3f(
-        1.0f0 / ray.direction.x,
-        1.0f0 / ray.direction.y,
-        1.0f0 / ray.direction.z,
-    )
-    rayDSign = SVec3i(rayDInv.x < 0, rayDInv.y < 0, rayDInv.z < 0)
+    rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    rayDSign::SVec3i = rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -420,7 +613,7 @@ function intersectShapeBvh!(
 
         # grab node
         nodeCur -= 1
-        node = bvh.nodes[nodeStack[nodeCur]]
+        @inbounds node = bvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
         if !intersectBbox(ray, rayDInv, node.bbox)
@@ -445,7 +638,7 @@ function intersectShapeBvh!(
             end
         elseif !isempty(shape.triangles)
             for idx = node.start:node.start+node.num-1
-                pointAindex, pointBindex, pointCindex =
+                @inbounds pointAindex, pointBindex, pointCindex =
                     @view shape.triangles[bvh.primitives[idx], :]
 
                 @inbounds pointA = SVec3f(
@@ -485,7 +678,7 @@ function intersectShapeBvh!(
 
         elseif !isempty(shape.quads)
             for idx = node.start:node.start+node.num-1
-                pointAindex, pointBindex, pointCindex, pointDindex =
+                @inbounds pointAindex, pointBindex, pointCindex, pointDindex =
                     @view shape.quads[bvh.primitives[idx], :]
                 @inbounds pointA = SVec3f(
                     shape.positions[pointAindex, 1],
@@ -633,18 +826,28 @@ end
 end
 
 @inbounds function fastMinimum(a::SVec3f)
-    if a[1] < a[2]
-        ifelse(a[1] < a[3], a[1], a[3])
-    else
-        ifelse(a[2] < a[3], a[2], a[3])
-    end
+    ifelse(
+        a[1] < a[2],
+        ifelse(a[1] < a[3], a[1], a[3]),
+        ifelse(a[2] < a[3], a[2], a[3]),
+    )
+    # if a[1] < a[2]
+    #     ifelse(a[1] < a[3], a[1], a[3])
+    # else
+    #     ifelse(a[2] < a[3], a[2], a[3])
+    # end
 end
 @inbounds function fastMaximum(a::SVec3f)
-    if a[1] > a[2]
-        ifelse(a[1] > a[3], a[1], a[3])
-    else
-        ifelse(a[2] > a[3], a[2], a[3])
-    end
+    ifelse(
+        a[1] > a[2],
+        ifelse(a[1] > a[3], a[1], a[3]),
+        ifelse(a[2] > a[3], a[2], a[3]),
+    )
+    # if a[1] > a[2]
+    #     ifelse(a[1] > a[3], a[1], a[3])
+    # else
+    #     ifelse(a[2] > a[3], a[2], a[3])
+    # end
 end
 @inline function fastMin(a::Float32, b::Float32)
     a_b = a - b

@@ -262,6 +262,25 @@ end
 end
 
 @inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
+    if isnan(a.x)
+        a = SVec3f(0, a.y, a.z)
+    end
+    if isnan(a.y)
+        a = SVec3f(a.x, 0, a.z)
+    end
+    if isnan(a.z)
+        a = SVec3f(a.x, a.y, 0)
+    end
+    if isnan(b.x)
+        b = SVec3f(0, b.y, b.z)
+    end
+    if isnan(b.y)
+        b = SVec3f(b.x, 0, b.z)
+    end
+    if isnan(b.z)
+        b = SVec3f(b.x, b.y, 0)
+    end
+
     return a * (1 - weight) + b * weight
 end
 
