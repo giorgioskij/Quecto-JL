@@ -3,8 +3,8 @@ using PlyIO
 using .Types
 using Images
 
-function loadJsonScene(filename::String)
-    json = JSON.parsefile(filename)
+function loadJsonScene(scenePath::String)
+    json = JSON.parsefile(scenePath)
 
     # if haskey(json, "asset")
     #     element = json["asset"]
@@ -50,6 +50,7 @@ function loadJsonScene(filename::String)
             textureFilenames[i] = element["uri"]
             textures[i] = Texture(
                 defaultTexture.image,
+                defaultTexture.hdrImage,
                 get(element, "linear", defaultTexture.linear),
                 get(element, "nearest", defaultTexture.nearest),
                 get(element, "clamp", defaultTexture.clamp),
@@ -75,11 +76,11 @@ function loadJsonScene(filename::String)
                 get(element, "scattering", defaultMaterial.scattering),
                 get(element, "scanisotropy", defaultMaterial.scanisotropy),
                 get(element, "opacity", defaultMaterial.opacity),
-                get(element, "emission_tex", defaultMaterial.emissionTex),
-                get(element, "color_tex", defaultMaterial.colorTex),
-                get(element, "roughness_tex", defaultMaterial.roughnessTex),
-                get(element, "scatterin_tex", defaultMaterial.scatteringTex),
-                get(element, "normal_tex", defaultMaterial.normalTex),
+                get(element, "emission_tex", defaultMaterial.emissionTex) + 1,
+                get(element, "color_tex", defaultMaterial.colorTex) + 1,
+                get(element, "roughness_tex", defaultMaterial.roughnessTex) + 1,
+                get(element, "scatterin_tex", defaultMaterial.scatteringTex) + 1,
+                get(element, "normal_tex", defaultMaterial.normalTex) + 1,
             )
             materials[i] = material
         end
@@ -121,22 +122,22 @@ function loadJsonScene(filename::String)
 
     # ENVIRONMENTS
     environments = Vector{Environment}(undef, 0)
-    # if haskey(json, "environments")
-    #     group = json["environments"]
-    #     environments = Vector{Environment}(undef, size(group, 1))
+    if haskey(json, "environments")
+        group = json["environments"]
+        environments = Vector{Environment}(undef, size(group, 1))
 
-    #     defaultEnvironment = Environment()
-    #     for (i, element) in enumerate(group)
-    #         f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
-    #         frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
+        defaultEnv = Environment()
+        for (i, element) in enumerate(group)
+            f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
+            frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
-    #         environments[i] = Environment(
-    #             frame,
-    #             get(element, "emission", defaultEnvironment.emission),
-    #             get(element, "emission_tex", defaultEnvironment.emissionTex),
-    #         )
-    #     end
-    # end
+            environments[i] = Environment(
+                frame,
+                get(element, "emission", defaultEnv.emission),
+                get(element, "emission_tex", defaultEnv.emissionTex) + 1,
+            )
+        end
+    end
 
     # LOAD RESOURCES
 
@@ -149,24 +150,29 @@ function loadJsonScene(filename::String)
     end
 
     # load textures
-    # for (i, filename) in enumerate(textureFilenames)
-    #     path = (dirname(scenePath), filename) |> joinpath
+    for (i, filename) in enumerate(textureFilenames)
+        path = (dirname(scenePath), filename) |> joinpath
 
-    #     # check that extension is png
-    #     extension = path[findlast(==('.'), path)+1:end]
-    #     if extension != "png"
-    #         error("only png textures for now!")
-    #     end
+        # check that extension is png
+        extension = path[findlast(==('.'), path)+1:end]
+        if extension == "png"
+            image::Matrix{RGBA{N0f8}} = loadTexturePng(path)
+            hdrImage = Matrix{RGB{N0f16}}(undef, 0, 0)
+        elseif extension == "hdr"
+            hdrImage::Matrix{RGB{N0f16}} = loadTextureHdr(path)
+            image = Matrix{RGB{N0f8}}(undef, 0, 0)
+        else
+            error("only png textures for now!")
+        end
 
-    #     image::Matrix{RGBA{N0f8}} = loadTexturePng(path)
-
-    #     textures[i] = Texture(
-    #         image,
-    #         textures[i].linear,
-    #         textures[i].nearest,
-    #         textures[i].clamp,
-    #     )
-    # end
+        textures[i] = Texture(
+            image,
+            hdrImage,
+            textures[i].linear,
+            textures[i].nearest,
+            textures[i].clamp,
+        )
+    end
 
     # ignore load subdivs
 
@@ -175,8 +181,14 @@ function loadJsonScene(filename::String)
     return scene
 end
 
-# loads a texture image. only png for now
+# loads a texture image in png format
 function loadTexturePng(filename::String)::Matrix{RGBA{N0f8}}
+    image = load(filename)
+    return image
+end
+
+# loads a texture image in hdr format
+function loadTextureHdr(filename::String)::Matrix{RGB{N0f16}}
     image = load(filename)
     return image
 end
