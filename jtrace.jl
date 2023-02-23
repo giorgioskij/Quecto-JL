@@ -6,10 +6,10 @@ using .Types
 using .Algebra
 using .Bvh
 
-# const global shapeBvhDepth = 25
-# const global masterBvhDepth = 19
-const global shapeBvhDepth = 20
-const global masterBvhDepth = 3
+const global shapeBvhDepth = 25
+const global masterBvhDepth = 19
+#const global shapeBvhDepth = 20
+#const global masterBvhDepth = 3
 
 # # (ceil(log2(count((n) -> !n.internal, bvh.nodes))) + 2) * 2
 # const global masterBvhDepth =
@@ -40,8 +40,10 @@ function run(
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
-    for i = 1:size(image)[1], j = 1:size(image)[2]
-        rgbImage[i, j] = RGB(image[i, j]...)
+    Threads.@threads for i = 1:size(image)[1]
+        Threads.@threads for j = 1:size(image)[2]
+            rgbImage[i, j] = RGB(image[i, j]...)
+        end
     end
     save("out/prova.png", rgbImage)
 end
@@ -49,7 +51,6 @@ end
 function traceSamples(shader, image, scene, imwidth, imheight, numSamples, bvh)
     camera = scene.cameras[1]
     # loop over pixels
-    # TODO: add threads
     # println("Starting creation of image...")
     for s = 1:numSamples
         Threads.@threads for i = 1:size(image)[2]
@@ -457,12 +458,8 @@ function intersectShapeBvh!(
 
     intersection::ShapeIntersection = ShapeIntersection(false)
 
-    rayDInv = SVec3f(
-        1.0f0 / ray.direction.x,
-        1.0f0 / ray.direction.y,
-        1.0f0 / ray.direction.z,
-    )
-    rayDSign = SVec3i(rayDInv.x < 0, rayDInv.y < 0, rayDInv.z < 0)
+    rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    rayDSign::SVec3i = rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -472,7 +469,7 @@ function intersectShapeBvh!(
 
         # grab node
         nodeCur -= 1
-        node = bvh.nodes[nodeStack[nodeCur]]
+        @inbounds node = bvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
         if !intersectBbox(ray, rayDInv, node.bbox)
@@ -497,7 +494,7 @@ function intersectShapeBvh!(
             end
         elseif !isempty(shape.triangles)
             for idx = node.start:node.start+node.num-1
-                pointAindex, pointBindex, pointCindex =
+                @inbounds pointAindex, pointBindex, pointCindex =
                     @view shape.triangles[bvh.primitives[idx], :]
 
                 @inbounds pointA = SVec3f(
@@ -537,7 +534,7 @@ function intersectShapeBvh!(
 
         elseif !isempty(shape.quads)
             for idx = node.start:node.start+node.num-1
-                pointAindex, pointBindex, pointCindex, pointDindex =
+                @inbounds pointAindex, pointBindex, pointCindex, pointDindex =
                     @view shape.quads[bvh.primitives[idx], :]
                 @inbounds pointA = SVec3f(
                     shape.positions[pointAindex, 1],
@@ -687,18 +684,28 @@ end
 end
 
 @inbounds function fastMinimum(a::SVec3f)
-    if a[1] < a[2]
-        ifelse(a[1] < a[3], a[1], a[3])
-    else
-        ifelse(a[2] < a[3], a[2], a[3])
-    end
+    ifelse(
+        a[1] < a[2],
+        ifelse(a[1] < a[3], a[1], a[3]),
+        ifelse(a[2] < a[3], a[2], a[3]),
+    )
+    # if a[1] < a[2]
+    #     ifelse(a[1] < a[3], a[1], a[3])
+    # else
+    #     ifelse(a[2] < a[3], a[2], a[3])
+    # end
 end
 @inbounds function fastMaximum(a::SVec3f)
-    if a[1] > a[2]
-        ifelse(a[1] > a[3], a[1], a[3])
-    else
-        ifelse(a[2] > a[3], a[2], a[3])
-    end
+    ifelse(
+        a[1] > a[2],
+        ifelse(a[1] > a[3], a[1], a[3]),
+        ifelse(a[2] > a[3], a[2], a[3]),
+    )
+    # if a[1] > a[2]
+    #     ifelse(a[1] > a[3], a[1], a[3])
+    # else
+    #     ifelse(a[2] > a[3], a[2], a[3])
+    # end
 end
 @inline function fastMin(a::Float32, b::Float32)
     a_b = a - b

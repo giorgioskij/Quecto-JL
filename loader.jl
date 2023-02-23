@@ -233,11 +233,11 @@ function loadShape(filename::String)
     if quadCount > 0
         triangles = Matrix{Int64}(undef, 0, 0)
         quads = Matrix{Int64}(undef, quadCount + triCount, 4)
-        for (i, elem) in enumerate(eachrow(faces))
+        Threads.@threads for (i, elem) in collect(enumerate(eachrow(faces)))
             elem = elem[1]
             if size(elem)[end] == 4
                 quads[i, :] = transpose(elem)
-            else # create fake quad
+            else # create fake quad from triangle
                 quads[i, :] = [elem[1], elem[2], elem[3], elem[3]]
             end
         end
@@ -246,7 +246,7 @@ function loadShape(filename::String)
     elseif triCount > 0
         quads = Matrix{Int64}(undef, 0, 0)
         triangles = Matrix{Int64}(undef, triCount, 3)
-        for (i, elem) in enumerate(eachrow(faces))
+        Threads.@threads for (i, elem) in collect(enumerate(eachrow(faces)))
             elem = elem[1]
             triangles[i, :] = transpose(elem)
         end
@@ -255,21 +255,6 @@ function loadShape(filename::String)
     else
         error("Zero triangles and zero quads. What?")
     end
-
-    # triCounter = 1
-    # quadCounter = 1
-    # for elem in eachrow(faces)
-    #     elem = elem[1]
-    #     if size(elem)[end] == 4
-    #         quads[quadCounter, :] = transpose(elem)
-    #         quadCounter += 1
-    #     elseif size(elem)[end] == 3
-    #         triangles[triCounter, :] = transpose(elem)
-    #         triCounter += 1
-    #     else
-    #         throw(MissingException("Only implemented triangles and quads"))
-    #     end
-    # end
 
     # create shape
     return Shape(triangles, quads, positions, normals, textureCoords)
