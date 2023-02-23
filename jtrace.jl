@@ -191,30 +191,47 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
             end
             radiance += material.color / pi .* abs(dot(normal, outgoing))
         elseif material.type == "reflective"
-            incoming = reflect(outgoing, normal)
-            if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                return SVec3f(0, 0, 0)
+            if material.roughness == 0
+                incoming = reflect(outgoing, normal)
+                # if dot(normal, incoming) * dot(normal, outgoing) <= 0
+                #     return SVec3f(0, 0, 0)
+                # end
+                radiance +=
+                    material.color .*
+                    fresnelSchlick(material.color, normal, incoming)
+            else
+                exponent = 2 / material.roughness^2
+                halfway = sampleHemisphereCosPower(exponent, normal)
+                incoming = reflect(outgoing, halfway)
+                if dot(normal, incoming) * dot(normal, outgoing) <= 0
+                    return SVec3f(0, 0, 0)
+                end
+                up_normal = dot(normal, outgoing) <= 0 ? -normal : normal
+                halfway = normalize(incoming + outgoing)
+                F = fresnelConductor(
+                    reflectivityToEta(material.color),
+                    SVec3f(0, 0, 0),
+                    halfway,
+                    incoming,
+                )
+                D = microfacetDistribution(
+                    material.roughness,
+                    up_normal,
+                    halfway,
+                )
+                G = microfacetShadowing(
+                    material.roughness,
+                    up_normal,
+                    halfway,
+                    outgoing,
+                    incoming,
+                )
+                radiance +=
+                    material.color .* F .* D .* G ./ (
+                        4 .* dot(up_normal, outgoing) .*
+                        dot(up_normal, incoming)
+                    ) .* abs(dot(up_normal, incoming))
             end
-            up_normal = dot(normal, outgoing) <= 0 ? -normal : normal
-            halfway = normalize(incoming + outgoing)
-            F = fresnelConductor(
-                reflectivityToEta(material.color),
-                SVec3f(0, 0, 0),
-                halfway,
-                incoming,
-            )
-            D = microfacetDistribution(material.roughness, up_normal, halfway)
-            G = microfacetShadowing(
-                material.roughness,
-                up_normal,
-                halfway,
-                outgoing,
-                incoming,
-            )
-            radiance +=
-                material.color .* F .* D .* G ./
-                (4 .* dot(up_normal, outgoing) .* dot(up_normal, incoming)) .*
-                abs(dot(up_normal, incoming))
 
             # elseif material.roughness == 0
 
@@ -228,12 +245,25 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     return radiance
 end
 
-function reflectivityToEta(color::SVec3f)::SVec3f
+@inline function fresnelSchlick(
+    specular::SVec3f,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)::SVec3f
+    if specular == SVec3f(0, 0, 0)
+        return SVec3f(0, 0, 0)
+    end
+    cosine = dot(normal, outgoing)
+    specular .+
+    (1.0f0 .- specular) .* clamp(1.0f0 .- abs(cosine), 0.0f0, 1.0f0)^5.0f0
+end
+
+@inline function reflectivityToEta(color::SVec3f)::SVec3f
     reflectivity::SVec3f = clamp.(color, 0.0f0, 1.0f0)
     return (1.0f0 .+ sqrt.(reflectivity)) ./ (1.0f0 .- sqrt.(reflectivity))
 end
 
-function reflect(w::SVec3f, n::SVec3f)::SVec3f
+@inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
     return w + 2.0f0 * dot(w, n) * n
 end
 
@@ -319,9 +349,12 @@ end
                (abs(cosine) + sqrt(cosine2 - roughness2 * cosine2 + roughness2))
     else
         ci = abs(cosine) / (roughness * sqrt(1 - cosine2))
-        return ci < 1.6f0 ?
-               (3.535f0 * ci + 2.181f0 * ci * ci) /
-               (1.0f0 + 2.276f0 * ci + 2.577f0 * ci * ci) : 1.0f0
+        return ifelse(
+            ci < 1.6f0,
+            (3.535f0 * ci + 2.181f0 * ci * ci) /
+            (1.0f0 + 2.276f0 * ci + 2.577f0 * ci * ci),
+            1.0f0,
+        )
     end
 end
 
@@ -337,8 +370,21 @@ end
 function sampleHemisphereCos(normal::SVec3f)::SVec3f
     ruvx = rand()
     z = sqrt(rand())  # ruvy
-    r = sqrt(clamp(1 - z * z, 0.0f0, 1.0f0))
+    r = sqrt(1 - z * z) # maybe clamp here?
     phi = 2 * pi * ruvx
+    localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
+    return transformDirection(basisFromz(normal), localDirection)
+end
+
+@inline function sampleHemisphereCosPower(
+    exponent::Float32,
+    normal::SVec3f,
+)::SVec3f
+    ruxy = rand()
+    ruvy = rand()
+    z = ruvy^(1.0f0 / (exponent + 1.0f0))
+    r = sqrt(1.0f0 - z * z)
+    phi = 2.0f0 * pi * ruxy
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
 end
