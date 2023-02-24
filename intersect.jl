@@ -5,11 +5,15 @@ using ..Types
 using ..Bvh
 using ..Algebra
 using ..World
+import ..Jtrace
 
 export Intersection, ShapeIntersection, PrimitiveIntersection, intersectScene
 
-const global shapeBvhDepth = 30
-const global masterBvhDepth = 19
+const global shapeBvhDepth = 128
+const global masterBvhDepth = 128
+const global nthreads = Threads.nthreads()
+const global masterNodeStack = MVector{masterBvhDepth * nthreads,UInt32}(undef)
+const global shapeNodeStack = MVector{shapeBvhDepth * nthreads,UInt32}(undef)
 
 # intersection of a ray with a shape
 struct ShapeIntersection
@@ -63,11 +67,15 @@ function intersectScene(
 
     # node stack
     nodeCur = 1
-    nodeStack = MVector{masterBvhDepth,UInt32}(undef)
 
-    # this is kinda esoteric optimization, be careful with side effects
-    # lets pre allocate this guys to pass to the calls of intersectShapeBvh
-    preallocatedNodeStackForMySon = MVector{shapeBvhDepth,UInt32}(undef)
+    # nodeStack = MVector{masterBvhDepth,UInt32}(undef)
+    # preallocatedNodeStackForMySon = MVector{shapeBvhDepth,UInt32}(undef)
+
+    # PERFORMANCE: for multithreaded global buffer
+    threadid::UInt8 = Threads.threadid()
+    startindex = (threadid - 1) * masterBvhDepth + 1
+    endindex = startindex + masterBvhDepth - 1
+    nodeStack = @view masterNodeStack[startindex:endindex]
 
     nodeStack[nodeCur] = 1
     nodeCur += 1
@@ -119,7 +127,8 @@ function intersectScene(
                     scene.shapes[instance.shapeIndex],
                     invRay,
                     findAny,
-                    preallocatedNodeStackForMySon,
+                    threadid,
+                    # preallocatedNodeStackForMySon,
                 )
                 if (!sIntersection.hit)
                     continue
@@ -154,7 +163,8 @@ function intersectShapeBvh!(
     shape::Shape,
     ray::Ray,
     findAny::Bool,
-    nodeStack::MVector, # this is passed to avoid multiple initializations
+    # nodeStack::MVector, # this is passed to avoid multiple initializations
+    threadid::UInt8,
 )::ShapeIntersection
     bvh = shapeBvh.bvh
 
@@ -162,6 +172,11 @@ function intersectShapeBvh!(
     if isempty(bvh.nodes)
         return ShapeIntersection(false)
     end
+
+    # PERFORMANCE: for multithreaded global buffer
+    startindex = (threadid - 1) * shapeBvhDepth + 1
+    endindex = startindex + shapeBvhDepth - 1
+    nodeStack = @view shapeNodeStack[startindex:endindex]
 
     nodeCur = 1
     nodeStack[nodeCur] = 1
