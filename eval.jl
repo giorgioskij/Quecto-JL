@@ -12,7 +12,11 @@ export evalNormal,
     evalTexcoord,
     evalShadingPosition
 
-function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
+function evalNormal(
+    shape::Shape,
+    intersection::Intersection,
+    frame::Frame,
+)::SVec3f
     if isempty(shape.normals)
         return computeNormal(shape, intersection, frame)
     end
@@ -24,7 +28,7 @@ function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
         normalA = SVec3f(@view shape.normals[indexA, :])
         normalB = SVec3f(@view shape.normals[indexB, :])
         normalC = SVec3f(@view shape.normals[indexC, :])
-        return transformNormal(
+        normal = transformNormal(
             frame,
             norm(
                 interpolateTriangle(
@@ -36,6 +40,8 @@ function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
                 ),
             ),
         )
+        # TODO normalmap
+        # TODO refractive material
 
     elseif !isempty(shape.quads)
         indexA, indexB, indexC, indexD =
@@ -58,6 +64,9 @@ function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
                 ),
             ),
         )
+
+        # TODO normalmap
+        # TODO refractive material
     else
         error("Only triangles and quads right now")
     end

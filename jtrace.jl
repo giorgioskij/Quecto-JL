@@ -38,7 +38,9 @@ function trace(scenePath::String, width = 1920, numSamples = 2)
     # generate empty starting image
     image = zeros(SVec3f, height, width)
 
-    shader = shaderEyelight
+    #shader = shaderEyelight
+    #shader = shaderMaterial
+    shader = shaderNormal
 
     # call the function to trace samples
     traceSamples(shader, image, scene, width, height, numSamples, bvh, camera)

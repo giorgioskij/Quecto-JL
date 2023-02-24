@@ -5,6 +5,7 @@ using ..Intersect
 using ..Eval
 using ..Bvh
 using ..Types
+using ..Algebra
 
 using StaticArrays: dot
 
@@ -30,10 +31,10 @@ function shaderNormal(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     # intersection::Intersection = intersectScene(ray, scene)
     intersection::Intersection = intersectScene(ray, scene, bvh, false)
 
-    if !intersection.hit
-        radiance = evalEnvironment(scene, ray.direction)
-        return radiance
-    end
+    # if !intersection.hit
+    #     radiance = evalEnvironment(scene, ray.direction)
+    #     return radiance
+    # end
 
     # compute normal of the point hit
     instance::Instance = scene.instances[intersection.instanceIndex]
@@ -77,7 +78,8 @@ end
 function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     # intersection::Intersection = intersectScene(ray, scene)
     radiance = SVec3f(0, 0, 0)
-    maxBounce = 2
+    maxBounce = 1
+    weight::Float32 = 1.0f0 / maxBounce
     newRay = ray
 
     for b = 1:maxBounce
@@ -85,7 +87,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         if !intersection.hit
             radiance = evalEnvironment(scene, newRay.direction)
-            return radiance
+            return weight * radiance
         end
 
         # compute normal of the point hit
@@ -94,36 +96,46 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         shape::Shape = scene.shapes[instance.shapeIndex]
         material::Material = scene.materials[instance.materialIndex]
 
-        outgoing = -newRay.direction
+        outgoing = -ray.direction
         position = evalShadingPosition(scene, intersection, outgoing)
         normal = evalNormal(shape, intersection, frame)
         materialColor = evalMaterialColor(scene, intersection)
 
-        radiance = material.emission
+        radiance =
+            evalEmission(material, normal, outgoing) .* weight .* materialColor
 
         if material.type == "matte"
             incoming = sampleHemisphereCos(normal)
-            if dot(normal, incoming) * dot(normal, outgoing) > 0
-                radiance += materialColor / pi .* abs(dot(normal, outgoing))
+            if incoming == SVec3f(0, 0, 0)
+                break
             end
+            #if dot(normal, incoming) * dot(normal, outgoing) > 0
+            radiance = linInterp(
+                radiance,
+                radiance / pi .* abs(dot(normal, incoming)),
+                weight,
+            )
+            #end
         elseif material.type == "reflective"
             if material.roughness == 0
                 incoming = reflect(outgoing, normal)
                 if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                    return radiance
+                    return weight * radiance
                 end
-                radiance +=
-                    materialColor .*
-                    fresnelSchlick(materialColor, normal, incoming)
+                radiance = linInterp(
+                    radiance,
+                    radiance .* fresnelSchlick(materialColor, normal, incoming),
+                    weight,
+                )
             else
-                exponent = 2 / material.roughness^2
+                exponent = 2.0f0 / material.roughness^2
                 halfway = sampleHemisphereCosPower(exponent, normal)
                 incoming = reflect(outgoing, halfway)
                 if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                    return radiance
+                    return weight * radiance
                 end
                 up_normal = dot(normal, outgoing) <= 0 ? -normal : normal
-                halfway = normalize(incoming + outgoing)
+                halfway = norm(incoming + outgoing)
                 F = fresnelConductor(
                     reflectivityToEta(materialColor),
                     SVec3f(0, 0, 0),
@@ -142,19 +154,29 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                     outgoing,
                     incoming,
                 )
-                radiance +=
-                    materialColor .* F .* D .* G ./ (
+                radiance = linInterp(
+                    radiance,
+                    radiance .* F .* D .* G ./ (
                         4 .* dot(up_normal, outgoing) .*
                         dot(up_normal, incoming)
-                    ) .* abs(dot(up_normal, incoming))
+                    ) .* abs(dot(up_normal, incoming)),
+                    weight,
+                )
             end
             # elseif material.roughness == 0
 
         else
             incoming = sampleHemisphereCos(normal)
-            if dot(normal, incoming) * dot(normal, outgoing) > 0
-                radiance += materialColor / pi .* abs(dot(normal, incoming))
+            if incoming == SVec3f(0, 0, 0)
+                break
             end
+            #if dot(normal, incoming) * dot(normal, outgoing) > 0
+            radiance = linInterp(
+                radiance,
+                materialColor / pi .* abs(dot(normal, incoming)),
+                weight,
+            )
+            #end
         end
 
         newRay = Ray(position, incoming)
@@ -163,6 +185,14 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         #radiance::SVec3f = abs(dot(normal, outgoing)) .* radiance
     end
     return radiance
+end
+
+@inline function evalEmission(
+    material::Material,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)
+    ifelse(dot(normal, outgoing) >= 0, material.emission, SVec3f(0, 0, 0))
 end
 
 @inline function fresnelSchlick(
@@ -290,7 +320,7 @@ end
 function sampleHemisphereCos(normal::SVec3f)::SVec3f
     ruvx = rand()
     z = sqrt(rand())  # ruvy
-    r = sqrt(1 - z * z) # maybe clamp here?
+    r = sqrt(1 - z * z)
     phi = 2 * pi * ruvx
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
@@ -310,7 +340,7 @@ end
 end
 
 @inline function basisFromz(v::SVec3f)
-    z = normalize(v)
+    z = norm(v)
     sign = copysign(1.0f0, z.z)
     a = -1.0f0 / (sign + z.z)
     b = z.x * z.y * a

@@ -23,7 +23,7 @@ export transformNormal,
     xyz,
     transformRay
 
-@inline function transformNormal(frame::Frame, v::SVec3f)
+@inline function transformNormal(frame::Frame, v::SVec3f)::SVec3f
     return norm(transformVector(frame, v))
 end
 
