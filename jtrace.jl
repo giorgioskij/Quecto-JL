@@ -6,7 +6,7 @@ using .Types
 using .Algebra
 using .Bvh
 
-const global shapeBvhDepth = 25
+const global shapeBvhDepth = 30
 const global masterBvhDepth = 19
 #const global shapeBvhDepth = 20
 #const global masterBvhDepth = 3
@@ -161,21 +161,8 @@ function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     outgoing = -ray.direction
 
     materialColor = evalMaterialColor(scene, intersection)
-    # if materialColor.x != materialColor.y && materialColor.y != materialColor.z
-    #     @show radiance
-    #     @show materialColor
-    #     error("ok all different")
-    # end
 
-    # radiance = 0.5 .* (normal .+ 1) .* color
     radiance::SVec3f = abs(dot(normal, outgoing)) .* materialColor
-    # radiance = materialColor
-
-    # if radiance.x == radiance.y && radiance.y == radiance.z
-    #     @show radiance
-    #     @show materialColor
-    #     error("what the fudge")
-    # end
 
     return radiance
 end
@@ -188,17 +175,10 @@ function evalMaterialColor(scene::Scene, intersection::Intersection)::SVec3f
     v::Float32 = intersection.v
 
     textureU, textureV = evalTexcoord(scene, instance, elementIndex, u, v)
-    # @show u
-    # @show v
 
     colorTexture = evalTexture(scene, material.colorTex, textureU, textureV)
-    # @show colorTexture
 
-    # println("before")
     pointColor = material.color .* xyz(colorTexture)
-    # println("Heyrpqawoeropasdfajsd;ljfal;skdgjopasdijgasdf")
-    # @show pointColor
-    # error("hold up")
 
     return pointColor
 end
@@ -239,17 +219,70 @@ function evalTexcoord(
     end
 end
 
+function evalShadingPosition(
+    scene::Scene,
+    intersection::Intersection,
+    outgoing::SVec3f,
+)::SVec3f
+    instance = scene.instances[intersection.instanceIndex]
+    element = intersection.elementIndex
+    u = intersection.u
+    v = intersection.v
+    shape = scene.shapes[instance.shapeIndex]
+    if (!isempty(shape.triangles) || !isempty(shape.quads))
+        return evalPosition(scene, instance, element, u, v)
+    end
+end
+
+function evalPosition(
+    scene::Scene,
+    instance::Instance,
+    element::Int,
+    u::Float32,
+    v::Float32,
+)
+    shape = scene.shapes[instance.shapeIndex]
+    if !isempty(shape.triangles)
+        t1, t2, t3 = @view shape.triangles[element, :]
+        return transformPoint(
+            instance.frame,
+            interpolateTriangle(
+                SVec3f(@view shape.positions[t1, :]),
+                SVec3f(@view shape.positions[t2, :]),
+                SVec3f(@view shape.positions[t3, :]),
+                u,
+                v,
+            ),
+        )
+    elseif !isempty(shape.quads)
+        q1, q2, q3, q4 = @view shape.quads[element, :]
+        return transformPoint(
+            instance.frame,
+            interpolateQuad(
+                SVec3f(@view shape.positions[q1, :]),
+                SVec3f(@view shape.positions[q2, :]),
+                SVec3f(@view shape.positions[q3, :]),
+                SVec3f(@view shape.positions[q4, :]),
+                u,
+                v,
+            ),
+        )
+    else
+        error("No triangles or quads in this shape")
+    end
+end
+
 function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     # intersection::Intersection = intersectScene(ray, scene)
     radiance = SVec3f(0, 0, 0)
-    maxBounce = 4
+    maxBounce = 2
+    newRay = ray
 
     for b = 1:maxBounce
-        intersection::Intersection = intersectScene(ray, scene, bvh, false)
+        intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
-            radiance = evalEnvironment(scene, ray.direction)
-            # radiance = SVec3f(0, 0, 0)
+            radiance = evalEnvironment(scene, newRay.direction)
             return radiance
         end
 
@@ -259,39 +292,38 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         shape::Shape = scene.shapes[instance.shapeIndex]
         material::Material = scene.materials[instance.materialIndex]
 
-        radiance = material.emission
+        outgoing = -newRay.direction
+        position = evalShadingPosition(scene, intersection, outgoing)
         normal = evalNormal(shape, intersection, frame)
+        materialColor = evalMaterialColor(scene, intersection)
 
-        # do positions
-        #position = evalPosition(shape, intersection, frame)
-        outgoing = -ray.direction
+        radiance = material.emission
 
         if material.type == "matte"
             incoming = sampleHemisphereCos(normal)
-            if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                return SVec3f(0, 0, 0)
+            if dot(normal, incoming) * dot(normal, outgoing) > 0
+                radiance += materialColor / pi .* abs(dot(normal, outgoing))
             end
-            radiance += material.color / pi .* abs(dot(normal, outgoing))
         elseif material.type == "reflective"
             if material.roughness == 0
                 incoming = reflect(outgoing, normal)
-                # if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                #     return SVec3f(0, 0, 0)
-                # end
+                if dot(normal, incoming) * dot(normal, outgoing) <= 0
+                    return radiance
+                end
                 radiance +=
-                    material.color .*
-                    fresnelSchlick(material.color, normal, incoming)
+                    materialColor .*
+                    fresnelSchlick(materialColor, normal, incoming)
             else
                 exponent = 2 / material.roughness^2
                 halfway = sampleHemisphereCosPower(exponent, normal)
                 incoming = reflect(outgoing, halfway)
                 if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                    return SVec3f(0, 0, 0)
+                    return radiance
                 end
                 up_normal = dot(normal, outgoing) <= 0 ? -normal : normal
                 halfway = normalize(incoming + outgoing)
                 F = fresnelConductor(
-                    reflectivityToEta(material.color),
+                    reflectivityToEta(materialColor),
                     SVec3f(0, 0, 0),
                     halfway,
                     incoming,
@@ -309,17 +341,21 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                     incoming,
                 )
                 radiance +=
-                    material.color .* F .* D .* G ./ (
+                    materialColor .* F .* D .* G ./ (
                         4 .* dot(up_normal, outgoing) .*
                         dot(up_normal, incoming)
                     ) .* abs(dot(up_normal, incoming))
             end
-
             # elseif material.roughness == 0
 
         else
-            radiance = abs(dot(normal, outgoing)) .* material.color
+            incoming = sampleHemisphereCos(normal)
+            if dot(normal, incoming) * dot(normal, outgoing) > 0
+                radiance += materialColor / pi .* abs(dot(normal, incoming))
+            end
         end
+
+        newRay = Ray(position, incoming)
 
         # radiance = 0.5 .* (normal .+ 1) .* color
         #radiance::SVec3f = abs(dot(normal, outgoing)) .* radiance
@@ -346,7 +382,7 @@ end
 end
 
 @inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
-    return w + 2.0f0 * dot(w, n) * n
+    return -w + 2.0f0 * dot(w, n) * n
 end
 
 @inline function fresnelConductor(
@@ -1080,7 +1116,7 @@ function evalTexture(
     textureX::Float32,
     textureY::Float32,
 )::SVec4f
-    if textureIdx == -1
+    if textureIdx == -1 || textureIdx == 0
         return SVec4f(1, 1, 1, 1)
     end
 
@@ -1110,14 +1146,14 @@ function evalTexture(
     t = 0.0f0
 
     if clampToEdge
-        s = clamp(textureX, 0, 1) * sizeX
-        t = clamp(textureY, 0, 1) * sizeY
+        s = clamp(textureX, 0, 1.0f0) * sizeX
+        t = clamp(textureY, 0, 1.0f0) * sizeY
     else
-        s = rem(textureX, 1) * sizeX
+        s = rem(textureX, 1.0f0) * sizeX
         if (s <= 0)
             s += sizeX
         end
-        t = rem(textureY, 1) * sizeY
+        t = rem(textureY, 1.0f0) * sizeY
         if (t <= 0)
             t += sizeY
         end
