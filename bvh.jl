@@ -3,6 +3,7 @@
 module Bvh
 export makeSceneBvh, SceneBvh, ShapeBvh, Bbox3f
 using ..Types
+using ..World
 using ..Algebra
 
 struct Bbox3f

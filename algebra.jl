@@ -4,12 +4,7 @@ using StaticArrays
 using StaticArrays: cross, dot
 using ..Types
 
-export evalNormal,
-    evalNormalTriangle,
-    evalNormalQuad,
-    computeNormal,
-    interpolateNormal,
-    transformNormal,
+export transformNormal,
     interpolateTriangle,
     interpolateQuad,
     norm,
@@ -27,185 +22,6 @@ export evalNormal,
     matMulVec,
     xyz,
     transformRay
-
-function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
-    if isempty(shape.normals)
-        return computeNormal(shape, intersection, frame)
-    end
-
-    if !isempty(shape.triangles)
-        (indexA, indexB, indexC) =
-            @view shape.triangles[intersection.elementIndex, :]
-
-        normalA = SVec3f(@view shape.normals[indexA, :])
-        normalB = SVec3f(@view shape.normals[indexB, :])
-        normalC = SVec3f(@view shape.normals[indexC, :])
-        return transformNormal(
-            frame,
-            norm(
-                interpolateTriangle(
-                    normalA,
-                    normalB,
-                    normalC,
-                    intersection.u,
-                    intersection.v,
-                ),
-            ),
-        )
-
-    elseif !isempty(shape.quads)
-        indexA, indexB, indexC, indexD =
-            @view shape.quads[intersection.elementIndex, :]
-
-        normalA = SVec3f(@view shape.normals[indexA, :])
-        normalB = SVec3f(@view shape.normals[indexB, :])
-        normalC = SVec3f(@view shape.normals[indexC, :])
-        normalD = SVec3f(@view shape.normals[indexD, :])
-        return transformNormal(
-            frame,
-            norm(
-                interpolateQuad(
-                    normalA,
-                    normalB,
-                    normalC,
-                    normalD,
-                    intersection.u,
-                    intersection.v,
-                ),
-            ),
-        )
-    else
-        error("Only triangles and quads right now")
-    end
-end
-
-function computeNormal(shape::Shape, intersection::Intersection, frame::Frame)
-    if !isempty(shape.triangles)
-        (indexA, indexB, indexC) =
-            @view shape.triangles[intersection.elementIndex, :]
-        pointA = SVec3f(@view shape.positions[indexA, :])
-        pointB = SVec3f(@view shape.positions[indexB, :])
-        pointC = SVec3f(@view shape.positions[indexC, :])
-        return transformNormal(
-            frame,
-            computeTriangleNormal(pointA, pointB, pointC),
-        )
-    elseif !isempty(shape.quads)
-        indexA, indexB, indexC, indexD =
-            @view shape.quads[intersection.elementIndex, :]
-        pointA = SVec3f(@view shape.positions[indexA, :])
-        pointB = SVec3f(@view shape.positions[indexB, :])
-        pointC = SVec3f(@view shape.positions[indexC, :])
-        pointD = SVec3f(@view shape.positions[indexD, :])
-
-        return transformNormal(
-            frame,
-            computeQuadNormal(pointA, pointB, pointC, pointD),
-        )
-    else
-        error("Only triangles and quads right now")
-    end
-end
-
-# function evalNormalTriangle(
-#     shape::Shape,
-#     intersection::Intersection,
-#     frame::Frame,
-# )
-#     (indexA, indexB, indexC) =
-#         @view shape.triangles[intersection.elementIndex, :]
-#     if (!isempty(shape.normals))
-#         normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
-#         normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
-#         normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
-#         normal = interpolateNormal(
-#             normalA,
-#             normalB,
-#             normalC,
-#             intersection.u,
-#             intersection.v,
-#         )
-#     else
-#         normal = computeTriangleNormal(
-#             SVec3f(@view shape.positions[indexA, :]),
-#             SVec3f(@view shape.positions[indexB, :]),
-#             SVec3f(@view shape.positions[indexC, :]),
-#         )
-#     end
-#     return transformNormal(frame, normal)
-# end
-
-# function evalNormalQuad(shape::Shape, intersection::Intersection, frame::Frame)
-#     (indexA, indexB, indexC, indexD) =
-#         @view shape.quads[intersection.elementIndex, :]
-#     if (!isempty(shape.normals))
-#         normalA::SVec3f = SVec3f(@view shape.normals[indexA, :])
-#         normalB::SVec3f = SVec3f(@view shape.normals[indexB, :])
-#         normalC::SVec3f = SVec3f(@view shape.normals[indexC, :])
-#         normalD::SVec3f = SVec3f(@view shape.normals[indexD, :])
-#         normal = interpolateNormal(
-#             normalA,
-#             normalB,
-#             normalC,
-#             normalD,
-#             intersection.u,
-#             intersection.v,
-#         )
-#     else
-#         normal = computeQuadNormal(
-#             SVec3f(@view shape.positions[indexA, :]),
-#             SVec3f(@view shape.positions[indexB, :]),
-#             SVec3f(@view shape.positions[indexC, :]),
-#             SVec3f(@view shape.positions[indexD, :]),
-#         )
-#     end
-#     return transformNormal(frame, normal)
-# end
-
-# computes the normal of a triangle
-@inline function computeTriangleNormal(
-    pointA::SVec3f,
-    pointB::SVec3f,
-    pointC::SVec3f,
-)
-    return norm(cross(pointB .- pointA, pointC .- pointA))
-end
-
-# computes the normal of a quad 
-function computeQuadNormal(
-    pointA::SVec3f,
-    pointB::SVec3f,
-    pointC::SVec3f,
-    pointD::SVec3f,
-)
-    return norm(
-        computeTriangleNormal(pointA, pointB, pointD) +
-        computeTriangleNormal(pointC, pointD, pointB),
-    )
-end
-
-# # interpolates the normals of a triangle
-# function interpolateNormal(
-#     normalA::SVec3f,
-#     normalB::SVec3f,
-#     normalC::SVec3f,
-#     u::Float32,
-#     v::Float32,
-# )
-#     return norm(interpolateTriangle(normalA, normalB, normalC, u, v))
-# end
-
-# # interpolates the normals of a quad
-# function interpolateNormal(
-#     normalA::SVec3f,
-#     normalB::SVec3f,
-#     normalC::SVec3f,
-#     normalD::SVec3f,
-#     u::Float32,
-#     v::Float32,
-# )
-#     return norm(interpolateQuad(normalA, normalB, normalC, normalD, u, v))
-# end
 
 @inline function transformNormal(frame::Frame, v::SVec3f)
     return norm(transformVector(frame, v))
@@ -316,12 +132,16 @@ end
 end
 
 @inline function determinant(a::Mat3f)::Float32
-    return dot(a.x, cross(a.y, a.z))
+    return dot(a.x, StaticArrays.cross(a.y, a.z))
 end
 
 @inline function adjoint(a::Mat3f)::Mat3f
     return transposeMat(
-        Mat3f(cross(a.y, a.z), cross(a.z, a.x), cross(a.x, a.y)),
+        Mat3f(
+            StaticArrays.cross(a.y, a.z),
+            StaticArrays.cross(a.z, a.x),
+            StaticArrays.cross(a.x, a.y),
+        ),
     )
 end
 
