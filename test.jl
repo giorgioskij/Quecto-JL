@@ -9,4 +9,4 @@ scenePath = "03_texture/texture.json"
 # scenePath = "12_ecosys/ecosys.json"
 # scenePath = "materials1/materials1.json"
 
-s = trace(scenePath, 1920, 2)
+@time trace(scenePath, 1920, 10)
