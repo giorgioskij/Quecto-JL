@@ -5,7 +5,12 @@ using ..Intersect
 using ..Types
 using StaticArrays: dot, cross
 
-export evalNormal
+export evalNormal,
+    evalEnvironment,
+    evalTexture,
+    evalMaterialColor,
+    evalTexcoord,
+    evalShadingPosition
 
 function evalNormal(shape::Shape, intersection::Intersection, frame::Frame)
     if isempty(shape.normals)
@@ -106,6 +111,227 @@ function computeQuadNormal(
         computeTriangleNormal(pointA, pointB, pointD) +
         computeTriangleNormal(pointC, pointD, pointB),
     )
+end
+
+function evalEnvironment(scene::Scene, direction::SVec3f)::SVec3f
+    # background = SVec3f(0.105, 0.443, 0.90)
+    emission = SVec3f(0, 0, 0)
+    for env in scene.environments
+        emission += evalEnvironment(scene, env, direction)
+    end
+    return emission
+end
+
+function evalEnvironment(
+    scene::Scene,
+    env::Environment,
+    direction::SVec3f,
+)::SVec3f
+    wl::SVec3f = transformDirection(inverse(env.frame), direction)
+    textureX::Float32 = atan(wl[3], wl[1]) / (2 * pi)
+    textureY::Float32 = acos(clamp(wl[2], -1, 1)) / pi
+
+    if textureX < 0
+        textureX += 1
+    end
+
+    return env.emission .*
+           xyz(evalTexture(scene, env.emissionTex, textureX, textureY))
+end
+
+function evalTexture(
+    scene::Scene,
+    textureIdx::Int,
+    textureX::Float32,
+    textureY::Float32,
+)::SVec4f
+    if textureIdx == -1 || textureIdx == 0
+        return SVec4f(1, 1, 1, 1)
+    end
+
+    texture = scene.textures[textureIdx]
+    return evalTexture(texture, textureX, textureY)
+end
+
+function evalTexture(
+    texture::Texture,
+    textureX::Float32,
+    textureY::Float32,
+)::SVec4f
+    if !isempty(texture.image)
+        sizeX, sizeY = size(texture.image)
+    elseif !isempty(texture.hdrImage)
+        (texture.hdrImage)
+        sizeX, sizeY = size(texture.hdrImage)
+    else
+        error("Texture contains no image")
+    end
+
+    asLinear = false
+    clampToEdge = texture.clamp
+    # noInterpolation = texture.nearest
+    noInterpolation = true
+    s = 0.0f0
+    t = 0.0f0
+
+    if clampToEdge
+        s = clamp(textureX, 0, 1.0f0) * sizeX
+        t = clamp(textureY, 0, 1.0f0) * sizeY
+    else
+        s = rem(textureX, 1.0f0) * sizeX
+        if (s <= 0)
+            s += sizeX
+        end
+        t = rem(textureY, 1.0f0) * sizeY
+        if (t <= 0)
+            t += sizeY
+        end
+    end
+
+    i::Int = clamp(Int(ceil(s)), 1, sizeX)
+    j::Int = clamp(Int(ceil(t)), 1, sizeY)
+
+    ii::Int = (i + 1) % sizeX
+    jj::Int = (j + 1) % sizeY
+    u::Float32 = s - i
+    v::Float32 = t - j
+
+    if noInterpolation
+        return lookupTexture(texture, i, j)
+    else
+        return (
+            lookupTexture(texture, i, j) * (1 - u) * (1 - v) +
+            lookupTexture(texture, i, jj) * (1 - u) * v +
+            lookupTexture(texture, ii, j) * u * (1 - v) +
+            lookupTexture(texture, ii, jj) * u * v
+        )
+    end
+end
+
+function lookupTexture(texture::Texture, i::Int, j::Int)::SVec4f
+    if !isempty(texture.image)
+        rgba = texture.image[i, j]
+        color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
+    elseif !isempty(texture.hdrImage)
+        rgb = texture.hdrImage[i, j]
+        color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
+    else
+        error("Texture contains no image")
+    end
+    return color
+end
+
+function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
+    # compute coordinates of point hit
+    pointHit::SVec3f = ray.origin + ray.tmin * ray.direction
+    # compute normal: n = (p-c) / |p-c|
+    normal = unitVector(pointHit - sphereCenter)
+    return normal
+end
+
+function evalMaterialColor(scene::Scene, intersection::Intersection)::SVec3f
+    instance::Instance = scene.instances[intersection.instanceIndex]
+    material::Material = scene.materials[instance.materialIndex]
+    elementIndex::Int = intersection.elementIndex
+    u::Float32 = intersection.u
+    v::Float32 = intersection.v
+
+    textureU, textureV = evalTexcoord(scene, instance, elementIndex, u, v)
+
+    colorTexture = evalTexture(scene, material.colorTex, textureU, textureV)
+
+    pointColor = material.color .* xyz(colorTexture)
+
+    return pointColor
+end
+
+function evalTexcoord(
+    scene::Scene,
+    instance::Instance,
+    elementIndex::Int,
+    u::Float32,
+    v::Float32,
+)
+    shape::Shape = scene.shapes[instance.shapeIndex]
+    if isempty(shape.textureCoords)
+        return u, v
+    end
+    if !isempty(shape.triangles)
+        t1, t2, t3 = @view shape.triangles[elementIndex, :]
+        return interpolateTriangle(
+            SVec2f(@view shape.textureCoords[t1, :]),
+            SVec2f(@view shape.textureCoords[t2, :]),
+            SVec2f(@view shape.textureCoords[t3, :]),
+            u,
+            v,
+        )
+
+    elseif !isempty(shape.quads)
+        q1, q2, q3, q4 = @view shape.quads[elementIndex, :]
+        return interpolateQuad(
+            SVec2f(@view shape.textureCoords[q1, :]),
+            SVec2f(@view shape.textureCoords[q2, :]),
+            SVec2f(@view shape.textureCoords[q3, :]),
+            SVec2f(@view shape.textureCoords[q4, :]),
+            u,
+            v,
+        )
+    else
+        error("No triangles or quads in this shape")
+    end
+end
+
+function evalShadingPosition(
+    scene::Scene,
+    intersection::Intersection,
+    outgoing::SVec3f,
+)::SVec3f
+    instance = scene.instances[intersection.instanceIndex]
+    element = intersection.elementIndex
+    u = intersection.u
+    v = intersection.v
+    shape = scene.shapes[instance.shapeIndex]
+    if (!isempty(shape.triangles) || !isempty(shape.quads))
+        return evalPosition(scene, instance, element, u, v)
+    end
+end
+
+function evalPosition(
+    scene::Scene,
+    instance::Instance,
+    element::Int,
+    u::Float32,
+    v::Float32,
+)
+    shape = scene.shapes[instance.shapeIndex]
+    if !isempty(shape.triangles)
+        t1, t2, t3 = @view shape.triangles[element, :]
+        return transformPoint(
+            instance.frame,
+            interpolateTriangle(
+                SVec3f(@view shape.positions[t1, :]),
+                SVec3f(@view shape.positions[t2, :]),
+                SVec3f(@view shape.positions[t3, :]),
+                u,
+                v,
+            ),
+        )
+    elseif !isempty(shape.quads)
+        q1, q2, q3, q4 = @view shape.quads[element, :]
+        return transformPoint(
+            instance.frame,
+            interpolateQuad(
+                SVec3f(@view shape.positions[q1, :]),
+                SVec3f(@view shape.positions[q2, :]),
+                SVec3f(@view shape.positions[q3, :]),
+                SVec3f(@view shape.positions[q4, :]),
+                u,
+                v,
+            ),
+        )
+    else
+        error("No triangles or quads in this shape")
+    end
 end
 
 end
