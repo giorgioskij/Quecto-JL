@@ -212,6 +212,16 @@ end
 end
 
 @inline function interpolateTriangle(
+    p0::SVec2f,
+    p1::SVec2f,
+    p2::SVec2f,
+    u::Float32,
+    v::Float32,
+)::SVec2f
+    return p0 * (1 - u - v) + p1 * u + p2 * v
+end
+
+@inline function interpolateTriangle(
     p0::SVec3f,
     p1::SVec3f,
     p2::SVec3f,
@@ -219,6 +229,21 @@ end
     v::Float32,
 )::SVec3f
     return p0 * (1 - u - v) .+ p1 * u + p2 * v
+end
+
+@inline function interpolateQuad(
+    p0::SVec2f,
+    p1::SVec2f,
+    p2::SVec2f,
+    p3::SVec2f,
+    u::Float32,
+    v::Float32,
+)::SVec2f
+    if u + v <= 1
+        return interpolateTriangle(p0, p1, p3, u, v)
+    else
+        return interpolateTriangle(p2, p3, p1, 1 - u, 1 - v)
+    end
 end
 
 @inline function interpolateQuad(

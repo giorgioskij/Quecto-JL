@@ -65,6 +65,34 @@ function loadJsonScene(scenePath::String)
         # ignore material_names
         defaultMaterial = Material()
         for (i, element) in enumerate(group)
+            colorTex = get(element, "color_tex", defaultMaterial.colorTex)
+            if colorTex != -1
+                colorTex += 1
+            end
+
+            emissionTex =
+                get(element, "emission_tex", defaultMaterial.emissionTex)
+            if emissionTex != -1
+                emissionTex += 1
+            end
+
+            roughnessTex =
+                get(element, "roughness_tex", defaultMaterial.roughnessTex)
+            if roughnessTex != -1
+                roughnessTex += 1
+            end
+
+            scatteringTex =
+                get(element, "scatterin_tex", defaultMaterial.scatteringTex)
+            if scatteringTex != -1
+                scatteringTex += 1
+            end
+
+            normalTex = get(element, "normal_tex", defaultMaterial.normalTex)
+            if normalTex != -1
+                normalTex += 1
+            end
+
             material = Material(
                 get(element, "type", defaultMaterial.type),
                 get(element, "emission", defaultMaterial.emission),
@@ -76,11 +104,11 @@ function loadJsonScene(scenePath::String)
                 get(element, "scattering", defaultMaterial.scattering),
                 get(element, "scanisotropy", defaultMaterial.scanisotropy),
                 get(element, "opacity", defaultMaterial.opacity),
-                get(element, "emission_tex", defaultMaterial.emissionTex) + 1,
-                get(element, "color_tex", defaultMaterial.colorTex) + 1,
-                get(element, "roughness_tex", defaultMaterial.roughnessTex) + 1,
-                get(element, "scatterin_tex", defaultMaterial.scatteringTex) + 1,
-                get(element, "normal_tex", defaultMaterial.normalTex) + 1,
+                emissionTex,
+                colorTex,
+                roughnessTex,
+                scatteringTex,
+                normalTex,
             )
             materials[i] = material
         end

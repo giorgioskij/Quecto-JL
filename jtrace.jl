@@ -21,7 +21,7 @@ const global masterBvhDepth = 19
 # main entry point to the program
 function run(
     scenePath::String,
-    shader::Function = shaderMaterial,
+    shader::Function = shaderEyelight,
     width = 1920,
     numSamples = 2,
 )
@@ -61,9 +61,6 @@ function traceSamples(
     bvh,
     camera,
 )
-    # camera = scene.cameras[1]
-    # loop over pixels
-    # println("Starting creation of image...")
     for s = 1:numSamples
         Threads.@threads for i = 1:size(image)[2]
             Threads.@threads for j = 1:size(image)[1]
@@ -163,12 +160,83 @@ function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
     outgoing = -ray.direction
 
-    color = material.color
+    materialColor = evalMaterialColor(scene, intersection)
+    # if materialColor.x != materialColor.y && materialColor.y != materialColor.z
+    #     @show radiance
+    #     @show materialColor
+    #     error("ok all different")
+    # end
 
     # radiance = 0.5 .* (normal .+ 1) .* color
-    radiance::SVec3f = abs(dot(normal, outgoing)) .* material.color
+    radiance::SVec3f = abs(dot(normal, outgoing)) .* materialColor
+    # radiance = materialColor
+
+    # if radiance.x == radiance.y && radiance.y == radiance.z
+    #     @show radiance
+    #     @show materialColor
+    #     error("what the fudge")
+    # end
 
     return radiance
+end
+
+function evalMaterialColor(scene::Scene, intersection::Intersection)::SVec3f
+    instance::Instance = scene.instances[intersection.instanceIndex]
+    material::Material = scene.materials[instance.materialIndex]
+    elementIndex::Int = intersection.elementIndex
+    u::Float32 = intersection.u
+    v::Float32 = intersection.v
+
+    textureU, textureV = evalTexcoord(scene, instance, elementIndex, u, v)
+    # @show u
+    # @show v
+
+    colorTexture = evalTexture(scene, material.colorTex, textureU, textureV)
+    # @show colorTexture
+
+    # println("before")
+    pointColor = material.color .* xyz(colorTexture)
+    # println("Heyrpqawoeropasdfajsd;ljfal;skdgjopasdijgasdf")
+    # @show pointColor
+    # error("hold up")
+
+    return pointColor
+end
+
+function evalTexcoord(
+    scene::Scene,
+    instance::Instance,
+    elementIndex::Int,
+    u::Float32,
+    v::Float32,
+)
+    shape::Shape = scene.shapes[instance.shapeIndex]
+    if isempty(shape.textureCoords)
+        return u, v
+    end
+    if !isempty(shape.triangles)
+        t1, t2, t3 = @view shape.triangles[elementIndex, :]
+        return interpolateTriangle(
+            SVec2f(@view shape.textureCoords[t1, :]),
+            SVec2f(@view shape.textureCoords[t2, :]),
+            SVec2f(@view shape.textureCoords[t3, :]),
+            u,
+            v,
+        )
+
+    elseif !isempty(shape.quads)
+        q1, q2, q3, q4 = @view shape.quads[elementIndex, :]
+        return interpolateQuad(
+            SVec2f(@view shape.textureCoords[q1, :]),
+            SVec2f(@view shape.textureCoords[q2, :]),
+            SVec2f(@view shape.textureCoords[q3, :]),
+            SVec2f(@view shape.textureCoords[q4, :]),
+            u,
+            v,
+        )
+    else
+        error("No triangles or quads in this shape")
+    end
 end
 
 function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
@@ -882,11 +950,6 @@ end
         ifelse(a[1] < a[3], a[1], a[3]),
         ifelse(a[2] < a[3], a[2], a[3]),
     )
-    # if a[1] < a[2]
-    #     ifelse(a[1] < a[3], a[1], a[3])
-    # else
-    #     ifelse(a[2] < a[3], a[2], a[3])
-    # end
 end
 @inbounds function fastMaximum(a::SVec3f)
     ifelse(
@@ -894,11 +957,6 @@ end
         ifelse(a[1] > a[3], a[1], a[3]),
         ifelse(a[2] > a[3], a[2], a[3]),
     )
-    # if a[1] > a[2]
-    #     ifelse(a[1] > a[3], a[1], a[3])
-    # else
-    #     ifelse(a[2] > a[3], a[2], a[3])
-    # end
 end
 @inline function fastMin(a::Float32, b::Float32)
     a_b = a - b
@@ -917,6 +975,10 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
         shape = scene.shapes[instance.shapeIndex]
         for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
             enumerate(eachcol(transpose(shape.triangles)))
+
+            # for p1, p2, p3 in shape.triangles
+            # pointA, pointB, pointC = shape.positions[p1], shape.positions[p2], shape.positions[p3]
+
             @inbounds pointA = SVec3f(
                 shape.positions[pointAindex, 1],
                 shape.positions[pointAindex, 2],
