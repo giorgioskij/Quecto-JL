@@ -21,7 +21,8 @@ export transformNormal,
     makeFrame,
     matMulVec,
     xyz,
-    transformRay
+    transformRay,
+    srgbToRgb
 
 @inline function transformNormal(frame::Frame, v::SVec3f)::SVec3f
     return norm(transformVector(frame, v))
@@ -100,6 +101,10 @@ end
 
 @inline function unitVector(v::SVec3f)::SVec3f
     return v / length(v)
+end
+
+@inline function linInterp(a::SVec4f, b::SVec4f, weight::Float32)
+    return a * (1 - weight) .+ b * weight
 end
 
 @inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
@@ -194,6 +199,15 @@ end
         ray.tmin,
         ray.tmax,
     )
+end
+
+@inline function srgbToRgb(srgb::SVec4f)::SVec4f
+    SVec4f(srgbToRgb(srgb[1]), srgbToRgb(srgb[2]), srgbToRgb(srgb[3]), srgb[4])
+end
+
+@inline function srgbToRgb(srgb::Float32)
+    srgb <= 0.04045 ? (srgb / 12.92f0) :
+    ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0
 end
 
 # end module

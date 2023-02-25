@@ -9,8 +9,7 @@ using ..Algebra
 
 using StaticArrays: dot
 
-export shaderEyelight,
-    shaderMaterial, shaderNormal, shaderIndirectNaive, shaderIndirect
+export shaderEyelight, shaderMaterial, shaderNormal, shaderIndirectNaive
 
 # function shaderColor(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 #     intersection::Intersection = intersectScene(ray, scene)
@@ -57,20 +56,35 @@ function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         return radiance
     end
 
-    # compute normal of the point hit
+    # EVALUATE GEOMETRY 
     instance::Instance = scene.instances[intersection.instanceIndex]
     frame::Frame = instance.frame
     shape::Shape = scene.shapes[instance.shapeIndex]
-    material::Material = scene.materials[instance.materialIndex]
+    normal = evalNormal(shape, intersection, frame)
 
+    textureX, textureY = evalTexcoord(
+        scene,
+        instance,
+        intersection.elementIndex,
+        intersection.u,
+        intersection.v,
+    )
     outgoing = -ray.direction
-    normal = evalNormal(shape, intersection, frame, outgoing)
 
-    materialColor = evalMaterialColor(scene, intersection)
+    # EVALUATE MATERIAL
+    material::Material = scene.materials[instance.materialIndex]
+    emission::SVec3f =
+        material.emission .*
+        xyz(evalTexture(scene, material.emissionTex, textureX, textureY))
+    color::SVec3f =
+        material.color .*
+        xyz(evalTexture(scene, material.colorTex, textureX, textureY))
 
-    radiance::SVec3f = abs(dot(normal, outgoing)) .* materialColor
+    # materialColor = evalMaterialColor(scene, intersection)
 
-    return radiance
+    radiance::SVec3f = emission + abs(dot(normal, outgoing)) .* color
+
+    return SVec3f(radiance.x, radiance.y, radiance.z)
 end
 
 function shaderIndirectNaive(
@@ -79,45 +93,91 @@ function shaderIndirectNaive(
     bvh::SceneBvh,
     bounce::Int = 1,
 )::SVec3f
+    maxBounce = 10
+
+    # INTERSECT SCENE
     intersection::Intersection = intersectScene(ray, scene, bvh, false)
 
+    # EVAL ENVIRONMENT
     if !intersection.hit
         radiance = evalEnvironment(scene, ray.direction)
         return radiance
     end
 
-    maxBounce = 10
-    # compute normal of the point hit
+    # EVALUATE GEOMETRY
     instance::Instance = scene.instances[intersection.instanceIndex]
     frame::Frame = instance.frame
     shape::Shape = scene.shapes[instance.shapeIndex]
-    material::Material = scene.materials[instance.materialIndex]
 
+    # position = evalShadingPosition(scene, intersection, outgoing)
+    position = evalPosition(
+        scene,
+        instance,
+        intersection.elementIndex,
+        intersection.u,
+        intersection.v,
+    )
+    normal = evalNormal(shape, intersection, frame)
+    textureX, textureY = evalTexcoord(
+        scene,
+        instance,
+        intersection.elementIndex,
+        intersection.u,
+        intersection.v,
+    )
     outgoing = -ray.direction
-    position = evalShadingPosition(scene, intersection, outgoing)
-    normal = evalNormal(shape, intersection, frame, outgoing)
 
-    # evaluate material
+    # NORMAL CORRECTIONS
+    if !isempty(shape.triangles) && dot(normal, outgoing) < 0
+        normal = -normal
+    end
 
-    # color
-    materialColor = evalMaterialColor(scene, intersection)
-    # emission
-    # TODO: eval emission textuere
-    radiance = material.emission
+    # EVALUATE MATERIAL
+    material::Material = scene.materials[instance.materialIndex]
+    materialEmissionTex::SVec4f =
+        evalTexture(scene, material.emissionTex, textureX, textureY, true)
+    materialColorTex::SVec4f =
+        evalTexture(scene, material.colorTex, textureX, textureY, true)
+    emission::SVec3f = material.emission .* xyz(materialEmissionTex)
+    color::SVec3f = material.color .* xyz(materialColorTex)
+    roughness = material.roughness * material.roughness
+    opacity::Float32 = material.opacity * materialColorTex[4]
 
+    # HANDLE OPACITY
+    if rand(Float32) >= opacity
+        return shaderIndirectNaive(
+            scene,
+            Ray(position, ray.direction),
+            bvh,
+            bounce + 1,
+        )
+    end
+
+    # ACCUMULATE EMISSION
+    radiance::SVec3f = emission
+
+    # EXIT IF RAY IS DONE
     if bounce >= maxBounce
         return radiance
     end
 
-    incoming = sampleHemisphereCos(normal)
-    if incoming == SVec3f(0, 0, 0)
-        return radiance
-    end
-    if dot(normal, incoming) * dot(normal, outgoing) > 0
-        radiance +=
-            materialColor .*
-            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
-    end
+    # COMPUTE ILLUMINATION
+
+    # everything matte for now
+    incoming::SVec3f = sampleHemisphereCos(normal)
+    lighting::SVec3f =
+        shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
+    radiance += color .* lighting
+
+    # if incoming == SVec3f(0, 0, 0)
+    #     return radiance
+    # end
+    # if dot(normal, incoming) * dot(normal, outgoing) > 0
+    #     radiance +=
+    #         materialColor .*
+    #         shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
+    # end
+    # return radiance
     return radiance
 end
 

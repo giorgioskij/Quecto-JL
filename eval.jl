@@ -8,20 +8,21 @@ using StaticArrays: dot, cross
 export evalNormal,
     evalEnvironment,
     evalTexture,
-    evalMaterialColor,
     evalTexcoord,
-    evalShadingPosition
+    evalShadingPosition,
+    evalPosition
 
 function evalNormal(
     shape::Shape,
     intersection::Intersection,
     frame::Frame,
-    outgoing::SVec3f,
+    # outgoing::SVec3f,
 )::SVec3f
     if isempty(shape.normals)
         normal = computeNormal(shape, intersection, frame)
+        return normal
         # normal correction
-        return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
+        # return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
     end
 
     if !isempty(shape.triangles)
@@ -68,7 +69,8 @@ function evalNormal(
 
         # TODO normalmap
         # TODO refractive material
-        return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
+        # return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
+        return normal
     else
         error("Only triangles and quads right now")
     end
@@ -183,6 +185,10 @@ function evalEnvironment(
         textureX += 1
     end
 
+    # TEMP: try to invert X and Y
+    # textureX = 1 - textureX
+    # textureY = 1 - textureY
+
     return env.emission .*
            xyz(evalTexture(scene, env.emissionTex, textureX, textureY))
 end
@@ -192,19 +198,30 @@ function evalTexture(
     textureIdx::Int,
     textureX::Float32,
     textureY::Float32,
+    asLinear::Bool = false,
 )::SVec4f
     if textureIdx == -1 || textureIdx == 0
         return SVec4f(1, 1, 1, 1)
     end
 
     texture = scene.textures[textureIdx]
-    return evalTexture(texture, textureX, textureY)
+    return evalTexture(
+        texture,
+        textureX,
+        textureY,
+        asLinear,
+        texture.nearest,
+        texture.clamp,
+    )
 end
 
 function evalTexture(
     texture::Texture,
     textureX::Float32,
     textureY::Float32,
+    asLinear::Bool,
+    noInterpolation::Bool,
+    clampToEdge::Bool,
 )::SVec4f
     if !isempty(texture.image)
         sizeY, sizeX = size(texture.image)
@@ -215,10 +232,10 @@ function evalTexture(
         error("Texture contains no image")
     end
 
-    asLinear = false
-    clampToEdge = texture.clamp
+    # asLinear = false
+    # clampToEdge = texture.clamp
     # noInterpolation = texture.nearest
-    noInterpolation = true
+    # noInterpolation = true
     s = 0.0f0
     t = 0.0f0
 
@@ -239,24 +256,31 @@ function evalTexture(
     i::Int = clamp(Int(ceil(s)), 1, sizeX)
     j::Int = clamp(Int(ceil(t)), 1, sizeY)
 
-    ii::Int = (i + 1) % sizeX
-    jj::Int = (j + 1) % sizeY
+    ii::Int = i + 1
+    jj::Int = j + 1
+    if ii > sizeX
+        ii -= sizeX
+    end
+    if jj > sizeY
+        jj -= sizeY
+    end
+
     u::Float32 = s - i
     v::Float32 = t - j
 
     if noInterpolation
-        return lookupTexture(texture, i, j)
+        return lookupTexture(texture, i, j, asLinear)
     else
         return (
-            lookupTexture(texture, i, j) * (1 - u) * (1 - v) +
-            lookupTexture(texture, i, jj) * (1 - u) * v +
-            lookupTexture(texture, ii, j) * u * (1 - v) +
-            lookupTexture(texture, ii, jj) * u * v
+            lookupTexture(texture, i, j, asLinear) * (1 - u) * (1 - v) +
+            lookupTexture(texture, i, jj, asLinear) * (1 - u) * v +
+            lookupTexture(texture, ii, j, asLinear) * u * (1 - v) +
+            lookupTexture(texture, ii, jj, asLinear) * u * v
         )
     end
 end
 
-function lookupTexture(texture::Texture, i::Int, j::Int)::SVec4f
+function lookupTexture(texture::Texture, i::Int, j::Int, asLinear::Bool)::SVec4f
     # j indices the ROW of the texture
     # i the column
     if !isempty(texture.image)
@@ -270,6 +294,10 @@ function lookupTexture(texture::Texture, i::Int, j::Int)::SVec4f
     else
         error("Texture contains no image")
     end
+
+    if asLinear && !texture.linear
+        return srgbToRgb(color)
+    end
     return color
 end
 
@@ -281,21 +309,22 @@ function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
     return normal
 end
 
-function evalMaterialColor(scene::Scene, intersection::Intersection)::SVec3f
-    instance::Instance = scene.instances[intersection.instanceIndex]
-    material::Material = scene.materials[instance.materialIndex]
-    elementIndex::Int = intersection.elementIndex
-    u::Float32 = intersection.u
-    v::Float32 = intersection.v
+# TODO: remove, no longer used
+# function evalMaterialColor(scene::Scene, intersection::Intersection)::SVec3f
+#     instance::Instance = scene.instances[intersection.instanceIndex]
+#     material::Material = scene.materials[instance.materialIndex]
+#     elementIndex::Int = intersection.elementIndex
+#     u::Float32 = intersection.u
+#     v::Float32 = intersection.v
 
-    textureU, textureV = evalTexcoord(scene, instance, elementIndex, u, v)
+#     textureU, textureV = evalTexcoord(scene, instance, elementIndex, u, v)
 
-    colorTexture = evalTexture(scene, material.colorTex, textureU, textureV)
+#     colorTexture = evalTexture(scene, material.colorTex, textureU, textureV)
 
-    pointColor = material.color .* xyz(colorTexture)
+#     pointColor = material.color .* xyz(colorTexture)
 
-    return pointColor
-end
+#     return pointColor
+# end
 
 function evalTexcoord(
     scene::Scene,
@@ -317,7 +346,6 @@ function evalTexcoord(
             u,
             v,
         )
-
     elseif !isempty(shape.quads)
         q1, q2, q3, q4 = @view shape.quads[elementIndex, :]
         return interpolateQuad(
@@ -333,6 +361,7 @@ function evalTexcoord(
     end
 end
 
+# TODO: remove, its just a wrapper
 function evalShadingPosition(
     scene::Scene,
     intersection::Intersection,
