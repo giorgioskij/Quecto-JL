@@ -383,7 +383,7 @@ function evalPosition(
     element::Int,
     u::Float32,
     v::Float32,
-)
+)::SVec3f
     shape = scene.shapes[instance.shapeIndex]
     if !isempty(shape.triangles)
         t1, t2, t3 = @view shape.triangles[element, :]

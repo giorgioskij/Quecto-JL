@@ -22,7 +22,8 @@ export transformNormal,
     matMulVec,
     xyz,
     transformRay,
-    srgbToRgb
+    srgbToRgb,
+    rgbToSrgb
 
 @inline function transformNormal(frame::Frame, v::SVec3f)::SVec3f
     return norm(transformVector(frame, v))
@@ -208,6 +209,15 @@ end
 @inline function srgbToRgb(srgb::Float32)
     srgb <= 0.04045 ? (srgb / 12.92f0) :
     ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0
+end
+
+@inline function rgbToSrgb(rgb::SVec4f)::SVec4f
+    return SVec4f(rgbToSrgb(rgb.x), rgbToSrgb(rgb.y), rgbToSrgb(rgb.z), rgb[4])
+end
+
+@inline function rgbToSrgb(rgb::Float32)::Float32
+    return (rgb <= 0.0031308f0) ? 12.92f0 * rgb :
+           (1 + 0.055f0) * (rgb^(1 / 2.4f0)) - 0.055f0
 end
 
 # end module

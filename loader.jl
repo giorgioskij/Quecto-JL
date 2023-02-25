@@ -137,12 +137,18 @@ function loadJsonScene(scenePath::String)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
-            instance = Instance(
-                frame,
-                # +1 because julia arrays starst at 1
-                get(element, "shape", defaultInstance.shapeIndex) + 1,
-                get(element, "material", defaultInstance.materialIndex) + 1,
-            )
+            # +1 because julia arrays starst at 1
+            shapeIndex = get(element, "shape", defaultInstance.shapeIndex)
+            if shapeIndex != -1
+                shapeIndex += 1
+            end
+            materialIndex =
+                get(element, "material", defaultInstance.materialIndex)
+            if materialIndex != -1
+                materialIndex += 1
+            end
+
+            instance = Instance(frame, shapeIndex, materialIndex)
             # ignore params "name", "material"
             instances[i] = instance
         end
@@ -159,10 +165,14 @@ function loadJsonScene(scenePath::String)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
+            emissionTex = get(element, "emission_tex", defaultEnv.emissionTex)
+            if emissionTex != -1
+                emissionTex += 1
+            end
             environments[i] = Environment(
                 frame,
                 get(element, "emission", defaultEnv.emission),
-                get(element, "emission_tex", defaultEnv.emissionTex) + 1,
+                emissionTex,
             )
         end
     end
@@ -183,23 +193,29 @@ function loadJsonScene(scenePath::String)
 
         # check that extension is png
         extension = path[findlast(==('.'), path)+1:end]
-        if extension == "png"
+        if lowercase(extension) == "png"
             image::Matrix{RGBA{N0f8}} = loadTexturePng(path)
             hdrImage = Matrix{RGB{N0f16}}(undef, 0, 0)
-        elseif extension == "hdr"
+            textures[i] = Texture(
+                image,
+                hdrImage,
+                false, # png is not linear
+                textures[i].nearest,
+                textures[i].clamp,
+            )
+        elseif lowercase(extension) == "hdr"
             hdrImage::Matrix{RGB{N0f16}} = loadTextureHdr(path)
             image = Matrix{RGB{N0f8}}(undef, 0, 0)
+            textures[i] = Texture(
+                image,
+                hdrImage,
+                true, # hdr is linear
+                textures[i].nearest,
+                textures[i].clamp,
+            )
         else
             error("only png textures for now!")
         end
-
-        textures[i] = Texture(
-            image,
-            hdrImage,
-            textures[i].linear,
-            textures[i].nearest,
-            textures[i].clamp,
-        )
     end
 
     # ignore load subdivs

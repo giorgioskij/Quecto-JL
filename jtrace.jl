@@ -63,27 +63,20 @@ function saveImage(filename::String, image::Matrix{SVec4f}, isLinear::Bool)
     # for i = 1:size(image, 1)
     # for j = 1:size(image, 2)
     # pngImage = Matrix{RGB{N0f8}}(undef, size(image, 1), size(image, 2))
-    pngImage = zeros(RGB, size(image))
+    pngImage = zeros(RGBA, size(image))
     for i = 1:size(image, 1)
         for j = 1:size(image, 2)
             if isLinear
                 srgb = clamp01nan.(rgbToSrgb(image[i, j]))
-                pngImage[i, j] = RGB(srgb[1], srgb[2], srgb[3])
+                pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
             else
+                rgb = clamp01nan.(image[i, j])
+                pngImage[i, j] = RGBA(rgb[1], rgb[2], rgb[3], rgb[4])
                 error("dont know what to do now")
             end
         end
     end
     save(filename, pngImage)
-end
-
-function rgbToSrgb(rgb::SVec4f)::SVec4f
-    return SVec4f(rgbToSrgb(rgb.x), rgbToSrgb(rgb.y), rgbToSrgb(rgb.z), rgb[4])
-end
-
-function rgbToSrgb(rgb::Float32)::Float32
-    return (rgb <= 0.0031308f0) ? (12.92f0 * rgb) :
-           ((1 + 0.055f0) * rgb^(1 / 2.4f0) - 0.055f0)
 end
 
 function traceSamples(
