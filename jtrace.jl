@@ -40,7 +40,8 @@ function trace(scenePath::String, width = 1920, numSamples = 2)
 
     #shader = shaderEyelight
     #shader = shaderMaterial
-    shader = shaderNormal
+    #shader = shaderNormal
+    shader = shaderIndirectNaive
 
     # call the function to trace samples
     traceSamples(shader, image, scene, width, height, numSamples, bvh, camera)

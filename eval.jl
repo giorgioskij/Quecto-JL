@@ -16,9 +16,11 @@ function evalNormal(
     shape::Shape,
     intersection::Intersection,
     frame::Frame,
+    outgoing::SVec3f,
 )::SVec3f
     if isempty(shape.normals)
-        return computeNormal(shape, intersection, frame)
+        normal = computeNormal(shape, intersection, frame)
+        return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
     end
 
     if !isempty(shape.triangles)
@@ -40,8 +42,6 @@ function evalNormal(
                 ),
             ),
         )
-        # TODO normalmap
-        # TODO refractive material
 
     elseif !isempty(shape.quads)
         indexA, indexB, indexC, indexD =
@@ -51,7 +51,7 @@ function evalNormal(
         normalB = SVec3f(@view shape.normals[indexB, :])
         normalC = SVec3f(@view shape.normals[indexC, :])
         normalD = SVec3f(@view shape.normals[indexD, :])
-        return transformNormal(
+        normal = transformNormal(
             frame,
             norm(
                 interpolateQuad(
@@ -67,6 +67,7 @@ function evalNormal(
 
         # TODO normalmap
         # TODO refractive material
+        return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
     else
         error("Only triangles and quads right now")
     end
@@ -122,8 +123,45 @@ function computeQuadNormal(
     )
 end
 
+# function evalShadingNormal(
+#     scene::Scene,
+#     intersection::Intersection,
+#     outgoing::SVec3f,
+# )::SVec3f
+#     instance = scene.instances[intersection.instanceIndex]
+#     element = intersection.elementIndex
+#     u, v = intersection.u, intersection.v
+#     shape = scene.shapes[intersection.shapeIndex]
+#     material = scene.materials[instance.materialIndex]
+#     if !isempty(shape.triangles) || !isempty(shape.triangles)
+#         normal = evalNormal(scene, instance, element, u, v)
+#         if material.normalTex != -1
+#             normal = evalNormalMap(scene, instance, element, u, v)
+#         end
+#         if material.type == "refractive"
+#             return normal
+#         end
+#         return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
+#         # ignoring lines and points
+#     else
+#         return SVec3f(0, 0, 0)
+#     end
+# end
+
+# function evalNormal(
+#     scene::Scene,
+#     instance::Instance,
+#     element::Int,
+#     u::Float32,
+#     v::Float32,
+# )
+#     shape = scene.shapes[instance.shapeIndex]
+#     if isempty(shape.normals)
+#         return computeNormal(shape, element, u, v)
+#     end
+# end
+
 function evalEnvironment(scene::Scene, direction::SVec3f)::SVec3f
-    # background = SVec3f(0.105, 0.443, 0.90)
     emission = SVec3f(0, 0, 0)
     for env in scene.environments
         emission += evalEnvironment(scene, env, direction)

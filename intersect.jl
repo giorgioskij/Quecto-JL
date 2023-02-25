@@ -9,8 +9,8 @@ import ..Jtrace
 
 export Intersection, ShapeIntersection, PrimitiveIntersection, intersectScene
 
-const global shapeBvhDepth = 128
-const global masterBvhDepth = 128
+const global shapeBvhDepth = 64
+const global masterBvhDepth = 64
 const global nthreads = Threads.nthreads()
 const global masterNodeStack = MVector{masterBvhDepth * nthreads,UInt32}(undef)
 const global shapeNodeStack = MVector{shapeBvhDepth * nthreads,UInt32}(undef)
@@ -83,12 +83,8 @@ function intersectScene(
     # init intersection
     intersection::Intersection = Intersection(false)
 
-    rayDInv = SVec3f(
-        1.0f0 / ray.direction.x,
-        1.0f0 / ray.direction.y,
-        1.0f0 / ray.direction.z,
-    )
-    rayDSign = SVec3i(rayDInv.x < 0, rayDInv.y < 0, rayDInv.z < 0)
+    rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    rayDSign::SVec3i = rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -359,7 +355,7 @@ function intersectPrimitiveTriangle(
         return PrimitiveIntersection(false)
     end
 
-    inverseDet = 1.0f0 / det
+    inverseDet = 1.0f0 ./ det
 
     tvec = ray.origin - p0
     u = StaticArrays.dot(tvec, pvec) * inverseDet
@@ -399,8 +395,8 @@ function intersectPrimitiveQuad(
     if (isec2.hit)
         isec2 = PrimitiveIntersection(
             true,
-            1 - isec2.u,
-            1 - isec2.v,
+            1.0f0 - isec2.u,
+            1.0f0 - isec2.v,
             isec2.distance,
         )
     end
@@ -410,9 +406,9 @@ function intersectPrimitiveQuad(
     elseif (isec2.hit && !isec1.hit)
         return isec2
     elseif (isec1.hit && isec2.hit)
-        return isec1.distance < isec2.distance ? isec1 : isec2
+        return ifelse(isec1.distance < isec2.distance, isec1, isec2)
     else
-        return isec1
+        return isec1    # this is equal to PrimitiveIntersection(false) but without the creation of a new obj
     end
 end
 
@@ -587,7 +583,7 @@ function intersectQuad(
     elseif (isec2.hit && !isec1.hit)
         return isec2
     elseif (isec1.hit && isec2.hit)
-        return isec1.distance < isec2.distance ? isec1 : isec2
+        return ifelse(isec1.distance < isec2.distance, isec1, isec2)
     else
         return isec1
     end

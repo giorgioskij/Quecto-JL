@@ -79,7 +79,7 @@ end
 
 @inline function norm(v::SVec3f)::SVec3f
     l = length(v)
-    return (l != 0) ? v / l : v
+    return ifelse(l != 0, v / l, v)
 end
 
 @inline function length(v::SVec3f)::Float32
