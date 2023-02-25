@@ -24,7 +24,12 @@ using .Shading
 export trace
 
 # main entry point to the program
-function trace(scenePath::String, width = 1920, numSamples = 2)
+function trace(
+    scenePath::String,
+    shaderName::String = "eyelight",
+    width = 1920,
+    numSamples = 2,
+)
     # generate scene
     scene = loadJsonScene(joinpath(baseDir, scenePath))
     # return scene
@@ -38,10 +43,15 @@ function trace(scenePath::String, width = 1920, numSamples = 2)
     # generate empty starting image
     image = zeros(SVec3f, height, width)
 
-    #shader = shaderEyelight
-    #shader = shaderMaterial
-    #shader = shaderNormal
-    shader = shaderIndirectNaive
+    if shaderName == "eyelight"
+        shader = shaderEyelight
+    elseif shaderName == "normal"
+        shader = shaderNormal
+    elseif shaderName == "naive"
+        shader = shaderIndirectNaive
+    else
+        error("no shader named $shaderName")
+    end
 
     # call the function to trace samples
     traceSamples(shader, image, scene, width, height, numSamples, bvh, camera)
