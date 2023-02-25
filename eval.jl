@@ -20,6 +20,7 @@ function evalNormal(
 )::SVec3f
     if isempty(shape.normals)
         normal = computeNormal(shape, intersection, frame)
+        # normal correction
         return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
     end
 
@@ -206,10 +207,10 @@ function evalTexture(
     textureY::Float32,
 )::SVec4f
     if !isempty(texture.image)
-        sizeX, sizeY = size(texture.image)
+        sizeY, sizeX = size(texture.image)
     elseif !isempty(texture.hdrImage)
         (texture.hdrImage)
-        sizeX, sizeY = size(texture.hdrImage)
+        sizeY, sizeX = size(texture.hdrImage)
     else
         error("Texture contains no image")
     end
@@ -256,11 +257,15 @@ function evalTexture(
 end
 
 function lookupTexture(texture::Texture, i::Int, j::Int)::SVec4f
+    # j indices the ROW of the texture
+    # i the column
     if !isempty(texture.image)
-        rgba = texture.image[i, j]
+        sizeY, sizeX = size(texture.image)
+        rgba = texture.image[sizeY-j+1, sizeX-i+1]
         color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
     elseif !isempty(texture.hdrImage)
-        rgb = texture.hdrImage[i, j]
+        sizeY, sizeX = size(texture.hdrImage)
+        rgb = texture.hdrImage[sizeY-j+1, sizeX-i+1]
         color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
     else
         error("Texture contains no image")

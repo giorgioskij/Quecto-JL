@@ -86,7 +86,7 @@ function shaderIndirectNaive(
         return radiance
     end
 
-    maxBounce = 6
+    maxBounce = 10
     # compute normal of the point hit
     instance::Instance = scene.instances[intersection.instanceIndex]
     frame::Frame = instance.frame
@@ -96,8 +96,15 @@ function shaderIndirectNaive(
     outgoing = -ray.direction
     position = evalShadingPosition(scene, intersection, outgoing)
     normal = evalNormal(shape, intersection, frame, outgoing)
+
+    # evaluate material
+
+    # color
     materialColor = evalMaterialColor(scene, intersection)
+    # emission
+    # TODO: eval emission textuere
     radiance = material.emission
+
     if bounce >= maxBounce
         return radiance
     end
