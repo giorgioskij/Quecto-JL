@@ -25,8 +25,16 @@ export transformNormal,
     srgbToRgb,
     rgbToSrgb
 
-@inline function transformNormal(frame::Frame, v::SVec3f)::SVec3f
-    return norm(transformVector(frame, v))
+@inline function transformNormal(
+    frame::Frame,
+    v::SVec3f,
+    nonRigid = false,
+)::SVec3f
+    if nonRigid
+        error("not implemented")
+    else
+        return norm(transformVector(frame, v))
+    end
 end
 
 @inline function interpolateTriangle(
@@ -104,7 +112,7 @@ end
     return v / length(v)
 end
 
-@inline function linInterp(a::SVec4f, b::SVec4f, weight::Float32)
+@inline function linInterp(a::SVec4f, b::SVec4f, weight::Float32)::SVec4f
     return a * (1 - weight) .+ b * weight
 end
 

@@ -39,7 +39,7 @@ function trace(scenePath::String, width = 1920, numSamples = 2)
     image = zeros(SVec4f, height, width)
     imageLinear::Bool = true
 
-    shader = shaderEyelight
+    shader = shaderEyelightBsdf
     #shader = shaderMaterial
     #shader = shaderNormal
     # shader = shaderIndirectNaive

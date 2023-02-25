@@ -9,7 +9,8 @@ using ..Algebra
 
 using StaticArrays: dot
 
-export shaderEyelight, shaderMaterial, shaderNormal, shaderIndirectNaive
+export shaderEyelight,
+    shaderMaterial, shaderNormal, shaderIndirectNaive, shaderEyelightBsdf
 
 # function shaderColor(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 #     intersection::Intersection = intersectScene(ray, scene)
@@ -67,7 +68,7 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         # extract intersection data
         instance::Instance = scene.instances[intersection.instanceIndex]
-        shape::Shape = instance.shapeIndex
+        shape::Shape = scene.shapes[instance.shapeIndex]
         frame::Frame = instance.frame
 
         # eval position
@@ -103,20 +104,28 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         # emission
         materialEmissionTex::SVec4f =
-            evalTexture(scene, material.emissionTex, textureX, textureY)
+            evalTexture(scene, material.emissionTex, textureX, textureY, true)
         materialEmission::SVec3f =
             material.emission .* xyz(materialEmissionTex) .* xyz(shapeColor)
 
         # color
         materialColorTex::SVec4f =
-            evalTexture(scene, material.colorTex, textureX, textureY)
+            evalTexture(scene, material.colorTex, textureX, textureY, true)
         materialColor::SVec3f =
             material.color .* xyz(materialColorTex) .* xyz(shapeColor)
 
         # evaluate opacity
         materialOpacity = material.opacity * materialColorTex[4] * shapeColor[4]
 
-        # missing: metallic, roughness, ior, scattering...
+        # fix minimum roughness
+        minRoughness = 0.03f0 * 0.03f0
+        materialRoughness = material.roughness
+        # if material.type == "matte"
+        #     error("its matte")
+        materialRoughness = clamp(material.roughness, minRoughness, 1.0f0)
+        # end
+
+        # missing: metallic,  ior, scattering...
 
         # handle opacity
         if materialOpacity < 1 && rand(Float32) >= materialOpacity
@@ -124,7 +133,7 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 break
             end
             opacityBounce += 1
-            ray = Ray(position .+ ray.direction * 1.0f-2, ray.direction)
+            ray = Ray(position + ray.direction * 1.0f-2, ray.direction)
             bounce -= 1
             continue
         end
@@ -139,7 +148,53 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         incoming::SVec3f = outgoing
 
         # missing: bsdf
+        emission =
+            dot(normal, outgoing) >= 0 ? materialEmission : SVec3f(0, 0, 0)
+        radiance += weight .* emission
+
+        # brdf + light
+        radiance +=
+            (weight * pi) .* evalBsdfCos(
+                material.type,
+                materialRoughness,
+                materialColor,
+                normal,
+                outgoing,
+                incoming,
+            )
+
+        # if material is not delta, break
+        break
     end
+    return radiance
+end
+
+function evalBsdfCos(
+    materialType::String,
+    materialRoughness::Float32,
+    materialColor::SVec3f,
+    normal,
+    outgoing,
+    incoming,
+)::SVec3f
+    if materialRoughness == 0
+        return SVec3f(0, 0, 0)
+        error("wait what")
+    end
+
+    # only matte materials
+    if materialType == "matte"
+        return evalMatte(materialColor, normal, outgoing, incoming)
+    else
+        error("only matte for now")
+    end
+end
+
+@inline function evalMatte(materialColor, normal, outgoing, incoming)
+    if dot(normal, incoming) * dot(normal, outgoing) <= 0
+        return SVec3f(0, 0, 0)
+    end
+    return materialColor / pi * abs(dot(normal, incoming))
 end
 
 function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
