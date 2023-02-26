@@ -196,14 +196,12 @@ end
 
 @inline function srgbToRgb(srgb::SVec4f)::SVec4f
     SVec4f(srgbToRgb(srgb[1]), srgbToRgb(srgb[2]), srgbToRgb(srgb[3]), srgb[4])
+    # return SVec4f(srgbToRgb.(srgb)..., srgb[4])
 end
 
-@inline function srgbToRgb(srgb::Float32)::Float32
-    return ifelse(
-        srgb <= 0.04045,
-        (srgb / 12.92f0),
-        ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0,
-    )
+@inline function srgbToRgb(srgb::SVec3f)::SVec3f
+    # SVec3f(srgbToRgb(srgb[1]), srgbToRgb(srgb[2]), srgbToRgb(srgb[3]))
+    return srgbToRgb.(srgb)
 end
 
 @inline function rgbToSrgb(rgb::SVec4f)::SVec4f
@@ -211,11 +209,21 @@ end
 end
 
 @inline function rgbToSrgb(rgb::Float32)::Float32
-    return ifelse(
-        rgb <= 0.0031308f0,
-        12.92f0 * rgb,
-        (1.0f0 + 0.055f0) * (rgb^(1.0f0 / 2.4f0)) - 0.055f0,
-    )
+    # return (rgb <= 0.0031308f0) ? 12.92f0 * rgb :
+    #        (1 + 0.055f0) * (rgb^(1 / 2.4f0)) - 0.055f0
+    return (rgb <= 0.0031308f0) ? (12.92f0 * rgb) :
+           (1 + 0.055f0) * fastPow(rgb, (1 / 2.4f0)) - 0.055f0
+end
+@inline function srgbToRgb(srgb::Float32)::Float32
+    # srgb <= 0.04045 ? (srgb / 12.92f0) :
+    # ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0
+    return (srgb <= 0.04045) ? (srgb / 12.92f0) :
+           fastPow((srgb + 0.055f0) / (1.0f0 + 0.055f0), 2.4f0)
+end
+
+# wtf? yeah you read it right, this can be slightly faster in julia. I know.
+@inline function fastPow(a::Float32, b::Float32)
+    return exp(log(a) * b)
 end
 
 # end module

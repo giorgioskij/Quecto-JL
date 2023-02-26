@@ -49,7 +49,7 @@ function shaderNormal(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
     radiance::SVec3f = normal * 0.5 .+ 0.5
 
-    return radiance
+    return srgbToRgb(radiance)
 end
 
 function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f

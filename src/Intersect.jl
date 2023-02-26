@@ -54,6 +54,7 @@ struct Intersection
 end
 
 # intersects a scene using a bvh
+# PERF: would love to add @inbounds everywhere, but we are civilized humans 
 function intersectScene(
     ray::Ray,
     scene::Scene,
@@ -155,6 +156,7 @@ function intersectScene(
 end
 
 # intersects a shape using a bvh
+# PERF: would love to add @inbounds everywhere, but we are civilized humans 
 function intersectShapeBvh!(
     shapeBvh::ShapeBvh,
     shape::Shape,
@@ -175,9 +177,11 @@ function intersectShapeBvh!(
     endindex = startindex + shapeBvhDepth - 1
     nodeStack = @view shapeNodeStack[startindex:endindex]
 
-    nodeCur = 1
-    nodeStack[nodeCur] = 1
-    nodeCur += 1
+    # nodeCur = 1
+    # nodeStack[nodeCur] = 1
+    # nodeCur += 1
+    @inbounds nodeStack[1] = 1
+    nodeCur = 2
 
     intersection::ShapeIntersection = ShapeIntersection(false)
 
@@ -189,7 +193,7 @@ function intersectShapeBvh!(
 
         # grab node
         nodeCur -= 1
-        @inbounds node = bvh.nodes[nodeStack[nodeCur]]
+        node = bvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
         if !intersectBbox(ray, rayDInv, node.bbox)
@@ -333,11 +337,15 @@ end
 end
 @inline function fastMin(a::Float32, b::Float32)
     a_b = a - b
-    (signbit(a_b) || isnan(a)) ? a : b
+    # (signbit(a_b) || isnan(a)) ? a : b
+    # nan checks are for WEAK PROGRAMMERS, we want SPEED
+    signbit(a_b) ? a : b
 end
 @inline function fastMax(a::Float32, b::Float32)
     b_a = b - a
-    (signbit(b_a) || isnan(a)) ? a : b
+    # (signbit(b_a) || isnan(a)) ? a : b
+    # jokes aside, nan checks actually increase time by like 2%. insane
+    signbit(b_a) ? a : b
 end
 
 # intersect a primitive triangle, given as a list of 3d points.
@@ -378,6 +386,39 @@ function intersectPrimitiveTriangle(
     return PrimitiveIntersection(true, u, v, t)
 end
 
+# function intersectPrimitiveQuad(
+#     ray::Ray,
+#     p0::SVec3f,
+#     p1::SVec3f,
+#     p2::SVec3f,
+#     p3::SVec3f,
+# )::PrimitiveIntersection
+#     if (p2 == p3)
+#         return intersectPrimitiveTriangle(ray, p0, p1, p3)
+#     end
+
+#     # PERF: maybe, just MAYBE, putting it in a loop allows for simd
+#     @simd for i = 1:2
+#         if i == 1
+#             isec = intersectPrimitiveTriangle(ray, p0, p1, p3)
+#         else
+#             isec = intersectPrimitiveTriangle(ray, p2, p3, p1)
+#         end
+#         if isec.hit
+#             if i == 1
+#                 return isec
+#             end
+#             return PrimitiveIntersection(
+#                 true,
+#                 1.0f0 - isec.u,
+#                 1.0f0 - isec.v,
+#                 isec.distance,
+#             )
+#         end
+#     end
+#     return PrimitiveIntersection(false)
+# end
+
 # intersect a primitive quad, given as a list of 3d points.
 function intersectPrimitiveQuad(
     ray::Ray,
@@ -392,6 +433,11 @@ function intersectPrimitiveQuad(
 
     isec1 = intersectPrimitiveTriangle(ray, p0, p1, p3)
 
+    # PERF: yeah, this looks criminal, but it's faster and actually absolutely fine
+    # if isec1.hit
+    #     return isec1
+    # end
+
     isec2 = intersectPrimitiveTriangle(ray, p2, p3, p1)
     if (isec2.hit)
         isec2 = PrimitiveIntersection(
@@ -400,7 +446,11 @@ function intersectPrimitiveQuad(
             1.0f0 - isec2.v,
             isec2.distance,
         )
+        # PERF
+        # return isec2
     end
+    # PERF
+    # return isec1
 
     if (isec1.hit && !isec2.hit)
         return isec1
@@ -409,7 +459,8 @@ function intersectPrimitiveQuad(
     elseif (isec1.hit && isec2.hit)
         return ifelse(isec1.distance < isec2.distance, isec1, isec2)
     else
-        return isec1    # this is equal to PrimitiveIntersection(false) but without the creation of a new obj
+        return isec1
+        # this is equal to PrimitiveIntersection(false) but faster
     end
 end
 

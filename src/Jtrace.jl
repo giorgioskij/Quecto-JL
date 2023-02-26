@@ -83,11 +83,14 @@ function trace(;
     width = 1920,
     samples = 2,
     multithreaded::Bool = true,
+    quiet::Bool = false,
 )
-    println(
-        "~~~~~ SHADER $shader, WIDTH $width, SAMPLES $samples, ",
-        "THREADS $(Threads.nthreads()) ~~~~~",
-    )
+    if !quiet
+        println(
+            "~~~~~ SHADER $shader, WIDTH $width, SAMPLES $samples, ",
+            "THREADS $(Threads.nthreads()) ~~~~~",
+        )
+    end
     # generate scene
     t = @elapsed scene = loadJsonScene(joinpath(baseDir, scenePath))
     displayStat("Loaded $scenePath", t)
@@ -97,7 +100,9 @@ function trace(;
 
     # build bvh
     t = @elapsed bvh = makeSceneBvh(scene)
-    displayStat("BVH built", t)
+    if !quiet
+        displayStat("BVH built", t)
+    end
 
     # generate empty starting image
     image = zeros(SVec4f, height, width)
@@ -127,11 +132,15 @@ function trace(;
         camera,
         multithreaded,
     )
-    displayStat("Image rendered", t)
+    if !quiet
+        displayStat("Image rendered", t)
+    end
 
     outputPath = "out/jtrace.png"
     t = @elapsed saveImage(outputPath, image, imageLinear, multithreaded)
-    displayStat("Image saved at $outputPath", t)
+    if !quiet
+        displayStat("Image saved at $outputPath", t)
+    end
 end
 
 function saveImage(
