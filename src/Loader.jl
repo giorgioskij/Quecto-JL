@@ -17,7 +17,7 @@ function loadJsonScene(scenePath::String)
         cameras = Vector{Camera}(undef, size(group, 1))
         # ignore camera_names
         defaultCamera = Camera()
-        for (i, element) in enumerate(group)
+        @inbounds for (i, element) in enumerate(group)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
@@ -43,7 +43,7 @@ function loadJsonScene(scenePath::String)
         textureFilenames = Vector{String}(undef, size(group, 1))
         textures = Vector{Texture}(undef, size(group, 1))
         defaultTexture = Texture()
-        for (i, element) in enumerate(group)
+        @inbounds for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
             end
@@ -64,7 +64,7 @@ function loadJsonScene(scenePath::String)
         materials = Vector{Material}(undef, size(group, 1))
         # ignore material_names
         defaultMaterial = Material()
-        for (i, element) in enumerate(group)
+        @inbounds for (i, element) in enumerate(group)
             colorTex = get(element, "color_tex", defaultMaterial.colorTex)
             if colorTex != -1
                 colorTex += 1
@@ -119,7 +119,7 @@ function loadJsonScene(scenePath::String)
     if haskey(json, "shapes")
         group = json["shapes"]
         shapeFilenames = Vector{String}(undef, size(group, 1))
-        for (i, element) in enumerate(group)
+        @inbounds for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
             end
@@ -133,7 +133,7 @@ function loadJsonScene(scenePath::String)
         instances = Vector{Instance}(undef, size(group, 1))
 
         defaultInstance = Instance()
-        for (i, element) in enumerate(group)
+        @inbounds for (i, element) in enumerate(group)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
@@ -161,7 +161,7 @@ function loadJsonScene(scenePath::String)
         environments = Vector{Environment}(undef, size(group, 1))
 
         defaultEnv = Environment()
-        for (i, element) in enumerate(group)
+        @inbounds for (i, element) in enumerate(group)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
@@ -181,14 +181,14 @@ function loadJsonScene(scenePath::String)
 
     # load shapes
     shapes = Vector{Shape}(undef, size(shapeFilenames, 1))
-    for (i, filename) in enumerate(shapeFilenames)
+    @inbounds for (i, filename) in enumerate(shapeFilenames)
         path = (dirname(scenePath), filename) |> joinpath
         shape = loadShape(path)
         shapes[i] = shape
     end
 
     # load textures
-    for (i, filename) in enumerate(textureFilenames)
+    @inbounds for (i, filename) in enumerate(textureFilenames)
         path = (dirname(scenePath), filename) |> joinpath
 
         # check that extension is png
@@ -289,7 +289,8 @@ function loadShape(filename::String)
     if quadCount > 0
         triangles = Matrix{Int64}(undef, 0, 0)
         quads = Matrix{Int64}(undef, quadCount + triCount, 4)
-        Threads.@threads for (i, elem) in collect(enumerate(eachrow(faces)))
+        @inbounds Threads.@threads for (i, elem) in
+                                       collect(enumerate(eachrow(faces)))
             elem = elem[1]
             if size(elem)[end] == 4
                 quads[i, :] = transpose(elem)
@@ -302,7 +303,8 @@ function loadShape(filename::String)
     elseif triCount > 0
         quads = Matrix{Int64}(undef, 0, 0)
         triangles = Matrix{Int64}(undef, triCount, 3)
-        Threads.@threads for (i, elem) in collect(enumerate(eachrow(faces)))
+        @inbounds Threads.@threads for (i, elem) in
+                                       collect(enumerate(eachrow(faces)))
             elem = elem[1]
             triangles[i, :] = transpose(elem)
         end

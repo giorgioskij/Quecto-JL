@@ -12,9 +12,9 @@ export Intersection, ShapeIntersection, PrimitiveIntersection, intersectScene
 const global shapeBvhDepth = 30
 const global masterBvhDepth = 20
 const global maxnthreads = 128
-const global masterNodeStack = MVector{masterBvhDepth * maxnthreads,UInt32}(undef)
+const global masterNodeStack =
+    MVector{masterBvhDepth * maxnthreads,UInt32}(undef)
 const global shapeNodeStack = MVector{shapeBvhDepth * maxnthreads,UInt32}(undef)
-
 
 # intersection of a ray with a shape
 struct ShapeIntersection
@@ -115,7 +115,7 @@ function intersectScene(
                 nodeCur += 1
             end
         else
-            for idx = node.start:node.start+node.num-1
+            @inbounds for idx = node.start:node.start+node.num-1
                 instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
 
@@ -213,7 +213,7 @@ function intersectShapeBvh!(
                 nodeCur += 1
             end
         elseif !isempty(shape.triangles)
-            for idx = node.start:node.start+node.num-1
+            @inbounds for idx = node.start:node.start+node.num-1
                 @inbounds pointAindex, pointBindex, pointCindex =
                     @view shape.triangles[bvh.primitives[idx], :]
 
@@ -253,7 +253,7 @@ function intersectShapeBvh!(
             end
 
         elseif !isempty(shape.quads)
-            for idx = node.start:node.start+node.num-1
+            @inbounds for idx = node.start:node.start+node.num-1
                 @inbounds pointAindex, pointBindex, pointCindex, pointDindex =
                     @view shape.quads[bvh.primitives[idx], :]
                 @inbounds pointA = SVec3f(
@@ -421,10 +421,12 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
 
     # in the future this will be a BVH
     intersection = Intersection(false)
-    for (instanceIndex, instance) in enumerate(scene.instances)
+    @inbounds for (instanceIndex, instance) in enumerate(scene.instances)
         shape = scene.shapes[instance.shapeIndex]
-        for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
-            enumerate(eachcol(transpose(shape.triangles)))
+        @inbounds for (
+            triangleIndex,
+            (pointAindex, pointBindex, pointCindex),
+        ) in enumerate(eachcol(transpose(shape.triangles)))
             @inbounds pointA = SVec3f(
                 shape.positions[pointAindex, 1],
                 shape.positions[pointAindex, 2],
@@ -454,8 +456,10 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
             end
         end
 
-        for (quadIndex, (pointAindex, pointBindex, pointCindex, pointDindex)) in
-            enumerate(eachcol(transpose(shape.quads)))
+        @inbounds for (
+            quadIndex,
+            (pointAindex, pointBindex, pointCindex, pointDindex),
+        ) in enumerate(eachcol(transpose(shape.quads)))
             @inbounds pointA = SVec3f(
                 shape.positions[pointAindex, 1],
                 shape.positions[pointAindex, 2],

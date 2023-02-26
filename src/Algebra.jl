@@ -117,24 +117,8 @@ end
 end
 
 @inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
-    if isnan(a.x)
-        a = SVec3f(0, a.y, a.z)
-    end
-    if isnan(a.y)
-        a = SVec3f(a.x, 0, a.z)
-    end
-    if isnan(a.z)
-        a = SVec3f(a.x, a.y, 0)
-    end
-    if isnan(b.x)
-        b = SVec3f(0, b.y, b.z)
-    end
-    if isnan(b.y)
-        b = SVec3f(b.x, 0, b.z)
-    end
-    if isnan(b.z)
-        b = SVec3f(b.x, b.y, 0)
-    end
+    a = clamp01nan.(a)
+    b = clamp01nan.(b)
 
     return a * (1 - weight) + b * weight
 end
@@ -214,9 +198,12 @@ end
     SVec4f(srgbToRgb(srgb[1]), srgbToRgb(srgb[2]), srgbToRgb(srgb[3]), srgb[4])
 end
 
-@inline function srgbToRgb(srgb::Float32)
-    srgb <= 0.04045 ? (srgb / 12.92f0) :
-    ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0
+@inline function srgbToRgb(srgb::Float32)::Float32
+    return ifelse(
+        srgb <= 0.04045,
+        (srgb / 12.92f0),
+        ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0,
+    )
 end
 
 @inline function rgbToSrgb(rgb::SVec4f)::SVec4f
@@ -224,8 +211,11 @@ end
 end
 
 @inline function rgbToSrgb(rgb::Float32)::Float32
-    return (rgb <= 0.0031308f0) ? 12.92f0 * rgb :
-           (1 + 0.055f0) * (rgb^(1 / 2.4f0)) - 0.055f0
+    return ifelse(
+        rgb <= 0.0031308f0,
+        12.92f0 * rgb,
+        (1.0f0 + 0.055f0) * (rgb^(1.0f0 / 2.4f0)) - 0.055f0,
+    )
 end
 
 # end module
