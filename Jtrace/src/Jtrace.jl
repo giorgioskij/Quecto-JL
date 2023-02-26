@@ -1,15 +1,15 @@
 module Jtrace
 
-include("types.jl")
-include("algebra.jl")
-include("world.jl")
-include("bvh.jl")
-include("intersect.jl")
-include("eval.jl")
-include("shading.jl")
-include("loader.jl")
+include("Types.jl")
+include("Algebra.jl")
+include("World.jl")
+include("Bvh.jl")
+include("Intersect.jl")
+include("Eval.jl")
+include("Shading.jl")
+include("Loader.jl")
 
-const baseDir = dirname(@__FILE__)
+const baseDir = joinpath(dirname(@__FILE__), "../")
 cd(baseDir)
 
 using Images
@@ -24,11 +24,11 @@ using .Shading
 export trace
 
 # main entry point to the program
-function trace(
-    scenePath::String,
+function trace(;
+    scenePath::String = "03_texture/texture.json",
     shaderName::String = "eyelight",
     width = 1920,
-    numSamples = 2,
+    samples = 2,
     multithreaded::Bool = true,
 )
     # generate scene
@@ -63,13 +63,13 @@ function trace(
         scene,
         width,
         height,
-        numSamples,
+        samples,
         bvh,
         camera,
         multithreaded,
     )
 
-    saveImage("out/jtrace.png", image, imageLinear)
+    saveImage("out/jtrace.png", image, imageLinear, multithreaded)
 
     # save the resulting image
     # rgbImage = zeros(RGB, size(image))
@@ -81,20 +81,40 @@ function trace(
     # save("out/prova.png", rgbImage)
 end
 
-function saveImage(filename::String, image::Matrix{SVec4f}, isLinear::Bool)
+function saveImage(
+    filename::String,
+    image::Matrix{SVec4f},
+    isLinear::Bool,
+    multithreaded::Bool,
+)
     # for i = 1:size(image, 1)
     # for j = 1:size(image, 2)
     # pngImage = Matrix{RGB{N0f8}}(undef, size(image, 1), size(image, 2))
     pngImage = zeros(RGBA, size(image))
-    Threads.@threads for i = 1:size(image, 1)
-        Threads.@threads for j = 1:size(image, 2)
-            if isLinear
-                srgb = clamp01nan.(rgbToSrgb(image[i, j]))
-                pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
-            else
-                rgb = clamp01nan.(image[i, j])
-                pngImage[i, j] = RGBA(rgb[1], rgb[2], rgb[3], rgb[4])
-                error("dont know what to do now")
+    if multithreaded
+        Threads.@threads for i = 1:size(image, 1)
+            Threads.@threads for j = 1:size(image, 2)
+                if isLinear
+                    srgb = clamp01nan.(rgbToSrgb(image[i, j]))
+                    pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
+                else
+                    rgb = clamp01nan.(image[i, j])
+                    pngImage[i, j] = RGBA(rgb[1], rgb[2], rgb[3], rgb[4])
+                    error("dont know what to do now")
+                end
+            end
+        end
+    else
+        for i = 1:size(image, 1)
+            for j = 1:size(image, 2)
+                if isLinear
+                    srgb = clamp01nan.(rgbToSrgb(image[i, j]))
+                    pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
+                else
+                    rgb = clamp01nan.(image[i, j])
+                    pngImage[i, j] = RGBA(rgb[1], rgb[2], rgb[3], rgb[4])
+                    error("dont know what to do now")
+                end
             end
         end
     end
@@ -107,12 +127,12 @@ function traceSamples(
     scene,
     imwidth,
     imheight,
-    numSamples,
+    samples,
     bvh,
     camera,
     multithreaded,
 )
-    for s = 1:numSamples
+    for s = 1:samples
         if multithreaded
             Threads.@threads for i = 1:size(image)[2]
                 Threads.@threads for j = 1:size(image)[1]
