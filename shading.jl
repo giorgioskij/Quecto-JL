@@ -86,7 +86,7 @@ function shaderIndirectNaive(
         return radiance
     end
 
-    maxBounce = 10
+    maxBounce = 6
     # compute normal of the point hit
     instance::Instance = scene.instances[intersection.instanceIndex]
     frame::Frame = instance.frame
@@ -124,7 +124,7 @@ end
 function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     # intersection::Intersection = intersectScene(ray, scene)
     radiance = SVec3f(0, 0, 0)
-    maxBounce = 2
+    maxBounce = 32
     newRay = ray
 
     for b = 1:maxBounce
@@ -132,8 +132,10 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
-            radiance = evalEnvironment(scene, ray.direction)
-            return weight * radiance
+            if b > 1
+                radiance += weight * evalEnvironment(scene, newRay.direction)
+            end
+            break
         end
 
         # compute normal of the point hit
@@ -142,44 +144,56 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         shape::Shape = scene.shapes[instance.shapeIndex]
         material::Material = scene.materials[instance.materialIndex]
 
-        outgoing = -ray.direction
+        outgoing = -newRay.direction
         position = evalShadingPosition(scene, intersection, outgoing)
         normal = evalNormal(shape, intersection, frame, outgoing)
         materialColor = evalMaterialColor(scene, intersection)
 
-        radiance = evalEmission(material, normal, outgoing) .* materialColor
+        #incoming = outgoing   # decomment for eyelight shader
+        radiance += weight * evalEmission(material, normal, outgoing)
 
         if material.type == "matte"
-            incoming = sampleHemisphereCos(normal)
+            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+            incoming = sampleHemisphereCos(upNormal)
             if incoming == SVec3f(0, 0, 0)
                 break
             end
-            if dot(normal, incoming) * dot(normal, outgoing) > 0
-                radiance = linInterp(
-                    radiance,
-                    radiance / pi .* abs(dot(normal, outgoing)),
-                    weight,
+
+            #good floor and overall illumination, bad lighting
+            radiance =
+                weight * ifelse(
+                    dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                    SVec3f(0, 0, 0),
+                    materialColor * abs(dot(normal, incoming)),
                 )
-            end
+
+            # good lighting spots, bad floor and overall illumination
+            # radiance = linInterp(
+            #     radiance,
+            #     ifelse(
+            #         dot(normal, incoming) * dot(normal, outgoing) <= 0,
+            #         SVec3f(0, 0, 0),
+            #         materialColor * abs(dot(normal, incoming)),
+            #     ),
+            #     weight,
+            # )
+
         elseif material.type == "reflective"
             if material.roughness == 0
                 incoming = reflect(outgoing, normal)
-                if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                    return weight * radiance
-                end
-                radiance = linInterp(
-                    radiance,
-                    radiance .* fresnelSchlick(materialColor, normal, incoming),
-                    weight,
-                )
+                radiance =
+                    weight * ifelse(
+                        dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                        SVec3f(0, 0, 0),
+                        materialColor .*
+                        fresnelSchlick(materialColor, normal, incoming),
+                    )
+
             else
                 exponent = 2.0f0 / material.roughness^2
                 halfway = sampleHemisphereCosPower(exponent, normal)
                 incoming = reflect(outgoing, halfway)
-                if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                    return weight * radiance
-                end
-                up_normal = dot(normal, outgoing) <= 0 ? -normal : normal
+                upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
                 halfway = norm(incoming + outgoing)
                 F = fresnelConductor(
                     reflectivityToEta(materialColor),
@@ -189,39 +203,73 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 )
                 D = microfacetDistribution(
                     material.roughness,
-                    up_normal,
+                    upNormal,
                     halfway,
                 )
                 G = microfacetShadowing(
                     material.roughness,
-                    up_normal,
+                    upNormal,
                     halfway,
                     outgoing,
                     incoming,
                 )
-                radiance = linInterp(
-                    radiance,
-                    radiance .* F .* D .* G ./ (
-                        4 .* dot(up_normal, outgoing) .*
-                        dot(up_normal, incoming)
-                    ) .* abs(dot(up_normal, incoming)),
-                    weight,
-                )
+                radiance =
+                    weight * ifelse(
+                        dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                        SVec3f(0, 0, 0),
+                        materialColor .* F .* D .* G ./ (
+                            4 .* dot(upNormal, outgoing) .*
+                            dot(upNormal, incoming)
+                        ) .* abs(dot(upNormal, incoming)),
+                    )
             end
-            # elseif material.roughness == 0
+        elseif material.type == "glossy"
+            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+            if (rand() < fresnelDielectric(material.ior, upNormal, outgoing))
+                halfway = sampleMicrofacet(material.roughness, upNormal)
+                incoming = reflect(outgoing, halfway)
+            else
+                incoming = sampleHemisphereCos(upNormal)
+            end
 
+            F1 = fresnelDielectric(material.ior, upNormal, outgoing)
+            halfway = norm(incoming + outgoing)
+            F = fresnelDielectric(material.ior, halfway, incoming)
+            D = microfacetDistribution(material.roughness, upNormal, halfway)
+            G = microfacetShadowing(
+                material.roughness,
+                upNormal,
+                halfway,
+                outgoing,
+                incoming,
+            )
+            radiance =
+                weight * ifelse(
+                    dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                    SVec3f(0, 0, 0),
+                    materialColor * (1 - F1) / pi *
+                    abs(dot(upNormal, incoming)) +
+                    SVec3f(1, 1, 1) * F * D * G / (
+                        4.0f0 *
+                        dot(upNormal, outgoing) *
+                        dot(upNormal, incoming)
+                    ) * abs(dot(upNormal, incoming)),
+                )
         else
-            incoming = sampleHemisphereCos(normal)
+            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+            incoming = sampleHemisphereCos(upNormal)
             if incoming == SVec3f(0, 0, 0)
                 break
             end
-            #if dot(normal, incoming) * dot(normal, outgoing) > 0
             radiance = linInterp(
                 radiance,
-                materialColor / pi .* abs(dot(normal, incoming)),
+                ifelse(
+                    dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                    SVec3f(0, 0, 0),
+                    materialColor * abs(dot(normal, incoming)),
+                ),
                 weight,
             )
-            #end
         end
 
         newRay = Ray(position, incoming)
@@ -260,6 +308,31 @@ end
 
 @inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
     return -w + 2.0f0 * dot(w, n) * n
+end
+
+@inline function fresnelDielectric(
+    eta::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)::Float32
+    cosw = abs(dot(normal, outgoing))
+
+    sin2 = 1 - cosw * cosw
+    eta2 = eta * eta
+
+    cos2t = 1 - sin2 / eta2
+    if cos2t < 0
+        return 1
+    end
+
+    t0 = sqrt(cos2t)
+    t1 = eta * t0
+    t2 = eta * cosw
+
+    rs = (cosw - t1) / (cosw + t1)
+    rp = (t0 - t2) / (t0 + t2)
+
+    return (rs * rs + rp * rp) / 2
 end
 
 @inline function fresnelConductor(
@@ -382,6 +455,25 @@ end
     phi = 2.0f0 * pi * ruxy
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
+end
+
+@inline function sampleMicrofacet(
+    roughness::Float32,
+    normal::SVec3f,
+    ggx::Bool = true,
+)::SVec3f
+    ruvx = rand()
+    ruvy = rand()
+    phi = 2.0f0 * pi * ruvx
+    theta = 0.0f0
+    if ggx
+        theta = atan(roughness * sqrt(ruvy / (1 - ruvy)))
+    else
+        theta = atan(sqrt(-roughness^2 * log(1 - ruvy)))
+    end
+    localHalfVector =
+        SVec3f(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta))
+    return transformDirection(basisFromz(normal), localHalfVector)
 end
 
 @inline function basisFromz(v::SVec3f)
