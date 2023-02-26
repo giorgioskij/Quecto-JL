@@ -42,7 +42,10 @@ function shaderNormal(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     shape::Shape = scene.shapes[instance.shapeIndex]
 
     outgoing = -ray.direction
-    normal = evalNormal(shape, intersection, frame, outgoing)
+    normal = evalNormal(shape, intersection, frame)
+    if dot(normal, outgoing) < 0
+        normal = -normal
+    end
 
     radiance::SVec3f = normal * 0.5 .+ 0.5
 
@@ -73,7 +76,7 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         # eval position
         outgoing::SVec3f = -ray.direction
-        positon::SVec3f = evalPosition(
+        position::SVec3f = evalPosition(
             scene,
             instance,
             intersection.elementIndex,

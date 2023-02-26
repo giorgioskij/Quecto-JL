@@ -15,50 +15,109 @@ cd(baseDir)
 using Images
 using BenchmarkTools
 using StaticArrays
+using Dates
 using .Types
 using .Algebra
 using .Bvh
 using .World
 using .Shading
 
-export trace
+export trace, t
+
+function prettyPrint(c::Dates.CompoundPeriod)::String
+    c = canonicalize(c)
+    t = Time(0) + c
+    hour = Hour(t)
+    minute = Minute(t)
+    second = Second(t)
+    milli = Millisecond(t)
+    micro = Microsecond(t)
+    timestring = ""
+    for (symbol, value) in zip(
+        ["hour", "min", "sec", "m", "μ"],
+        (hour, minute, second, milli, micro),
+    )
+        if value.value == 0 && typeof(value) != Second
+            continue
+        end
+        n = lpad(
+            value.value,
+            typeof(value) == Millisecond || typeof(value) == Microsecond ?
+            3 : 2,
+            "0",
+        )
+        timestring *= "$n $symbol, "
+    end
+    return timestring[1:Base.length(timestring)-2]
+end
+
+function displayStat(
+    message::String,
+    time::Union{Real,Nothing} = nothing,
+    maxsize = 40,
+)
+    if !isnothing(time)
+        message *= ":"
+    end
+    if Base.length(message) > maxsize
+        diff = Base.length(message) - maxsize
+        message = message[1:end-diff-3] * "..."
+    else
+        message = message * (" "^(maxsize - Base.length(message)))
+    end
+
+    if isnothing(time)
+        println(message)
+    else
+        c = Dates.CompoundPeriod(Microsecond(round(time * 10^6)))
+        timestring = prettyPrint(c)
+        # timestring = Time(0) + canonicalize(c)
+        println("$message $timestring")
+    end
+end
 
 # main entry point to the program
 function trace(;
     scenePath::String = "03_texture/texture.json",
-    shaderName::String = "eyelight",
+    shader::String = "eyelight",
     width = 1920,
     samples = 2,
     multithreaded::Bool = true,
 )
+    println(
+        "~~~~~ SHADER $shader, WIDTH $width, SAMPLES $samples, ",
+        "THREADS $(Threads.nthreads()) ~~~~~",
+    )
     # generate scene
-    scene = loadJsonScene(joinpath(baseDir, scenePath))
-    # return scene
+    t = @elapsed scene = loadJsonScene(joinpath(baseDir, scenePath))
+    displayStat("Loaded $scenePath", t)
 
     camera = scene.cameras[1]
     height = Int(round(width / camera.aspect))
 
     # build bvh
-    bvh = makeSceneBvh(scene)
+    t = @elapsed bvh = makeSceneBvh(scene)
+    displayStat("BVH built", t)
 
     # generate empty starting image
     image = zeros(SVec4f, height, width)
     imageLinear::Bool = true
 
-    if lowercase(shaderName) == "eyelight"
-        shader = shaderEyelightBsdf
-    elseif lowercase(shaderName) == "normal"
-        shader = shaderNormal
-    elseif lowercase(shaderName) == "naive"
-        shader = shaderIndirectNaive
+    if lowercase(shader) == "eyelight"
+        shaderFunc = shaderEyelightBsdf
+    elseif lowercase(shader) == "normal"
+        shaderFunc = shaderNormal
+    elseif lowercase(shader) == "naive"
+        shaderFunc = shaderIndirectNaive
     else
-        error("No shader named $shaderName")
+        error("No shader named $shader")
     end
     # shader = shaderMaterial
 
     # call the function to trace samples
-    traceSamples(
-        shader,
+
+    t = @elapsed traceSamples(
+        shaderFunc,
         image,
         scene,
         width,
@@ -68,17 +127,11 @@ function trace(;
         camera,
         multithreaded,
     )
+    displayStat("Image rendered", t)
 
-    saveImage("out/jtrace.png", image, imageLinear, multithreaded)
-
-    # save the resulting image
-    # rgbImage = zeros(RGB, size(image))
-    # Threads.@threads for i = 1:size(image)[1]
-    #     Threads.@threads for j = 1:size(image)[2]
-    #         rgbImage[i, j] = RGB(image[i, j]...)
-    #     end
-    # end
-    # save("out/prova.png", rgbImage)
+    outputPath = "out/jtrace.png"
+    t = @elapsed saveImage(outputPath, image, imageLinear, multithreaded)
+    displayStat("Image saved at $outputPath", t)
 end
 
 function saveImage(
@@ -87,9 +140,6 @@ function saveImage(
     isLinear::Bool,
     multithreaded::Bool,
 )
-    # for i = 1:size(image, 1)
-    # for j = 1:size(image, 2)
-    # pngImage = Matrix{RGB{N0f8}}(undef, size(image, 1), size(image, 2))
     pngImage = zeros(RGBA, size(image))
     if multithreaded
         Threads.@threads for i = 1:size(image, 1)
@@ -146,7 +196,6 @@ function traceSamples(
                         imheight,
                         bvh,
                     )
-
                     weight::Float32 = 1 / s
                     image[j, i] =
                     # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)

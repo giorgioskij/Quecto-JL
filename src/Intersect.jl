@@ -9,11 +9,12 @@ import ..Jtrace
 
 export Intersection, ShapeIntersection, PrimitiveIntersection, intersectScene
 
-const global shapeBvhDepth = 64
-const global masterBvhDepth = 64
-const global nthreads = Threads.nthreads()
-const global masterNodeStack = MVector{masterBvhDepth * nthreads,UInt32}(undef)
-const global shapeNodeStack = MVector{shapeBvhDepth * nthreads,UInt32}(undef)
+const global shapeBvhDepth = 30
+const global masterBvhDepth = 20
+const global maxnthreads = 128
+const global masterNodeStack = MVector{masterBvhDepth * maxnthreads,UInt32}(undef)
+const global shapeNodeStack = MVector{shapeBvhDepth * maxnthreads,UInt32}(undef)
+
 
 # intersection of a ray with a shape
 struct ShapeIntersection
