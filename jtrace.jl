@@ -24,7 +24,13 @@ using .Shading
 export trace
 
 # main entry point to the program
-function trace(scenePath::String, width = 1920, numSamples = 2)
+function trace(
+    scenePath::String,
+    shaderName::String = "eyelight",
+    width = 1920,
+    numSamples = 2,
+    multithreaded::Bool = true,
+)
     # generate scene
     scene = loadJsonScene(joinpath(baseDir, scenePath))
     # return scene
@@ -39,13 +45,29 @@ function trace(scenePath::String, width = 1920, numSamples = 2)
     image = zeros(SVec4f, height, width)
     imageLinear::Bool = true
 
-    shader = shaderEyelightBsdf
-    #shader = shaderMaterial
-    #shader = shaderNormal
-    # shader = shaderIndirectNaive
+    if lowercase(shaderName) == "eyelight"
+        shader = shaderEyelightBsdf
+    elseif lowercase(shaderName) == "normal"
+        shader = shaderNormal
+    elseif lowercase(shaderName) == "naive"
+        shader = shaderIndirectNaive
+    else
+        error("No shader named $shaderName")
+    end
+    # shader = shaderMaterial
 
     # call the function to trace samples
-    traceSamples(shader, image, scene, width, height, numSamples, bvh, camera)
+    traceSamples(
+        shader,
+        image,
+        scene,
+        width,
+        height,
+        numSamples,
+        bvh,
+        camera,
+        multithreaded,
+    )
 
     saveImage("out/jtrace.png", image, imageLinear)
 
@@ -64,8 +86,8 @@ function saveImage(filename::String, image::Matrix{SVec4f}, isLinear::Bool)
     # for j = 1:size(image, 2)
     # pngImage = Matrix{RGB{N0f8}}(undef, size(image, 1), size(image, 2))
     pngImage = zeros(RGBA, size(image))
-    for i = 1:size(image, 1)
-        for j = 1:size(image, 2)
+    Threads.@threads for i = 1:size(image, 1)
+        Threads.@threads for j = 1:size(image, 2)
             if isLinear
                 srgb = clamp01nan.(rgbToSrgb(image[i, j]))
                 pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
@@ -88,30 +110,58 @@ function traceSamples(
     numSamples,
     bvh,
     camera,
+    multithreaded,
 )
     for s = 1:numSamples
-        Threads.@threads for i = 1:size(image)[2]
-            Threads.@threads for j = 1:size(image)[1]
-                radiance = traceSample(
-                    shader,
-                    i,
-                    j,
-                    scene,
-                    camera,
-                    imwidth,
-                    imheight,
-                    bvh,
-                )
-
-                weight::Float32 = 1 / s
-                image[j, i] =
-                # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
-                # linInterp(image[j, i], color, weight)
-                    linInterp(
-                        image[j, i],
-                        SVec4f(radiance.x, radiance.y, radiance.z, 1.0),
-                        weight,
+        if multithreaded
+            Threads.@threads for i = 1:size(image)[2]
+                Threads.@threads for j = 1:size(image)[1]
+                    radiance = traceSample(
+                        shader,
+                        i,
+                        j,
+                        scene,
+                        camera,
+                        imwidth,
+                        imheight,
+                        bvh,
                     )
+
+                    weight::Float32 = 1 / s
+                    image[j, i] =
+                    # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
+                    # linInterp(image[j, i], color, weight)
+                        linInterp(
+                            image[j, i],
+                            SVec4f(radiance.x, radiance.y, radiance.z, 1.0),
+                            weight,
+                        )
+                end
+            end
+        else
+            for i = 1:size(image)[2]
+                for j = 1:size(image)[1]
+                    radiance = traceSample(
+                        shader,
+                        i,
+                        j,
+                        scene,
+                        camera,
+                        imwidth,
+                        imheight,
+                        bvh,
+                    )
+
+                    weight::Float32 = 1 / s
+                    image[j, i] =
+                    # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
+                    # linInterp(image[j, i], color, weight)
+                        linInterp(
+                            image[j, i],
+                            SVec4f(radiance.x, radiance.y, radiance.z, 1.0),
+                            weight,
+                        )
+                end
             end
         end
     end

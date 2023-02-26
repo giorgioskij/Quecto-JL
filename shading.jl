@@ -128,7 +128,7 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         # missing: metallic,  ior, scattering...
 
         # handle opacity
-        if materialOpacity < 1 && rand(Float32) >= materialOpacity
+        if !isapprox(materialOpacity, 1) && rand(Float32) >= materialOpacity
             if opacityBounce > 128
                 break
             end
