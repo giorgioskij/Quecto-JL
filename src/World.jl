@@ -81,21 +81,20 @@ struct Texture
     # hdrImage::Matrix{RGB{N0f16}}
 
     image::Matrix{SVec4f}
-    hdrImage::Matrix{SVec4f}
+    # hdrImage::Matrix{SVec4f}
 
     # some parameters from yocto
-    linear::Bool    # textures can be stored in linear or non-linear colorspace
+    # linear::Bool    # textures can be stored in linear or non-linear colorspace
     nearest::Bool
     clamp::Bool
 
-    Texture(image, hdrImage, linear, nearest, clamp) =
-        new(image, hdrImage, linear, nearest, clamp)
+    Texture(image, nearest, clamp) = new(image, nearest, clamp)
     Texture() = new(
         # Matrix{RGBA{N0f8}}(undef, 0, 0),
         # Matrix{RGB{N0f16}}(undef, 0, 0),
         Matrix{SVec4f}(undef, 0, 0),
-        Matrix{SVec4f}(undef, 0, 0),
-        false,
+        # Matrix{SVec4f}(undef, 0, 0),
+        # false,
         false,
         false,
     )

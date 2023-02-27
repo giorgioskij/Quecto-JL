@@ -50,8 +50,8 @@ function loadJsonScene(scenePath::String)
             textureFilenames[i] = element["uri"]
             textures[i] = Texture(
                 defaultTexture.image,
-                defaultTexture.hdrImage,
-                get(element, "linear", defaultTexture.linear),
+                # defaultTexture.hdrImage,
+                # get(element, "linear", defaultTexture.linear),
                 get(element, "nearest", defaultTexture.nearest),
                 get(element, "clamp", defaultTexture.clamp),
             )
@@ -194,22 +194,22 @@ function loadJsonScene(scenePath::String)
         # check that extension is png
         extension = path[findlast(==('.'), path)+1:end]
         if lowercase(extension) == "png"
-            image::Matrix{SVec4f} = loadTexturePng(path)
-            hdrImage = Matrix{RGB{N0f16}}(undef, 0, 0)
+            image = loadTexturePng(path)
+            # hdrImage = Matrix{RGB{N0f16}}(undef, 0, 0)
             textures[i] = Texture(
                 image,
-                hdrImage,
-                false, # png is not linear
+                # hdrImage,
+                # false, # png is not linear
                 textures[i].nearest,
                 textures[i].clamp,
             )
         elseif lowercase(extension) == "hdr"
-            hdrImage::Matrix{SVec4f} = loadTextureHdr(path)
-            image = Matrix{RGB{N0f8}}(undef, 0, 0)
+            image = loadTextureHdr(path)
+            # image = Matrix{RGB{N0f8}}(undef, 0, 0)
             textures[i] = Texture(
                 image,
-                hdrImage,
-                true, # hdr is linear
+                # hdrImage,
+                # true, # hdr is linear
                 textures[i].nearest,
                 textures[i].clamp,
             )
@@ -239,7 +239,7 @@ end
 function loadTextureHdr(filename::String)::Matrix{SVec4f}
     image = load(filename)
     # undo srgb and transform into Vector{SVector}
-    imageVector = map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, 1)), image)
+    imageVector = map(x -> SVec4f(x.r, x.g, x.b, 1), image)
     return imageVector
 end
 

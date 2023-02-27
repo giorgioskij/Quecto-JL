@@ -107,13 +107,13 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         # emission
         materialEmissionTex::SVec4f =
-            evalTexture(scene, material.emissionTex, textureX, textureY, true)
+            evalTexture(scene, material.emissionTex, textureX, textureY)
         materialEmission::SVec3f =
             material.emission .* xyz(materialEmissionTex) .* xyz(shapeColor)
 
         # color
         materialColorTex::SVec4f =
-            evalTexture(scene, material.colorTex, textureX, textureY, true)
+            evalTexture(scene, material.colorTex, textureX, textureY)
         materialColor::SVec3f =
             material.color .* xyz(materialColorTex) .* xyz(shapeColor)
 
@@ -288,9 +288,9 @@ function shaderIndirectNaive(
     # EVALUATE MATERIAL
     material::Material = scene.materials[instance.materialIndex]
     materialEmissionTex::SVec4f =
-        evalTexture(scene, material.emissionTex, textureX, textureY, true)
+        evalTexture(scene, material.emissionTex, textureX, textureY)
     materialColorTex::SVec4f =
-        evalTexture(scene, material.colorTex, textureX, textureY, true)
+        evalTexture(scene, material.colorTex, textureX, textureY)
     emission::SVec3f = material.emission .* xyz(materialEmissionTex)
     color::SVec3f = material.color .* xyz(materialColorTex)
     roughness = material.roughness * material.roughness

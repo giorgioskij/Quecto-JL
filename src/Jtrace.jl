@@ -54,7 +54,6 @@ function trace(;
 
     # generate empty starting image
     image = zeros(SVec4f, height, width)
-    imageLinear::Bool = true
 
     if lowercase(shader) == "eyelight"
         shaderFunc = shaderEyelightBsdf
@@ -85,43 +84,26 @@ function trace(;
     end
 
     outputPath = "out/jtrace.png"
-    t = @elapsed saveImage(outputPath, image, imageLinear, multithreaded)
+    t = @elapsed saveImage(outputPath, image, multithreaded)
     if !quiet
         displayStat("Image saved at $outputPath", t)
     end
 end
 
-function saveImage(
-    filename::String,
-    image::Matrix{SVec4f},
-    isLinear::Bool,
-    multithreaded::Bool,
-)
+function saveImage(filename::String, image::Matrix{SVec4f}, multithreaded::Bool)
     pngImage = zeros(RGBA, size(image))
     if multithreaded
-        @inbounds Threads.@threads for i = 1:size(image, 1)
-            @inbounds Threads.@threads for j = 1:size(image, 2)
-                if isLinear
-                    srgb = rgbToSrgb(clamp01nan.(image[i, j]))
-                    pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
-                else
-                    rgb = clamp01nan.(image[i, j])
-                    pngImage[i, j] = RGBA(rgb[1], rgb[2], rgb[3], rgb[4])
-                    error("dont know what to do now")
-                end
+        Threads.@threads for i = 1:size(image, 1)
+            Threads.@threads for j = 1:size(image, 2)
+                srgb = rgbToSrgb(clamp01nan.(image[i, j]))
+                pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
             end
         end
     else
         @inbounds for i = 1:size(image, 1)
             @inbounds for j = 1:size(image, 2)
-                if isLinear
-                    srgb = rgbToSrgb(clamp01nan.(image[i, j]))
-                    pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
-                else
-                    rgb = clamp01nan.(image[i, j])
-                    pngImage[i, j] = RGBA(rgb[1], rgb[2], rgb[3], rgb[4])
-                    error("dont know what to do now")
-                end
+                srgb = rgbToSrgb(clamp01nan.(image[i, j]))
+                pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
             end
         end
     end

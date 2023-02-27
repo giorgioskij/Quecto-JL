@@ -247,7 +247,7 @@ function evalTexture(
     textureIdx::Int32,
     textureX::Float32,
     textureY::Float32,
-    asLinear::Bool = false,
+    # asLinear::Bool = false,
 )::SVec4f
     if textureIdx == -1 || textureIdx == 0
         return SVec4f(1, 1, 1, 1)
@@ -258,7 +258,7 @@ function evalTexture(
         texture,
         textureX,
         textureY,
-        asLinear,
+        # asLinear,
         texture.nearest,
         texture.clamp,
     )
@@ -268,18 +268,19 @@ function evalTexture(
     texture::Texture,
     textureX::Float32,
     textureY::Float32,
-    asLinear::Bool,
+    # asLinear::Bool,
     noInterpolation::Bool,
     clampToEdge::Bool,
 )::SVec4f
-    if !isempty(texture.image)
-        sizeY, sizeX = size(texture.image)
-    elseif !isempty(texture.hdrImage)
-        (texture.hdrImage)
-        sizeY, sizeX = size(texture.hdrImage)
-    else
-        error("Texture contains no image")
-    end
+    sizeY, sizeX = size(texture.image)
+    # if !isempty(texture.image)
+    #     sizeY, sizeX = size(texture.image)
+    # elseif !isempty(texture.hdrImage)
+    #     (texture.hdrImage)
+    #     sizeY, sizeX = size(texture.hdrImage)
+    # else
+    #     error("Texture contains no image")
+    # end
 
     # asLinear = false
     # clampToEdge = texture.clamp
@@ -302,8 +303,10 @@ function evalTexture(
         end
     end
 
-    i::Int = clamp(Int(ceil(s)), 1, sizeX)
-    j::Int = clamp(Int(ceil(t)), 1, sizeY)
+    i::Int = clamp(Int(floor(s)), 0, sizeX - 1)
+    j::Int = clamp(Int(floor(t)), 0, sizeY - 1)
+    i += 1
+    j += 1
 
     ii::Int = i + 1
     jj::Int = j + 1
@@ -318,31 +321,34 @@ function evalTexture(
     v::Float32 = t - j
 
     if noInterpolation
-        return lookupTexture(texture, i, j, asLinear)
+        return lookupTexture(texture, i, j)
     else
         return (
-            lookupTexture(texture, i, j, asLinear) * (1 - u) * (1 - v) +
-            lookupTexture(texture, i, jj, asLinear) * (1 - u) * v +
-            lookupTexture(texture, ii, j, asLinear) * u * (1 - v) +
-            lookupTexture(texture, ii, jj, asLinear) * u * v
+            lookupTexture(texture, i, j) * (1 - u) * (1 - v) +
+            lookupTexture(texture, i, jj) * (1 - u) * v +
+            lookupTexture(texture, ii, j) * u * (1 - v) +
+            lookupTexture(texture, ii, jj) * u * v
         )
     end
 end
 
-function lookupTexture(texture::Texture, i::Int, j::Int, asLinear::Bool)::SVec4f
+@inline function lookupTexture(texture::Texture, i::Int, j::Int)::SVec4f
     # j indices the ROW of the texture
     # i the column
-    if !isempty(texture.image)
-        sizeY, sizeX = size(texture.image)
-        rgba = texture.image[sizeY-j+1, i]
-        color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
-    elseif !isempty(texture.hdrImage)
-        sizeY, sizeX = size(texture.hdrImage)
-        rgb = texture.hdrImage[sizeY-j+1, i]
-        color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
-    else
-        error("Texture contains no image")
-    end
+
+    sizeY = size(texture.image, 1)
+    return texture.image[sizeY-j+1, i]
+    # if !isempty(texture.image)
+    #     sizeY, sizeX = size(texture.image)
+    #     return texture.image[sizeY-j+1, i]
+    #     # color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
+    # elseif !isempty(texture.hdrImage)
+    #     sizeY, sizeX = size(texture.hdrImage)
+    #     return texture.hdrImage[sizeY-j+1, i]
+    #     # color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
+    # else
+    #     error("Texture contains no image")
+    # end
 
     # if asLinear && !texture.linear
     #     return srgbToRgb(color)
