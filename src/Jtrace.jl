@@ -99,10 +99,10 @@ function saveImage(
 )
     pngImage = zeros(RGBA, size(image))
     if multithreaded
-        Threads.@threads for i = 1:size(image, 1)
-            Threads.@threads for j = 1:size(image, 2)
+        @inbounds Threads.@threads for i = 1:size(image, 1)
+            @inbounds Threads.@threads for j = 1:size(image, 2)
                 if isLinear
-                    srgb = clamp01nan.(rgbToSrgb(image[i, j]))
+                    srgb = rgbToSrgb(clamp01nan.(image[i, j]))
                     pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
                 else
                     rgb = clamp01nan.(image[i, j])
@@ -112,10 +112,10 @@ function saveImage(
             end
         end
     else
-        for i = 1:size(image, 1)
-            for j = 1:size(image, 2)
+        @inbounds for i = 1:size(image, 1)
+            @inbounds for j = 1:size(image, 2)
                 if isLinear
-                    srgb = clamp01nan.(rgbToSrgb(image[i, j]))
+                    srgb = rgbToSrgb(clamp01nan.(image[i, j]))
                     pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
                 else
                     rgb = clamp01nan.(image[i, j])
@@ -139,10 +139,10 @@ function traceSamples(
     camera,
     multithreaded,
 )
-    for s = 1:samples
+    @inbounds for s = 1:samples
         if multithreaded
-            Threads.@threads for i = 1:size(image)[2]
-                Threads.@threads for j = 1:size(image)[1]
+            @inbounds Threads.@threads for i = 1:size(image)[2]
+                @inbounds Threads.@threads for j = 1:size(image)[1]
                     radiance = traceSample(
                         shader,
                         i,
@@ -165,8 +165,8 @@ function traceSamples(
                 end
             end
         else
-            for i = 1:size(image)[2]
-                for j = 1:size(image)[1]
+            @inbounds for i = 1:size(image)[2]
+                @inbounds for j = 1:size(image)[1]
                     radiance = traceSample(
                         shader,
                         i,

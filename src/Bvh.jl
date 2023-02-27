@@ -61,14 +61,14 @@ function makeSceneBvh(scene::Scene)::SceneBvh
 
     # build bvh for each shape
     bvhForEachShape = Vector{ShapeBvh}(undef, size(scene.shapes, 1))
-    for (i, shape) in enumerate(scene.shapes)
+    @inbounds for (i, shape) in enumerate(scene.shapes)
         bvhForEachShape[i] = makeShapeBvh(shape)
     end
 
     # instance bounding boxes
     bboxes = Vector{Bbox3f}(undef, size(scene.instances, 1))
 
-    for (i, instance) in enumerate(scene.instances)
+    @inbounds for (i, instance) in enumerate(scene.instances)
         bboxes[i] =
             isempty(bvhForEachShape[instance.shapeIndex].bvh.nodes) ? Bbox3f() :
             transformBbox(
@@ -213,7 +213,7 @@ function makeBvh(bboxes::Vector{Bbox3f})::BvhTree
         # compute bounds
         newMin = SVec3f(typemax(Float32), typemax(Float32), typemax(Float32))
         newMax = SVec3f(typemin(Float32), typemin(Float32), typemin(Float32))
-        for i = startIdx:endIdx
+        @inbounds for i = startIdx:endIdx
             newMin, newMax = merge(newMin, newMax, bboxes[primitives[i]])
         end
         newBbox = Bbox3f(newMin, newMax)
@@ -265,7 +265,7 @@ function splitMiddle(
 )
     boxMin = SVec3f(typemax(Float32), typemax(Float32), typemax(Float32))
     boxMax = SVec3f(typemin(Float32), typemin(Float32), typemin(Float32))
-    for i = startIdx:endIdx
+    @inbounds for i = startIdx:endIdx
         boxMin, boxMax = merge(boxMin, boxMax, centers[primitives[i]])
     end
     cbbox = Bbox3f(boxMin, boxMax)
@@ -318,7 +318,7 @@ function partition_centers(
 )
     iswap = lo
 
-    for i = lo:hi
+    @inbounds for i = lo:hi
         if (centers[v[i]][axis] < split)
             if iswap != i
                 v[iswap], v[i] = v[i], v[iswap]
@@ -354,7 +354,7 @@ end
     boxMin = SVec3f(typemax(Float32), typemax(Float32), typemax(Float32))
     boxMax = SVec3f(typemin(Float32), typemin(Float32), typemin(Float32))
 
-    for corner in corners
+    @inbounds for corner in corners
         boxMin, boxMax = merge(boxMin, boxMax, transformPoint(frame, corner))
     end
 
