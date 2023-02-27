@@ -285,11 +285,11 @@ function lookupTexture(texture::Texture, i::Int, j::Int, asLinear::Bool)::SVec4f
     # i the column
     if !isempty(texture.image)
         sizeY, sizeX = size(texture.image)
-        rgba = texture.image[sizeY-j+1, sizeX-i+1]
+        rgba = texture.image[sizeY-j+1, i]
         color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
     elseif !isempty(texture.hdrImage)
         sizeY, sizeX = size(texture.hdrImage)
-        rgb = texture.hdrImage[sizeY-j+1, sizeX-i+1]
+        rgb = texture.hdrImage[sizeY-j+1, i]
         color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
     else
         error("Texture contains no image")

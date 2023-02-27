@@ -13,5 +13,5 @@ scenePath = "03_texture/texture.json"
     shader = "eyelight",
     width = 1280,
     samples = 10,
-    multithreaded = false,
+    multithreaded = true,
 )
