@@ -303,10 +303,8 @@ function evalTexture(
         end
     end
 
-    i::Int = clamp(Int(floor(s)), 0, sizeX - 1)
-    j::Int = clamp(Int(floor(t)), 0, sizeY - 1)
-    i += 1
-    j += 1
+    i::Int = clamp(Int(floor(s)), 1, sizeX)
+    j::Int = clamp(Int(floor(t)), 1, sizeY)
 
     ii::Int = i + 1
     jj::Int = j + 1
