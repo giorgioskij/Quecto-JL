@@ -26,46 +26,75 @@ function evalNormal(
     end
 
     if !isempty(shape.triangles)
-        (indexA, indexB, indexC) =
-            @view shape.triangles[intersection.elementIndex, :]
-
-        normalA = SVec3f(@view shape.normals[indexA, :])
-        normalB = SVec3f(@view shape.normals[indexB, :])
-        normalC = SVec3f(@view shape.normals[indexC, :])
-        normal = transformNormal(
+        @inbounds t = shape.triangles[intersection.elementIndex]
+        @inbounds return transformNormal(
             frame,
             norm(
                 interpolateTriangle(
-                    normalA,
-                    normalB,
-                    normalC,
+                    shape.normals[t.x],
+                    shape.normals[t.y],
+                    shape.normals[t.z],
                     intersection.u,
                     intersection.v,
                 ),
             ),
         )
 
-    elseif !isempty(shape.quads)
-        indexA, indexB, indexC, indexD =
-            @view shape.quads[intersection.elementIndex, :]
+        # (indexA, indexB, indexC) =
+        #     @view shape.triangles[intersection.elementIndex, :]
 
-        normalA = SVec3f(@view shape.normals[indexA, :])
-        normalB = SVec3f(@view shape.normals[indexB, :])
-        normalC = SVec3f(@view shape.normals[indexC, :])
-        normalD = SVec3f(@view shape.normals[indexD, :])
-        normal = transformNormal(
+        # normalA = SVec3f(@view shape.normals[indexA, :])
+        # normalB = SVec3f(@view shape.normals[indexB, :])
+        # normalC = SVec3f(@view shape.normals[indexC, :])
+        # normal = transformNormal(
+        #     frame,
+        #     norm(
+        #         interpolateTriangle(
+        #             normalA,
+        #             normalB,
+        #             normalC,
+        #             intersection.u,
+        #             intersection.v,
+        #         ),
+        #     ),
+        # )
+
+    elseif !isempty(shape.quads)
+        @inbounds q = shape.quads[intersection.elementIndex]
+        @inbounds return transformNormal(
             frame,
             norm(
                 interpolateQuad(
-                    normalA,
-                    normalB,
-                    normalC,
-                    normalD,
+                    shape.normals[q.x],
+                    shape.normals[q.y],
+                    shape.normals[q.z],
+                    shape.normals[q.w],
                     intersection.u,
                     intersection.v,
                 ),
             ),
         )
+
+        # indexA, indexB, indexC, indexD =
+        #     @view shape.quads[intersection.elementIndex, :]
+
+        # normalA = SVec3f(@view shape.normals[indexA, :])
+        # normalB = SVec3f(@view shape.normals[indexB, :])
+        # normalC = SVec3f(@view shape.normals[indexC, :])
+        # normalD = SVec3f(@view shape.normals[indexD, :])
+        # normal = transformNormal(
+        #     frame,
+        #     norm(
+        #         interpolateQuad(
+        #             normalA,
+        #             normalB,
+        #             normalC,
+        #             normalD,
+        #             intersection.u,
+        #             intersection.v,
+        #         ),
+        #     ),
+        # )
 
         # TODO normalmap
         # TODO refractive material
@@ -78,27 +107,47 @@ end
 
 function computeNormal(shape::Shape, intersection::Intersection, frame::Frame)
     if !isempty(shape.triangles)
-        (indexA, indexB, indexC) =
-            @view shape.triangles[intersection.elementIndex, :]
-        pointA = SVec3f(@view shape.positions[indexA, :])
-        pointB = SVec3f(@view shape.positions[indexB, :])
-        pointC = SVec3f(@view shape.positions[indexC, :])
-        return transformNormal(
+        @inbounds t = shape.triangles[intersection.elementIndex]
+        @inbounds return transformNormal(
             frame,
-            computeTriangleNormal(pointA, pointB, pointC),
+            computeTriangleNormal(
+                shape.positions[t.x],
+                shape.positions[t.y],
+                shape.positions[t.z],
+            ),
         )
-    elseif !isempty(shape.quads)
-        indexA, indexB, indexC, indexD =
-            @view shape.quads[intersection.elementIndex, :]
-        pointA = SVec3f(@view shape.positions[indexA, :])
-        pointB = SVec3f(@view shape.positions[indexB, :])
-        pointC = SVec3f(@view shape.positions[indexC, :])
-        pointD = SVec3f(@view shape.positions[indexD, :])
 
-        return transformNormal(
+        # (indexA, indexB, indexC) =
+        #     @view shape.triangles[intersection.elementIndex, :]
+        # pointA = SVec3f(@view shape.positions[indexA, :])
+        # pointB = SVec3f(@view shape.positions[indexB, :])
+        # pointC = SVec3f(@view shape.positions[indexC, :])
+        # return transformNormal(
+        #     frame,
+        #     computeTriangleNormal(pointA, pointB, pointC),
+        # )
+    elseif !isempty(shape.quads)
+        @inbounds q = shape.quads[intersection.elementIndex]
+        @inbounds return transformNormal(
             frame,
-            computeQuadNormal(pointA, pointB, pointC, pointD),
+            computeQuadNormal(
+                shape.positions[q.x],
+                shape.positions[q.y],
+                shape.positions[q.z],
+                shape.positions[q.w],
+            ),
         )
+        # indexA, indexB, indexC, indexD =
+        #     @view shape.quads[intersection.elementIndex, :]
+        # pointA = SVec3f(@view shape.positions[indexA, :])
+        # pointB = SVec3f(@view shape.positions[indexB, :])
+        # pointC = SVec3f(@view shape.positions[indexC, :])
+        # pointD = SVec3f(@view shape.positions[indexD, :])
+
+        # return transformNormal(
+        #     frame,
+        #     computeQuadNormal(pointA, pointB, pointC, pointD),
+        # )
     else
         error("Only triangles and quads right now")
     end
@@ -195,7 +244,7 @@ end
 
 function evalTexture(
     scene::Scene,
-    textureIdx::Int,
+    textureIdx::Int32,
     textureX::Float32,
     textureY::Float32,
     asLinear::Bool = false,
@@ -285,20 +334,21 @@ function lookupTexture(texture::Texture, i::Int, j::Int, asLinear::Bool)::SVec4f
     # i the column
     if !isempty(texture.image)
         sizeY, sizeX = size(texture.image)
-        rgba = texture.image[sizeY-j+1, sizeX-i+1]
-        color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
+        # rgba = texture.image[sizeY-j+1, sizeX-i+1]
+        # color = SVec4f(rgba.r, rgba.g, rgba.b, rgba.alpha)
+        @inbounds return texture.image[sizeY-j+1, sizeX-i+1]
     elseif !isempty(texture.hdrImage)
         sizeY, sizeX = size(texture.hdrImage)
-        rgb = texture.hdrImage[sizeY-j+1, sizeX-i+1]
-        color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
+        # rgb = texture.hdrImage[sizeY-j+1, sizeX-i+1]
+        # color = SVec4f(rgb.r, rgb.g, rgb.b, 1)
+        @inbounds return texture.hdrImage[sizeY-j+1, sizeX-i+1]
     else
         error("Texture contains no image")
     end
 
-    if asLinear && !texture.linear
-        return srgbToRgb(color)
-    end
-    return color
+    # if asLinear && !texture.linear
+    #     return srgbToRgb(color)
+    # end
 end
 
 function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
@@ -329,7 +379,7 @@ end
 function evalTexcoord(
     scene::Scene,
     instance::Instance,
-    elementIndex::Int,
+    elementIndex::Int32,
     u::Float32,
     v::Float32,
 )
@@ -338,24 +388,43 @@ function evalTexcoord(
         return u, v
     end
     if !isempty(shape.triangles)
-        t1, t2, t3 = @view shape.triangles[elementIndex, :]
-        return interpolateTriangle(
-            SVec2f(@view shape.textureCoords[t1, :]),
-            SVec2f(@view shape.textureCoords[t2, :]),
-            SVec2f(@view shape.textureCoords[t3, :]),
+        @inbounds t = shape.triangles[elementIndex]
+        @inbounds return interpolateTriangle(
+            shape.textureCoords[t.x],
+            shape.textureCoords[t.y],
+            shape.textureCoords[t.z],
             u,
             v,
         )
+
+        # t1, t2, t3 = @view shape.triangles[elementIndex, :]
+        # return interpolateTriangle(
+        #     SVec2f(@view shape.textureCoords[t1, :]),
+        #     SVec2f(@view shape.textureCoords[t2, :]),
+        #     SVec2f(@view shape.textureCoords[t3, :]),
+        #     u,
+        #     v,
+        # )
     elseif !isempty(shape.quads)
-        q1, q2, q3, q4 = @view shape.quads[elementIndex, :]
-        return interpolateQuad(
-            SVec2f(@view shape.textureCoords[q1, :]),
-            SVec2f(@view shape.textureCoords[q2, :]),
-            SVec2f(@view shape.textureCoords[q3, :]),
-            SVec2f(@view shape.textureCoords[q4, :]),
+        @inbounds q = shape.quads[elementIndex]
+        @inbounds return interpolateQuad(
+            shape.textureCoords[q.x],
+            shape.textureCoords[q.y],
+            shape.textureCoords[q.z],
+            shape.textureCoords[q.w],
             u,
             v,
         )
+
+        # q1, q2, q3, q4 = @view shape.quads[elementIndex, :]
+        # return interpolateQuad(
+        #     SVec2f(@view shape.textureCoords[q1, :]),
+        #     SVec2f(@view shape.textureCoords[q2, :]),
+        #     SVec2f(@view shape.textureCoords[q3, :]),
+        #     SVec2f(@view shape.textureCoords[q4, :]),
+        #     u,
+        #     v,
+        # )
     else
         error("No triangles or quads in this shape")
     end
@@ -380,36 +449,61 @@ end
 function evalPosition(
     scene::Scene,
     instance::Instance,
-    element::Int,
+    element::Int32,
     u::Float32,
     v::Float32,
 )::SVec3f
     shape = scene.shapes[instance.shapeIndex]
     if !isempty(shape.triangles)
-        t1, t2, t3 = @view shape.triangles[element, :]
+        @inbounds t = shape.triangles[element]
         return transformPoint(
             instance.frame,
             interpolateTriangle(
-                SVec3f(@view shape.positions[t1, :]),
-                SVec3f(@view shape.positions[t2, :]),
-                SVec3f(@view shape.positions[t3, :]),
+                shape.positions[t.x],
+                shape.positions[t.y],
+                shape.positions[t.z],
                 u,
                 v,
             ),
         )
+
+        # t1, t2, t3 = @view shape.triangles[element, :]
+        # return transformPoint(
+        #     instance.frame,
+        #     interpolateTriangle(
+        #         SVec3f(@view shape.positions[t1, :]),
+        #         SVec3f(@view shape.positions[t2, :]),
+        #         SVec3f(@view shape.positions[t3, :]),
+        #         u,
+        #         v,
+        #     ),
+        # )
     elseif !isempty(shape.quads)
-        q1, q2, q3, q4 = @view shape.quads[element, :]
+        @inbounds q = shape.quads[element]
         return transformPoint(
             instance.frame,
             interpolateQuad(
-                SVec3f(@view shape.positions[q1, :]),
-                SVec3f(@view shape.positions[q2, :]),
-                SVec3f(@view shape.positions[q3, :]),
-                SVec3f(@view shape.positions[q4, :]),
+                shape.positions[q.x],
+                shape.positions[q.y],
+                shape.positions[q.z],
+                shape.positions[q.w],
                 u,
                 v,
             ),
         )
+
+        # q1, q2, q3, q4 = @view shape.quads[element, :]
+        # return transformPoint(
+        #     instance.frame,
+        #     interpolateQuad(
+        #         SVec3f(@view shape.positions[q1, :]),
+        #         SVec3f(@view shape.positions[q2, :]),
+        #         SVec3f(@view shape.positions[q3, :]),
+        #         SVec3f(@view shape.positions[q4, :]),
+        #         u,
+        #         v,
+        #     ),
+        # )
     else
         error("No triangles or quads in this shape")
     end

@@ -2,13 +2,13 @@ module Types
 using StaticArrays
 using Images
 
-export SVec4f, SVec3f, SVec2f, SVec3i, Frame, Mat3f, Ray, Triangle, Quad
+export SVec4f, SVec3f, SVec2f, SVec3i, SVec4i, Frame, Mat3f, Ray, Triangle, Quad
 
 const SVec4f = SVector{4,Float32}
 const SVec3f = SVector{3,Float32}
 const SVec2f = SVector{2,Float32}
-const SVec3i = SVector{3,Int}
-# const SVec4b = SVector{4,UInt8}
+const SVec3i = SVector{3,Int32}
+const SVec4i = SVector{4,Int32}
 
 struct Frame
     x::SVec3f

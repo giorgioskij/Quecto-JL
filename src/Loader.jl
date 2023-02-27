@@ -194,7 +194,7 @@ function loadJsonScene(scenePath::String)
         # check that extension is png
         extension = path[findlast(==('.'), path)+1:end]
         if lowercase(extension) == "png"
-            image::Matrix{RGBA{N0f8}} = loadTexturePng(path)
+            image::Matrix{SVec4f} = loadTexturePng(path)
             hdrImage = Matrix{RGB{N0f16}}(undef, 0, 0)
             textures[i] = Texture(
                 image,
@@ -204,7 +204,7 @@ function loadJsonScene(scenePath::String)
                 textures[i].clamp,
             )
         elseif lowercase(extension) == "hdr"
-            hdrImage::Matrix{RGB{N0f16}} = loadTextureHdr(path)
+            hdrImage::Matrix{SVec4f} = loadTextureHdr(path)
             image = Matrix{RGB{N0f8}}(undef, 0, 0)
             textures[i] = Texture(
                 image,
@@ -226,15 +226,21 @@ function loadJsonScene(scenePath::String)
 end
 
 # loads a texture image in png format
-function loadTexturePng(filename::String)::Matrix{RGBA{N0f8}}
+# function loadTexturePng(filename::String)::Matrix{RGBA{N0f8}}
+function loadTexturePng(filename::String)::Matrix{SVec4f}
     image = load(filename)
-    return image
+    # undo srgb and transform into Vector{SVector}
+    imageVector = map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, x.alpha)), image)
+    return imageVector
 end
 
 # loads a texture image in hdr format
-function loadTextureHdr(filename::String)::Matrix{RGB{N0f16}}
+# function loadTextureHdr(filename::String)::Matrix{RGB{N0f16}}
+function loadTextureHdr(filename::String)::Matrix{SVec4f}
     image = load(filename)
-    return image
+    # undo srgb and transform into Vector{SVector}
+    imageVector = map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, 1)), image)
+    return imageVector
 end
 
 function loadShape(filename::String)
@@ -244,36 +250,36 @@ function loadShape(filename::String)
     vertexProperties = plyname.(ply["vertex"].properties)
 
     # load positions
+    positions = Vector{SVec3f}[]
     if "x" in vertexProperties &&
        "y" in vertexProperties &&
        "z" in vertexProperties
         x = ply["vertex"]["x"]
         y = ply["vertex"]["y"]
         z = ply["vertex"]["z"]
-        positions = hcat(x, y, z)
-    else
-        positions = Matrix{Float32}(undef, 0, 0)
+
+        positions = map(SVec3f, zip(x, y, z))
     end
 
     # load normals
+    normals = Vector{SVec3f}[]
     if "nx" in vertexProperties &&
        "ny" in vertexProperties &&
        "nz" in vertexProperties
         nx = ply["vertex"]["nx"]
         ny = ply["vertex"]["ny"]
         nz = ply["vertex"]["nz"]
-        normals = hcat(nx, ny, nz)
-    else
-        normals = Matrix{Float32}(undef, 0, 0)
+
+        normals = map(SVec3f, zip(nx, ny, nz))
     end
 
     # load texture coordinates
+    textureCoords = Vector{SVec2f}[]
     if "u" in vertexProperties && "v" in vertexProperties
         u = ply["vertex"]["u"]
         v = ply["vertex"]["v"]
-        textureCoords = hcat(u, v)
-    else
-        textureCoords = Matrix{Float32}(undef, 0, 0)
+
+        textureCoords = map(SVec2f, zip(u, v))
     end
 
     faces = ply["face"]["vertex_indices"]
@@ -286,30 +292,20 @@ function loadShape(filename::String)
     end
 
     # load triangles and quads
+    triangles = Vector{SVec3i}[]
+    quads = Vector{SVec4i}[]
     if quadCount > 0
-        triangles = Matrix{Int64}(undef, 0, 0)
-        quads = Matrix{Int64}(undef, quadCount + triCount, 4)
-        Threads.@threads for (i, elem) in collect(enumerate(eachrow(faces)))
-            elem = elem[1]
-            if size(elem)[end] == 4
-                quads[i, :] = transpose(elem)
-            else # create fake quad from triangle
-                quads[i, :] = [elem[1], elem[2], elem[3], elem[3]]
-            end
-        end
-        # +1 because julia arrays start at 1
-        quads .+= 1
+        quads::Vector{SVec4i} = map(
+            x ->
+                size(x[1])[end] == 3 ?
+                SVec4i(x[1][1] + 1, x[1][2] + 1, x[1][3] + 1, x[1][3] + 1) :
+                SVec4i(x[1] .+ 1...),
+            eachrow(faces),
+        )
     elseif triCount > 0
-        quads = Matrix{Int64}(undef, 0, 0)
-        triangles = Matrix{Int64}(undef, triCount, 3)
-        Threads.@threads for (i, elem) in collect(enumerate(eachrow(faces)))
-            elem = elem[1]
-            triangles[i, :] = transpose(elem)
-        end
-        # +1 because julia arrays start at 1
-        triangles .+= 1
+        triangles = map(x -> SVec3i((x[1] .+ 1)...), eachrow(faces))
     else
-        error("Zero triangles and zero quads. What?")
+        error("Zero triangles and zero quads. No bueno?")
     end
 
     # create shape

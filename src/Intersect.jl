@@ -19,7 +19,7 @@ const global shapeNodeStack = MVector{shapeBvhDepth * maxnthreads,UInt32}(undef)
 # intersection of a ray with a shape
 struct ShapeIntersection
     hit::Bool
-    elementIndex::Int64
+    elementIndex::Int32
     u::Float32
     v::Float32
     distance::Float32
@@ -42,8 +42,8 @@ end
 # intersection of a ray with the scene
 struct Intersection
     hit::Bool
-    instanceIndex::Int64
-    elementIndex::Int64
+    instanceIndex::Int32
+    elementIndex::Int32
     u::Float32
     v::Float32
     distance::Float32
@@ -218,26 +218,34 @@ function intersectShapeBvh!(
             end
         elseif !isempty(shape.triangles)
             for idx = node.start:node.start+node.num-1
-                @inbounds pointAindex, pointBindex, pointCindex =
-                    @view shape.triangles[bvh.primitives[idx], :]
+                @inbounds t = shape.triangles[bvh.primitives[idx]]
+                @inbounds pIntersection = intersectPrimitiveTriangle(
+                    ray,
+                    shape.positions[t.x],
+                    shape.positions[t.y],
+                    shape.positions[t.z],
+                )
 
-                @inbounds pointA = SVec3f(
-                    shape.positions[pointAindex, 1],
-                    shape.positions[pointAindex, 2],
-                    shape.positions[pointAindex, 3],
-                )
-                @inbounds pointB = SVec3f(
-                    shape.positions[pointBindex, 1],
-                    shape.positions[pointBindex, 2],
-                    shape.positions[pointBindex, 3],
-                )
-                @inbounds pointC = SVec3f(
-                    shape.positions[pointCindex, 1],
-                    shape.positions[pointCindex, 2],
-                    shape.positions[pointCindex, 3],
-                )
-                pIntersection =
-                    intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
+                # @inbounds pointAindex, pointBindex, pointCindex =
+                #     @view shape.triangles[bvh.primitives[idx], :]
+
+                # @inbounds pointA = SVec3f(
+                #     shape.positions[pointAindex, 1],
+                #     shape.positions[pointAindex, 2],
+                #     shape.positions[pointAindex, 3],
+                # )
+                # @inbounds pointB = SVec3f(
+                #     shape.positions[pointBindex, 1],
+                #     shape.positions[pointBindex, 2],
+                #     shape.positions[pointBindex, 3],
+                # )
+                # @inbounds pointC = SVec3f(
+                #     shape.positions[pointCindex, 1],
+                #     shape.positions[pointCindex, 2],
+                #     shape.positions[pointCindex, 3],
+                # )
+                # pIntersection =
+                #     intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
                 if !pIntersection.hit
                     continue
                 end
@@ -258,31 +266,40 @@ function intersectShapeBvh!(
 
         elseif !isempty(shape.quads)
             for idx = node.start:node.start+node.num-1
-                @inbounds pointAindex, pointBindex, pointCindex, pointDindex =
-                    @view shape.quads[bvh.primitives[idx], :]
-                @inbounds pointA = SVec3f(
-                    shape.positions[pointAindex, 1],
-                    shape.positions[pointAindex, 2],
-                    shape.positions[pointAindex, 3],
-                )
-                @inbounds pointB = SVec3f(
-                    shape.positions[pointBindex, 1],
-                    shape.positions[pointBindex, 2],
-                    shape.positions[pointBindex, 3],
-                )
-                @inbounds pointC = SVec3f(
-                    shape.positions[pointCindex, 1],
-                    shape.positions[pointCindex, 2],
-                    shape.positions[pointCindex, 3],
-                )
-                @inbounds pointD = SVec3f(
-                    shape.positions[pointDindex, 1],
-                    shape.positions[pointDindex, 2],
-                    shape.positions[pointDindex, 3],
+                @inbounds q = shape.quads[bvh.primitives[idx]]
+                @inbounds pIntersection = intersectPrimitiveQuad(
+                    ray,
+                    shape.positions[q.x],
+                    shape.positions[q.y],
+                    shape.positions[q.z],
+                    shape.positions[q.w],
                 )
 
-                pIntersection =
-                    intersectPrimitiveQuad(ray, pointA, pointB, pointC, pointD)
+                # @inbounds pointAindex, pointBindex, pointCindex, pointDindex =
+                #     @view shape.quads[bvh.primitives[idx], :]
+                # @inbounds pointA = SVec3f(
+                #     shape.positions[pointAindex, 1],
+                #     shape.positions[pointAindex, 2],
+                #     shape.positions[pointAindex, 3],
+                # )
+                # @inbounds pointB = SVec3f(
+                #     shape.positions[pointBindex, 1],
+                #     shape.positions[pointBindex, 2],
+                #     shape.positions[pointBindex, 3],
+                # )
+                # @inbounds pointC = SVec3f(
+                #     shape.positions[pointCindex, 1],
+                #     shape.positions[pointCindex, 2],
+                #     shape.positions[pointCindex, 3],
+                # )
+                # @inbounds pointD = SVec3f(
+                #     shape.positions[pointDindex, 1],
+                #     shape.positions[pointDindex, 2],
+                #     shape.positions[pointDindex, 3],
+                # )
+
+                # pIntersection =
+                #     intersectPrimitiveQuad(ray, pointA, pointB, pointC, pointD)
                 if !pIntersection.hit
                     continue
                 end

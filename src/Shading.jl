@@ -55,8 +55,8 @@ end
 function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
     # initialize
-    radiance::SVec3f = (0, 0, 0)
-    weight::SVec3f = (1, 1, 1)
+    radiance::SVec3f = SVec3f(0, 0, 0)
+    weight::SVec3f = SVec3f(1, 1, 1)
     maxBounces = 4
     opacityBounce = 0
 
@@ -100,7 +100,7 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         )
 
         # eval color of the shape - by default {1,1,1,1}
-        shapeColor::SVec4f = (1, 1, 1, 1)
+        shapeColor::SVec4f = SVec4f(1, 1, 1, 1)
 
         # evaluate color and emission of the  material
         material::Material = scene.materials[instance.materialIndex]

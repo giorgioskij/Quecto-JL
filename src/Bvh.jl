@@ -94,54 +94,72 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
     if (!isempty(shape.triangles))
         bboxes = Vector{Bbox3f}(undef, size(shape.triangles, 1))
 
-        for (i, (pointAindex, pointBindex, pointCindex)) in
-            enumerate(eachcol(transpose(shape.triangles)))
-            @inbounds pointA = SVec3f(
-                shape.positions[pointAindex, 1],
-                shape.positions[pointAindex, 2],
-                shape.positions[pointAindex, 3],
+        for (i, t) in enumerate(shape.triangles)
+            @inbounds bboxes[i] = triangleBounds(
+                shape.positions[t.x],
+                shape.positions[t.y],
+                shape.positions[t.z],
             )
-            @inbounds pointB = SVec3f(
-                shape.positions[pointBindex, 1],
-                shape.positions[pointBindex, 2],
-                shape.positions[pointBindex, 3],
-            )
-            @inbounds pointC = SVec3f(
-                shape.positions[pointCindex, 1],
-                shape.positions[pointCindex, 2],
-                shape.positions[pointCindex, 3],
-            )
-
-            bboxes[i] = triangleBounds(pointA, pointB, pointC)
         end
+
+        # for (i, (pointAindex, pointBindex, pointCindex)) in
+        #     enumerate(eachcol(transpose(shape.triangles)))
+        #     @inbounds pointA = SVec3f(
+        #         shape.positions[pointAindex, 1],
+        #         shape.positions[pointAindex, 2],
+        #         shape.positions[pointAindex, 3],
+        #     )
+        #     @inbounds pointB = SVec3f(
+        #         shape.positions[pointBindex, 1],
+        #         shape.positions[pointBindex, 2],
+        #         shape.positions[pointBindex, 3],
+        #     )
+        #     @inbounds pointC = SVec3f(
+        #         shape.positions[pointCindex, 1],
+        #         shape.positions[pointCindex, 2],
+        #         shape.positions[pointCindex, 3],
+        #     )
+
+        #     bboxes[i] = triangleBounds(pointA, pointB, pointC)
+        # end
     elseif (!isempty(shape.quads))
         bboxes = Vector{Bbox3f}(undef, size(shape.quads, 1))
         # bboxes for quads
-        for (i, (pointAindex, pointBindex, pointCindex, pointDindex)) in
-            enumerate(eachcol(transpose(shape.quads)))
-            @inbounds pointA = SVec3f(
-                shape.positions[pointAindex, 1],
-                shape.positions[pointAindex, 2],
-                shape.positions[pointAindex, 3],
-            )
-            @inbounds pointB = SVec3f(
-                shape.positions[pointBindex, 1],
-                shape.positions[pointBindex, 2],
-                shape.positions[pointBindex, 3],
-            )
-            @inbounds pointC = SVec3f(
-                shape.positions[pointCindex, 1],
-                shape.positions[pointCindex, 2],
-                shape.positions[pointCindex, 3],
-            )
-            @inbounds pointD = SVec3f(
-                shape.positions[pointDindex, 1],
-                shape.positions[pointDindex, 2],
-                shape.positions[pointDindex, 3],
-            )
 
-            bboxes[i] = quadBounds(pointA, pointB, pointC, pointD)
+        for (i, q) in enumerate(shape.quads)
+            @inbounds bboxes[i] = quadBounds(
+                shape.positions[q.x],
+                shape.positions[q.y],
+                shape.positions[q.z],
+                shape.positions[q.w],
+            )
         end
+
+        # for (i, (pointAindex, pointBindex, pointCindex, pointDindex)) in
+        #     enumerate(eachcol(transpose(shape.quads)))
+        #     @inbounds pointA = SVec3f(
+        #         shape.positions[pointAindex, 1],
+        #         shape.positions[pointAindex, 2],
+        #         shape.positions[pointAindex, 3],
+        #     )
+        #     @inbounds pointB = SVec3f(
+        #         shape.positions[pointBindex, 1],
+        #         shape.positions[pointBindex, 2],
+        #         shape.positions[pointBindex, 3],
+        #     )
+        #     @inbounds pointC = SVec3f(
+        #         shape.positions[pointCindex, 1],
+        #         shape.positions[pointCindex, 2],
+        #         shape.positions[pointCindex, 3],
+        #     )
+        #     @inbounds pointD = SVec3f(
+        #         shape.positions[pointDindex, 1],
+        #         shape.positions[pointDindex, 2],
+        #         shape.positions[pointDindex, 3],
+        #     )
+
+        #     bboxes[i] = quadBounds(pointA, pointB, pointC, pointD)
+        # end
     else
         error("something's not right")
     end
@@ -242,8 +260,8 @@ function splitMiddle(
     primitives::Vector{Int},
     # bboxes::Vector{Bbox3f},
     centers::Vector{SVec3f},
-    startIdx::Int,
-    endIdx::Int,
+    startIdx::Int32,
+    endIdx::Int32,
 )
     boxMin = SVec3f(typemax(Float32), typemax(Float32), typemax(Float32))
     boxMax = SVec3f(typemin(Float32), typemin(Float32), typemin(Float32))
@@ -294,9 +312,9 @@ function partition_centers(
     v::Vector{Int},
     centers::Vector{SVec3f},
     split::Float32,
-    axis::Int,
-    lo::Int,
-    hi::Int,
+    axis::Integer,
+    lo::Integer,
+    hi::Integer,
 )
     iswap = lo
 

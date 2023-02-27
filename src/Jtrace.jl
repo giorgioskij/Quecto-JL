@@ -24,58 +24,6 @@ using .Shading
 
 export trace, t
 
-function prettyPrint(c::Dates.CompoundPeriod)::String
-    c = canonicalize(c)
-    t = Time(0) + c
-    hour = Hour(t)
-    minute = Minute(t)
-    second = Second(t)
-    milli = Millisecond(t)
-    micro = Microsecond(t)
-    timestring = ""
-    for (symbol, value) in zip(
-        ["hour", "min", "sec", "m", "μ"],
-        (hour, minute, second, milli, micro),
-    )
-        if value.value == 0 && typeof(value) != Second
-            continue
-        end
-        n = lpad(
-            value.value,
-            typeof(value) == Millisecond || typeof(value) == Microsecond ?
-            3 : 2,
-            "0",
-        )
-        timestring *= "$n $symbol, "
-    end
-    return timestring[1:Base.length(timestring)-2]
-end
-
-function displayStat(
-    message::String,
-    time::Union{Real,Nothing} = nothing,
-    maxsize = 40,
-)
-    if !isnothing(time)
-        message *= ":"
-    end
-    if Base.length(message) > maxsize
-        diff = Base.length(message) - maxsize
-        message = message[1:end-diff-3] * "..."
-    else
-        message = message * (" "^(maxsize - Base.length(message)))
-    end
-
-    if isnothing(time)
-        println(message)
-    else
-        c = Dates.CompoundPeriod(Microsecond(round(time * 10^6)))
-        timestring = prettyPrint(c)
-        # timestring = Time(0) + canonicalize(c)
-        println("$message $timestring")
-    end
-end
-
 # main entry point to the program
 function trace(;
     scenePath::String = "03_texture/texture.json",
@@ -263,6 +211,58 @@ function traceSample(
     radiance = shader(scene, ray, bvh)
 
     return radiance
+end
+
+function prettyPrint(c::Dates.CompoundPeriod)::String
+    c = canonicalize(c)
+    t = Time(0) + c
+    hour = Hour(t)
+    minute = Minute(t)
+    second = Second(t)
+    milli = Millisecond(t)
+    micro = Microsecond(t)
+    timestring = ""
+    for (symbol, value) in zip(
+        ["hour", "min", "sec", "m", "μ"],
+        (hour, minute, second, milli, micro),
+    )
+        if value.value == 0 && typeof(value) != Second
+            continue
+        end
+        n = lpad(
+            value.value,
+            typeof(value) == Millisecond || typeof(value) == Microsecond ?
+            3 : 2,
+            "0",
+        )
+        timestring *= "$n $symbol, "
+    end
+    return timestring[1:Base.length(timestring)-2]
+end
+
+function displayStat(
+    message::String,
+    time::Union{Real,Nothing} = nothing,
+    maxsize = 40,
+)
+    if !isnothing(time)
+        message *= ":"
+    end
+    if Base.length(message) > maxsize
+        diff = Base.length(message) - maxsize
+        message = message[1:end-diff-3] * "..."
+    else
+        message = message * (" "^(maxsize - Base.length(message)))
+    end
+
+    if isnothing(time)
+        println(message)
+    else
+        c = Dates.CompoundPeriod(Microsecond(round(time * 10^6)))
+        timestring = prettyPrint(c)
+        # timestring = Time(0) + canonicalize(c)
+        println("$message $timestring")
+    end
 end
 
 end

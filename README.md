@@ -44,22 +44,15 @@ Spheres = {Int, Float}
 ## Timings 
 
 
-### Tests with shader normal on 02_matte/matte.json
+### Current best results
+```
+~~~~~ SHADER normal, WIDTH 3000, SAMPLES 100, THREADS 20 ~~~~~
+Loaded 03_texture/texture.json:          00 sec, 381 m, 666 μ
+BVH built:                               00 sec, 052 m, 833 μ
+Image rendered:                          23 sec, 139 m, 236 μ
+Image saved at out/jtrace.png:           00 sec, 550 m, 824 μ
+```
 
-(1920, 1080, 2): 6.5 s
-(3000, 2000, 2): 2s
-(300,200,2): 389.5 +- 42 ms
-
-for this scene the construction of the bvh is roughly 230 ms
-so only test much bigger than that are significative for rendering speed
-
-- Fixing randoms: (1920, 1080, 2) 6.5 -->  5.3 seconds
-
-- Zeros from Vector to MVector 5.3 --> 4.5 seconds
-
-- More square brackets in evalCamera
-
-- Zeros from Vector to MVector in IntersectShapeBvh WITH UINT 32: 4.5 --> 2.8
 
 ## Benchmarking
 In a starting state, with no computation in the shader, representing the image

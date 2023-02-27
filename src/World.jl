@@ -38,8 +38,8 @@ end
 
 struct Instance
     frame::Frame
-    shapeIndex::Int64
-    materialIndex::Int64
+    shapeIndex::Int32
+    materialIndex::Int32
 
     Instance() = new(Frame([1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, 0]), -1, -1)
     Instance(frame, shapeIndex, materialIndex) =
@@ -48,13 +48,13 @@ end
 
 struct Shape
     # element data
-    triangles::Matrix{Int64}
-    quads::Matrix{Int64}
+    triangles::Vector{SVec3i}
+    quads::Vector{SVec4i}
 
     # vertex data
-    positions::Matrix{Float32}
-    normals::Matrix{Float32}
-    textureCoords::Matrix{Float32}
+    positions::Vector{SVec3f}
+    normals::Vector{SVec3f}
+    textureCoords::Vector{SVec2f}
 end
 
 struct Environment
@@ -77,8 +77,11 @@ struct Environment
 end
 
 struct Texture
-    image::Matrix{RGBA{N0f8}}
-    hdrImage::Matrix{RGB{N0f16}}
+    # image::Matrix{RGBA{N0f8}}
+    # hdrImage::Matrix{RGB{N0f16}}
+
+    image::Matrix{SVec4f}
+    hdrImage::Matrix{SVec4f}
 
     # some parameters from yocto
     linear::Bool    # textures can be stored in linear or non-linear colorspace
@@ -88,8 +91,10 @@ struct Texture
     Texture(image, hdrImage, linear, nearest, clamp) =
         new(image, hdrImage, linear, nearest, clamp)
     Texture() = new(
-        Matrix{RGBA{N0f8}}(undef, 0, 0),
-        Matrix{RGB{N0f16}}(undef, 0, 0),
+        # Matrix{RGBA{N0f8}}(undef, 0, 0),
+        # Matrix{RGB{N0f16}}(undef, 0, 0),
+        Matrix{SVec4f}(undef, 0, 0),
+        Matrix{SVec4f}(undef, 0, 0),
         false,
         false,
         false,
@@ -107,11 +112,11 @@ struct Material
     scattering::SVec3f
     scanisotropy::Float32
     opacity::Float32
-    emissionTex::Int64
-    colorTex::Int64
-    roughnessTex::Int64
-    scatteringTex::Int64
-    normalTex::Int64
+    emissionTex::Int32
+    colorTex::Int32
+    roughnessTex::Int32
+    scatteringTex::Int32
+    normalTex::Int32
 
     Material() = new(
         "matte", # TODO: create an enum of material types like 0->matte, 1->metal, 2->glass, etc.
@@ -176,10 +181,10 @@ end
 
 function sampleCamera(
     camera::Camera,
-    i::Int64,
-    j::Int64,
-    imwidth::Int64,
-    imheight::Int64,
+    i::Int,
+    j::Int,
+    imwidth::Int,
+    imheight::Int,
 )
     f1 = rand(Float32)
     f2 = rand(Float32)
