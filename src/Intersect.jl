@@ -328,8 +328,8 @@ end
 
 # Intersect a ray with a axis-aligned bounding box
 @inline function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool
-    itMin::SVec3f = (bbox.min - ray.origin) .* rayDInv
-    itMax::SVec3f = (bbox.max - ray.origin) .* rayDInv
+    itMin::SVec3f = (bbox.min - ray.origin) * rayDInv
+    itMax::SVec3f = (bbox.max - ray.origin) * rayDInv
     maxTmin::Float32 = fastMaximum(map(fastMin, itMin, itMax))
     minTmax::Float32 = fastMinimum(map(fastMax, itMin, itMax))
     t0::Float32 = fastMax(maxTmin, ray.tmin)

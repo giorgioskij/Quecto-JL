@@ -11,7 +11,7 @@ struct Vec3
 end
 
 add(a::Vec3, b::Vec3)::Vec3 = Vec3(a.x + b.x, a.y + b.y, a.z + b.z, a.v .+ b.v)
-mul(a::Vec3, b::Vec3)::Vec3 = Vec3(a.x * b.x, a.y * b.y, a.z * b.z, a.v .* b.v)
+mul(a::Vec3, b::Vec3)::Vec3 = Vec3(a.x * b.x, a.y * b.y, a.z * b.z, a.v * b.v)
 
 function test(v1, v2)
     v3 = Vec3(0, 0, 0, SVec3([0, 0, 0]))

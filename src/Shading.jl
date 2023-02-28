@@ -65,7 +65,7 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         # intersect 
         intersection::Intersection = intersectScene(ray, scene, bvh, false)
         if !intersection.hit
-            radiance += weight .* evalEnvironment(scene, ray.direction)
+            radiance += weight * evalEnvironment(scene, ray.direction)
             break
         end
 
@@ -109,13 +109,13 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         materialEmissionTex::SVec4f =
             evalTexture(scene, material.emissionTex, textureX, textureY)
         materialEmission::SVec3f =
-            material.emission .* xyz(materialEmissionTex) .* xyz(shapeColor)
+            material.emission * xyz(materialEmissionTex) * xyz(shapeColor)
 
         # color
         materialColorTex::SVec4f =
             evalTexture(scene, material.colorTex, textureX, textureY)
         materialColor::SVec3f =
-            material.color .* xyz(materialColorTex) .* xyz(shapeColor)
+            material.color * xyz(materialColorTex) * xyz(shapeColor)
 
         # evaluate opacity
         materialOpacity = material.opacity * materialColorTex[4] * shapeColor[4]
@@ -153,11 +153,11 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         # missing: bsdf
         emission =
             dot(normal, outgoing) >= 0 ? materialEmission : SVec3f(0, 0, 0)
-        radiance += weight .* emission
+        radiance += weight * emission
 
         # brdf + light
         radiance +=
-            (weight * pi) .* evalBsdfCos(
+            (weight * pi) * evalBsdfCos(
                 material.type,
                 materialRoughness,
                 materialColor,
@@ -226,16 +226,16 @@ function shaderEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     # EVALUATE MATERIAL
     material::Material = scene.materials[instance.materialIndex]
     emission::SVec3f =
-        material.emission .*
+        material.emission *
         xyz(evalTexture(scene, material.emissionTex, textureX, textureY))
     color::SVec3f =
-        material.color .*
+        material.color *
         xyz(evalTexture(scene, material.colorTex, textureX, textureY))
 
     # materialColor = evalMaterialColor(scene, intersection)
 
-    # radiance::SVec3f = emission + abs(dot(normal, outgoing)) .* color
-    radiance::SVec3f = abs(dot(normal, outgoing)) .* color
+    # radiance::SVec3f = emission + abs(dot(normal, outgoing)) * color
+    radiance::SVec3f = abs(dot(normal, outgoing)) * color
 
     return SVec3f(radiance.x, radiance.y, radiance.z)
 end
@@ -291,8 +291,8 @@ function shaderIndirectNaive(
         evalTexture(scene, material.emissionTex, textureX, textureY)
     materialColorTex::SVec4f =
         evalTexture(scene, material.colorTex, textureX, textureY)
-    emission::SVec3f = material.emission .* xyz(materialEmissionTex)
-    color::SVec3f = material.color .* xyz(materialColorTex)
+    emission::SVec3f = material.emission * xyz(materialEmissionTex)
+    color::SVec3f = material.color * xyz(materialColorTex)
     roughness = material.roughness * material.roughness
     opacity::Float32 = material.opacity * materialColorTex[4]
 
@@ -320,14 +320,14 @@ function shaderIndirectNaive(
     incoming::SVec3f = sampleHemisphereCos(normal)
     lighting::SVec3f =
         shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
-    radiance += color .* lighting
+    radiance += color * lighting
 
     # if incoming == SVec3f(0, 0, 0)
     #     return radiance
     # end
     # if dot(normal, incoming) * dot(normal, outgoing) > 0
     #     radiance +=
-    #         materialColor .*
+    #         materialColor *
     #         shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
     # end
     # return radiance
@@ -360,7 +360,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         normal = evalNormal(shape, intersection, frame, outgoing)
         materialColor = evalMaterialColor(scene, intersection)
 
-        radiance = evalEmission(material, normal, outgoing) .* materialColor
+        radiance = evalEmission(material, normal, outgoing) * materialColor
 
         if material.type == "matte"
             incoming = sampleHemisphereCos(normal)
@@ -370,7 +370,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
             if dot(normal, incoming) * dot(normal, outgoing) > 0
                 radiance = linInterp(
                     radiance,
-                    radiance / pi .* abs(dot(normal, outgoing)),
+                    radiance / pi * abs(dot(normal, outgoing)),
                     weight,
                 )
             end
@@ -382,7 +382,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 end
                 radiance = linInterp(
                     radiance,
-                    radiance .* fresnelSchlick(materialColor, normal, incoming),
+                    radiance * fresnelSchlick(materialColor, normal, incoming),
                     weight,
                 )
             else
@@ -414,10 +414,9 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 )
                 radiance = linInterp(
                     radiance,
-                    radiance .* F .* D .* G ./ (
-                        4 .* dot(up_normal, outgoing) .*
-                        dot(up_normal, incoming)
-                    ) .* abs(dot(up_normal, incoming)),
+                    radiance * F * D * G ./ (
+                        4 * dot(up_normal, outgoing) * dot(up_normal, incoming)
+                    ) * abs(dot(up_normal, incoming)),
                     weight,
                 )
             end
@@ -431,7 +430,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
             #if dot(normal, incoming) * dot(normal, outgoing) > 0
             radiance = linInterp(
                 radiance,
-                materialColor / pi .* abs(dot(normal, incoming)),
+                materialColor / pi * abs(dot(normal, incoming)),
                 weight,
             )
             #end
@@ -439,8 +438,8 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         newRay = Ray(position, incoming)
 
-        # radiance = 0.5 .* (normal .+ 1) .* color
-        #radiance::SVec3f = abs(dot(normal, outgoing)) .* radiance
+        # radiance = 0.5 * (normal .+ 1) * color
+        #radiance::SVec3f = abs(dot(normal, outgoing)) * radiance
     end
     return radiance
 end
@@ -463,7 +462,7 @@ end
     end
     cosine = dot(normal, outgoing)
     specular .+
-    (1.0f0 .- specular) .* clamp(1.0f0 .- abs(cosine), 0.0f0, 1.0f0)^5.0f0
+    (1.0f0 .- specular) * clamp(1.0f0 .- abs(cosine), 0.0f0, 1.0f0)^5.0f0
 end
 
 @inline function reflectivityToEta(color::SVec3f)::SVec3f
@@ -488,19 +487,19 @@ end
     cosw = clamp(cosw, -1.0f0, 1.0f0)
     cos2::Float32 = cosw * cosw
     sin2::Float32 = clamp(1 - cos2, 0.0f0, 1.0f0)
-    eta2::SVec3f = eta .* eta
-    etak2::SVec3f = etak .* etak
+    eta2::SVec3f = eta * eta
+    etak2::SVec3f = etak * etak
 
     t0::SVec3f = eta2 .- etak2 .- sin2
-    a2plusb2::SVec3f = sqrt.(t0 .* t0 .+ 4.0f0 .* eta2 .* etak2)
+    a2plusb2::SVec3f = sqrt.(t0 * t0 .+ 4.0f0 * eta2 * etak2)
     t1::SVec3f = a2plusb2 .+ cos2
     a::SVec3f = sqrt.((a2plusb2 .+ t0) ./ 2.0f0)
-    t2::SVec3f = 2.0f0 .* a .* cosw
+    t2::SVec3f = 2.0f0 * a * cosw
     rs::SVec3f = (t1 .- t2) ./ (t1 .+ t2)
 
-    t3::SVec3f = cos2 .* a2plusb2 .+ sin2 .* sin2
-    t4::SVec3f = t2 .* sin2
-    rp::SVec3f = rs .* (t3 .- t4) ./ (t3 .+ t4)
+    t3::SVec3f = cos2 * a2plusb2 .+ sin2 * sin2
+    t4::SVec3f = t2 * sin2
+    rp::SVec3f = rs * (t3 .- t4) ./ (t3 .+ t4)
 
     return (rp .+ rs) ./ 2.0f0
 end

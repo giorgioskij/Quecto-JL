@@ -3,6 +3,9 @@ module Algebra
 using StaticArrays
 using StaticArrays: cross, dot
 using ..Types
+import Base.*
+import Base./
+using LoopVectorization
 
 export transformNormal,
     interpolateTriangle,
@@ -24,6 +27,13 @@ export transformNormal,
     transformRay,
     srgbToRgb,
     rgbToSrgb
+
+@inline function *(a::SVector, b::SVector)
+    @turbo map(*, a, b)
+end
+@inline function /(a::SVector, b::SVector)
+    @turbo map(/, a, b)
+end
 
 @inline function transformNormal(
     frame::Frame,

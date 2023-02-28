@@ -238,7 +238,7 @@ function evalEnvironment(
     # textureX = 1 - textureX
     # textureY = 1 - textureY
 
-    return env.emission .*
+    return env.emission *
            xyz(evalTexture(scene, env.emissionTex, textureX, textureY))
 end
 
@@ -373,7 +373,7 @@ end
 
 #     colorTexture = evalTexture(scene, material.colorTex, textureU, textureV)
 
-#     pointColor = material.color .* xyz(colorTexture)
+#     pointColor = material.color * xyz(colorTexture)
 
 #     return pointColor
 # end

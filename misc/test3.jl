@@ -5,7 +5,7 @@ function test(v1, v2)
     # v3 = Vec3(rand(), rand(), rand())
     v3 = rand(Float64, 3)
     for i = 1:10^7
-        v3 = (v1 .* v2) .+ v3
+        v3 = (v1 * v2) .+ v3
     end
     return v3
 end

@@ -24,9 +24,6 @@ struct HitObjectSphere
     HitObject(hit) = new(hit, nothing, nothing)
 end
 
-
-
-
 # main entry point to the program
 function run(width, height, numSamples)
 
@@ -47,12 +44,11 @@ function run(width, height, numSamples)
 
     # save the resulting image
     rgbImage = zeros(RGB, size(image))
-    for i in 1:size(image)[1], j in 1:size(image)[2]
+    for i = 1:size(image)[1], j = 1:size(image)[2]
         # rgbImage[i, j] = RGB(image[i, j][1]^0.45, image[i, j][2]^0.45, image[i, j][3]^0.45)
         rgbImage[i, j] = RGB(image[i, j]...)
     end
     save("prova.png", rgbImage)
-
 end
 
 function generateScene()::Scene
@@ -68,9 +64,9 @@ end
 function traceSamples(image, scene, camera, imwidth, imheight, numSamples)
     # loop over pixels
     # TODO: add threads
-    for s in 1:numSamples
-        for i in 1:size(image)[2]
-            for j in 1:size(image)[1]
+    for s = 1:numSamples
+        for i = 1:size(image)[2]
+            for j = 1:size(image)[1]
                 color = traceSample(i, j, scene, camera, imwidth, imheight)
 
                 weight::Float32 = 1 / s
@@ -83,12 +79,13 @@ function traceSamples(image, scene, camera, imwidth, imheight, numSamples)
     end
 end
 
-function traceSample(i::Int,
+function traceSample(
+    i::Int,
     j::Int,
     scene::Scene,
     camera::Camera,
     imwidth::Int,
-    imheight::Int
+    imheight::Int,
 )::SVec3f
 
     # send a ray
@@ -98,7 +95,6 @@ function traceSample(i::Int,
     radiance = shader(scene, ray)
 
     return radiance
-
 end
 
 # function intersectEnvironment(ray)::SVec3f
@@ -120,14 +116,12 @@ function shaderNormal(scene::Scene, ray::Ray)::SVec3f
 
     normal = evalNormalSphere(ray, sphereCenter)
 
-    radiance = 0.5 .* (normal .+ 1) .* sphere.color
+    radiance = 0.5 * (normal .+ 1) * sphere.color
 
     return radiance
 end
 
-
 function shaderEyelight(scene::Scene, ray::Ray)
-
     hit::HitObject = hitSphere(ray, scene, scene.spheres[1])
 
     if !hit.hit
@@ -161,10 +155,7 @@ function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
     return normal
 end
 
-
-
 function hitSphere(ray::Ray, scene::Scene, sphere::Sphere)::HitObject
-
     sphereCenter::SVec3f = scene.points[sphere.center]
     oc::SVec3f = ray.origin - sphereCenter
     a::Float32 = dot(ray.direction, ray.direction)
@@ -187,9 +178,13 @@ function hitSphere(ray::Ray, scene::Scene, sphere::Sphere)::HitObject
     end
 end
 
-
-function sampleCamera(camera::Camera, i::Int, j::Int, imwidth::Int, imheight::Int)
-
+function sampleCamera(
+    camera::Camera,
+    i::Int,
+    j::Int,
+    imwidth::Int,
+    imheight::Int,
+)
     f1, f2 = rand(Float32, 2)
 
     u::Float32 = (i + f1) / imwidth
@@ -203,9 +198,11 @@ end
 
 # takes a camera, image coordinates (uv) and generates a ray connecting them
 function evalCamera(camera::Camera, u::Float32, v::Float32)
-    film::SVec2f = (camera.aspect >= 1
-                    ? SVec2f([camera.film, camera.film / camera.aspect])
-                    : SVec2f([camera.film * camera.aspect, camera.film]))
+    film::SVec2f = (
+        camera.aspect >= 1 ?
+        SVec2f([camera.film, camera.film / camera.aspect]) :
+        SVec2f([camera.film * camera.aspect, camera.film])
+    )
 
     q = SVec3f([film[1] * (0.5f0 - u), film[2] * (v - 0.5f0), camera.lens])
 
@@ -219,7 +216,8 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
     # point on the lens
     pointOnLens = SVec3f([
         uLens * camera.aperture / 2.0,
-        vLens * camera.aperture / 2.0, 0
+        vLens * camera.aperture / 2.0,
+        0,
     ])
 
     # point on the focus plane
@@ -227,7 +225,6 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
 
     # correct ray direction to account for camera focusing
     direction = normalize(pointOnFocusPlane - pointOnLens)
-
 
     ray_origin = transformPoint(camera.frame, pointOnLens)
     ray_direction = transformDirection(camera.frame, direction)
@@ -270,15 +267,9 @@ function sampleDisk(u::Float32, v::Float32)::SVec2f
     return cos(phi) * r, sin(phi) * r
 end
 
-
-
 const shader = shaderEyelight
 
 run(1080, 720, 10)
-
-
-
-
 
 #TODO: benchmark iteration order
 #TODO: try out if image is better srotolata or not
