@@ -330,8 +330,8 @@ end
 @inline function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool
     itMin::SVec3f = (bbox.min - ray.origin) .* rayDInv
     itMax::SVec3f = (bbox.max - ray.origin) .* rayDInv
-    maxTmin::Float32 = fastMaximum(fastMin.(itMin, itMax))
-    minTmax::Float32 = fastMinimum(fastMax.(itMin, itMax))
+    maxTmin::Float32 = fastMaximum(map(fastMin, itMin, itMax))
+    minTmax::Float32 = fastMinimum(map(fastMax, itMin, itMax))
     t0::Float32 = fastMax(maxTmin, ray.tmin)
     t1::Float32 = fastMin(minTmax, ray.tmax)
     t1 *= 1.00000024f0 # for double: 1.0000000000000004

@@ -117,8 +117,8 @@ end
 end
 
 @inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
-    a = clamp01nan.(a)
-    b = clamp01nan.(b)
+    a = map(clamp01nan, a)
+    b = map(clamp01nan, b)
 
     return a * (1 - weight) + b * weight
 end
