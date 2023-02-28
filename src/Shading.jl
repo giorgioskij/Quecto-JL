@@ -60,7 +60,7 @@ function shaderEyelightBsdf(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     maxBounces = 4
     opacityBounce = 0
 
-    @inbounds for bounce = 1:maxBounces
+    for bounce = 1:maxBounces
 
         # intersect 
         intersection::Intersection = intersectScene(ray, scene, bvh, false)
@@ -340,7 +340,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     maxBounce = 2
     newRay = ray
 
-    @inbounds for b = 1:maxBounce
+    for b = 1:maxBounce
         weight::Float32 = 1.0f0 / b
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 

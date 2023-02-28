@@ -17,7 +17,7 @@ function loadJsonScene(scenePath::String)
         cameras = Vector{Camera}(undef, size(group, 1))
         # ignore camera_names
         defaultCamera = Camera()
-        @inbounds for (i, element) in enumerate(group)
+        for (i, element) in enumerate(group)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
@@ -43,7 +43,7 @@ function loadJsonScene(scenePath::String)
         textureFilenames = Vector{String}(undef, size(group, 1))
         textures = Vector{Texture}(undef, size(group, 1))
         defaultTexture = Texture()
-        @inbounds for (i, element) in enumerate(group)
+        for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
             end
@@ -64,7 +64,7 @@ function loadJsonScene(scenePath::String)
         materials = Vector{Material}(undef, size(group, 1))
         # ignore material_names
         defaultMaterial = Material()
-        @inbounds for (i, element) in enumerate(group)
+        for (i, element) in enumerate(group)
             colorTex = get(element, "color_tex", defaultMaterial.colorTex)
             if colorTex != -1
                 colorTex += 1
@@ -119,7 +119,7 @@ function loadJsonScene(scenePath::String)
     if haskey(json, "shapes")
         group = json["shapes"]
         shapeFilenames = Vector{String}(undef, size(group, 1))
-        @inbounds for (i, element) in enumerate(group)
+        for (i, element) in enumerate(group)
             if !haskey(element, "uri")
                 throw(MissingException("uri not present"))
             end
@@ -133,7 +133,7 @@ function loadJsonScene(scenePath::String)
         instances = Vector{Instance}(undef, size(group, 1))
 
         defaultInstance = Instance()
-        @inbounds for (i, element) in enumerate(group)
+        for (i, element) in enumerate(group)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
@@ -161,7 +161,7 @@ function loadJsonScene(scenePath::String)
         environments = Vector{Environment}(undef, size(group, 1))
 
         defaultEnv = Environment()
-        @inbounds for (i, element) in enumerate(group)
+        for (i, element) in enumerate(group)
             f = get(element, "frame", [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0])
             frame = Frame(f[1:3], f[4:6], f[7:9], f[10:12])
 
@@ -181,14 +181,14 @@ function loadJsonScene(scenePath::String)
 
     # load shapes
     shapes = Vector{Shape}(undef, size(shapeFilenames, 1))
-    @inbounds for (i, filename) in enumerate(shapeFilenames)
+    for (i, filename) in enumerate(shapeFilenames)
         path = (dirname(scenePath), filename) |> joinpath
         shape = loadShape(path)
         shapes[i] = shape
     end
 
     # load textures
-    @inbounds for (i, filename) in enumerate(textureFilenames)
+    for (i, filename) in enumerate(textureFilenames)
         path = (dirname(scenePath), filename) |> joinpath
 
         # check that extension is png

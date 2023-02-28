@@ -215,7 +215,7 @@ end
 
 function evalEnvironment(scene::Scene, direction::SVec3f)::SVec3f
     emission = SVec3f(0, 0, 0)
-    @inbounds for env in scene.environments
+    for env in scene.environments
         emission += evalEnvironment(scene, env, direction)
     end
     return emission

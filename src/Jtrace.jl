@@ -100,8 +100,8 @@ function saveImage(filename::String, image::Matrix{SVec4f}, multithreaded::Bool)
             end
         end
     else
-        @inbounds for i = 1:size(image, 1)
-            @inbounds for j = 1:size(image, 2)
+        for i = 1:size(image, 1)
+            for j = 1:size(image, 2)
                 srgb = rgbToSrgb(clamp01nan.(image[i, j]))
                 pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
             end
@@ -121,7 +121,7 @@ function traceSamples(
     camera,
     multithreaded,
 )
-    @inbounds for s = 1:samples
+    for s = 1:samples
         if multithreaded
             @inbounds Threads.@threads for i = 1:size(image)[2]
                 @inbounds Threads.@threads for j = 1:size(image)[1]
@@ -147,8 +147,8 @@ function traceSamples(
                 end
             end
         else
-            @inbounds for i = 1:size(image)[2]
-                @inbounds for j = 1:size(image)[1]
+            for i = 1:size(image)[2]
+                for j = 1:size(image)[1]
                     radiance = traceSample(
                         shader,
                         i,

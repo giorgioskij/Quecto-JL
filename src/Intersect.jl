@@ -116,7 +116,7 @@ function intersectScene(
                 nodeCur += 1
             end
         else
-            @inbounds for idx = node.start:node.start+node.num-1
+            for idx = node.start:node.start+node.num-1
                 instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
 
@@ -489,12 +489,10 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
 
     # in the future this will be a BVH
     intersection = Intersection(false)
-    @inbounds for (instanceIndex, instance) in enumerate(scene.instances)
+    for (instanceIndex, instance) in enumerate(scene.instances)
         shape = scene.shapes[instance.shapeIndex]
-        @inbounds for (
-            triangleIndex,
-            (pointAindex, pointBindex, pointCindex),
-        ) in enumerate(eachcol(transpose(shape.triangles)))
+        for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
+            enumerate(eachcol(transpose(shape.triangles)))
             @inbounds pointA = SVec3f(
                 shape.positions[pointAindex, 1],
                 shape.positions[pointAindex, 2],
@@ -524,10 +522,8 @@ function intersectScene(ray::Ray, scene::Scene)::Intersection
             end
         end
 
-        @inbounds for (
-            quadIndex,
-            (pointAindex, pointBindex, pointCindex, pointDindex),
-        ) in enumerate(eachcol(transpose(shape.quads)))
+        for (quadIndex, (pointAindex, pointBindex, pointCindex, pointDindex)) in
+            enumerate(eachcol(transpose(shape.quads)))
             @inbounds pointA = SVec3f(
                 shape.positions[pointAindex, 1],
                 shape.positions[pointAindex, 2],
