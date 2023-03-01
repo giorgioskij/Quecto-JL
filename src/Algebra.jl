@@ -6,6 +6,7 @@ using ..Types
 import Base.*
 import Base./
 using LoopVectorization
+using Images
 
 export transformNormal,
     interpolateTriangle,

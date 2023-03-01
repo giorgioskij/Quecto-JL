@@ -60,7 +60,7 @@ end
 struct Environment
     frame::Frame
     emission::SVec3f
-    emissionTex::Int
+    emissionTex::Int32
 
     Environment(frame, emission, emissionTex) =
         new(frame, emission, emissionTex)

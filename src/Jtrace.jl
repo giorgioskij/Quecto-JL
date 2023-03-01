@@ -61,6 +61,8 @@ function trace(;
         shaderFunc = shaderNormal
     elseif lowercase(shader) == "naive"
         shaderFunc = shaderIndirectNaive
+    elseif lowercase(shader) == "material"
+        shaderFunc = shaderMaterial
     else
         error("No shader named $shader")
     end
