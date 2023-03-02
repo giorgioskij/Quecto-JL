@@ -336,7 +336,7 @@ end
     # j indices the ROW of the texture
     # i the column
 
-    sizeY = size(texture.image, 1)
+    sizeY, sizeX = size(texture.image)
     return texture.image[j, i]
     # if !isempty(texture.image)
     #     sizeY, sizeX = size(texture.image)

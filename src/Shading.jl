@@ -246,14 +246,15 @@ function shaderIndirectNaive(
     bvh::SceneBvh,
     bounce::Int = 1,
 )::SVec3f
-    maxBounce = 20
+    maxBounce = 32
 
     # INTERSECT SCENE
     intersection::Intersection = intersectScene(ray, scene, bvh, false)
 
+    radiance = SVec3f(0, 0, 0)
     # EVAL ENVIRONMENT
     if !intersection.hit
-        radiance = evalEnvironment(scene, ray.direction)
+        radiance += evalEnvironment(scene, ray.direction)
         return radiance
     end
 
@@ -307,7 +308,7 @@ function shaderIndirectNaive(
     end
 
     # ACCUMULATE EMISSION
-    radiance::SVec3f = emission
+    radiance += emission
 
     # EXIT IF RAY IS DONE
     if bounce >= maxBounce
@@ -317,22 +318,19 @@ function shaderIndirectNaive(
     # COMPUTE ILLUMINATION 
 
     if material.type == "matte"
-        upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+        upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
         incoming = sampleHemisphereCos(upNormal)
-        if incoming == SVec3f(0, 0, 0)
-            return radiance
-        end
+        # if incoming == SVec3f(0, 0, 0)
+        #     return radiance
+        # end
 
         #good floor and overall illumination, bad lighting
         radiance += ifelse(
-            dot(normal, incoming) * dot(normal, outgoing) <= 0,
+            dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
             SVec3f(0, 0, 0),
-            color * shaderIndirectNaive(
-                scene,
-                Ray(position, incoming),
-                bvh,
-                bounce + 1,
-            ),
+            color *
+            abs(dot(upNormal, incoming)) *
+            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
         )
 
         # good lighting spots, bad floor and overall illumination
@@ -348,12 +346,18 @@ function shaderIndirectNaive(
 
     elseif material.type == "reflective"
         if material.roughness == 0
-            incoming = reflect(outgoing, normal)
+            upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
+            incoming = reflect(outgoing, upNormal)
             radiance += ifelse(
-                dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
                 SVec3f(0, 0, 0),
                 color *
-                fresnelSchlick(color, normal, incoming) *
+                fresnelConductor(
+                    reflectivityToEta(color),
+                    SVec3f(0, 0, 0),
+                    upNormal,
+                    outgoing,
+                ) *
                 shaderIndirectNaive(
                     scene,
                     Ray(position, incoming),
@@ -363,11 +367,13 @@ function shaderIndirectNaive(
             )
 
         else
-            exponent = 2.0f0 / material.roughness^2
-            halfway = sampleHemisphereCosPower(exponent, normal)
+            upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
+            halfway = sampleMicrofacet(material.roughness, upNormal)
             incoming = reflect(outgoing, halfway)
-            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
-            halfway = norm(incoming + outgoing)
+            if (!sameHemisphere(upNormal, outgoing, incoming))
+                return radiance
+            end
+            #halfway = norm(incoming + outgoing)
             F = fresnelConductor(
                 reflectivityToEta(color),
                 SVec3f(0, 0, 0),
@@ -383,7 +389,7 @@ function shaderIndirectNaive(
                 incoming,
             )
             radiance += ifelse(
-                dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
                 SVec3f(0, 0, 0),
                 color .* F .* D .* G ./
                 (4 .* dot(upNormal, outgoing) .* dot(upNormal, incoming)) .*
@@ -398,14 +404,26 @@ function shaderIndirectNaive(
     elseif material.type == "glossy"
         upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
         F1 = fresnelDielectric(material.ior, upNormal, outgoing)
-        if (rand() < F1)
-            halfway = sampleMicrofacet(material.roughness, upNormal)
-            incoming = reflect(outgoing, halfway)
-            if (sameHemisphere(upNormal, outgoing, incoming))
-                incoming = SVec3f(0, 0, 0)
-            end
-        else
+        if material.roughness == 0
+            # if (rand(Float32) < F1)
+            #     incoming = reflect(outgoing, upNormal)
+            # else
             incoming = sampleHemisphereCos(upNormal)
+            #end
+        else
+            if (rand(Float32) < F1)
+                halfway = sampleMicrofacet(material.roughness, upNormal)
+                incoming = reflect(outgoing, halfway)
+                if (!sameHemisphere(upNormal, outgoing, incoming))
+                    return radiance
+                end
+            else
+                incoming = sampleHemisphereCosPower(
+                    2.0f0 / (material.roughness * material.roughness),
+                    upNormal,
+                )
+                #incoming = sampleHemisphereCos(upNormal)
+            end
         end
 
         halfway = norm(incoming + outgoing)
@@ -419,27 +437,16 @@ function shaderIndirectNaive(
             incoming,
         )
         radiance += ifelse(
-            dot(normal, incoming) * dot(normal, outgoing) <= 0,
+            dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
             SVec3f(0, 0, 0),
             color * (1 - F1) / pi * abs(dot(upNormal, incoming)) +
             SVec3f(1, 1, 1) * F * D * G /
             (4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)) *
             abs(dot(upNormal, incoming)) *
-            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
+            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),#,
         )
     else
-        upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
-        incoming = sampleHemisphereCos(upNormal)
-        if incoming == SVec3f(0, 0, 0)
-            return radiance
-        end
-        radiance += ifelse(
-            dot(normal, incoming) * dot(normal, outgoing) <= 0,
-            SVec3f(0, 0, 0),
-            color *
-            abs(dot(normal, incoming)) *
-            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
-        )
+        error("Unknown material type")
     end
     return radiance
 end
@@ -492,7 +499,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         radiance += weight * evalEmission(material, normal, outgoing)
 
         if material.type == "matte"
-            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+            upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
             incoming = sampleHemisphereCos(upNormal)
             if incoming == SVec3f(0, 0, 0)
                 break
@@ -519,6 +526,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         elseif material.type == "reflective"
             if material.roughness == 0
+                upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
                 incoming = reflect(outgoing, normal)
                 radiance =
                     weight * ifelse(
@@ -530,7 +538,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 exponent = 2.0f0 / material.roughness^2
                 halfway = sampleHemisphereCosPower(exponent, normal)
                 incoming = reflect(outgoing, halfway)
-                upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+                upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
                 halfway = norm(incoming + outgoing)
                 F = fresnelConductor(
                     reflectivityToEta(color),
@@ -563,7 +571,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         elseif material.type == "glossy"
             upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
             F1 = fresnelDielectric(material.ior, upNormal, outgoing)
-            if (rand() < F1)
+            if (rand(Float32) < F1)
                 halfway = sampleMicrofacet(material.roughness, upNormal)
                 incoming = reflect(outgoing, halfway)
                 if (sameHemisphere(upNormal, outgoing, incoming))
@@ -595,7 +603,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                     ) * abs(dot(upNormal, incoming)),
                 )
         else
-            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+            upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
             incoming = sampleHemisphereCos(upNormal)
             if incoming == SVec3f(0, 0, 0)
                 break
@@ -770,18 +778,18 @@ end
     end
 end
 
-function sampleHemisphere(normal::SVec3f)::SVec3f
-    ruvx = rand()
-    z = rand()  # ruvy
+@inline function sampleHemisphere(normal::SVec3f)::SVec3f
+    ruvx = rand(Float32)
+    z = rand(Float32)  # ruvy
     r = sqrt(clamp(1 - z * z, 0.0f0, 1.0f0))
     phi = 2 * pi * ruvx
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
 end
 
-function sampleHemisphereCos(normal::SVec3f)::SVec3f
-    ruvx = rand()
-    z = sqrt(rand())  # ruvy
+@inline function sampleHemisphereCos(normal::SVec3f)::SVec3f
+    ruvx = rand(Float32)
+    z = sqrt(rand(Float32))  # ruvy
     r = sqrt(1 - z * z)
     phi = 2 * pi * ruvx
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
@@ -792,8 +800,8 @@ end
     exponent::Float32,
     normal::SVec3f,
 )::SVec3f
-    ruxy = rand()
-    ruvy = rand()
+    ruxy = rand(Float32)
+    ruvy = rand(Float32)
     z = ruvy^(1.0f0 / (exponent + 1.0f0))
     r = sqrt(1.0f0 - z * z)
     phi = 2.0f0 * pi * ruxy
@@ -806,8 +814,8 @@ end
     normal::SVec3f,
     ggx::Bool = true,
 )::SVec3f
-    ruvx = rand()
-    ruvy = rand()
+    ruvx = rand(Float32)
+    ruvy = rand(Float32)
     phi = 2.0f0 * pi * ruvx
     theta = 0.0f0
     if ggx

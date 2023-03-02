@@ -10,8 +10,8 @@ scenePath = "materials1/materials1.json"
 
 @time trace(
     scenePath = scenePath,
-    shader = "material",
-    width = 1280,
-    samples = 20,
+    shader = "naive",
+    width = 1920,
+    samples = 32,
     multithreaded = true,
 )

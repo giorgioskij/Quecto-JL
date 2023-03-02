@@ -239,7 +239,12 @@ end
 function loadTextureHdr(filename::String)::Matrix{SVec4f}
     image = load(filename)
     # undo srgb and transform into Vector{SVector}
+    # save("sky_test_pre.png", image)
     imageVector = map(x -> SVec4f(x.r, x.g, x.b, 1), image)
+    # save(
+    #     "sky_test_post.png",
+    #     map(x -> RGBA(x[1], x[2], x[3], x[4]), imageVector),
+    # )
     return imageVector
 end
 
