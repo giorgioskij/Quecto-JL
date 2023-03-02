@@ -246,7 +246,7 @@ function shaderIndirectNaive(
     bvh::SceneBvh,
     bounce::Int = 1,
 )::SVec3f
-    maxBounce = 10
+    maxBounce = 20
 
     # INTERSECT SCENE
     intersection::Intersection = intersectScene(ray, scene, bvh, false)
@@ -314,30 +314,140 @@ function shaderIndirectNaive(
         return radiance
     end
 
-    # COMPUTE ILLUMINATION
+    # COMPUTE ILLUMINATION 
 
-    # everything matte for now
-    incoming::SVec3f = sampleHemisphereCos(normal)
-    lighting::SVec3f =
-        shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
-    radiance += color * lighting
+    if material.type == "matte"
+        upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+        incoming = sampleHemisphereCos(upNormal)
+        if incoming == SVec3f(0, 0, 0)
+            return radiance
+        end
 
-    # if incoming == SVec3f(0, 0, 0)
-    #     return radiance
-    # end
-    # if dot(normal, incoming) * dot(normal, outgoing) > 0
-    #     radiance +=
-    #         materialColor *
-    #         shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
-    # end
-    # return radiance
+        #good floor and overall illumination, bad lighting
+        radiance += ifelse(
+            dot(normal, incoming) * dot(normal, outgoing) <= 0,
+            SVec3f(0, 0, 0),
+            color * shaderIndirectNaive(
+                scene,
+                Ray(position, incoming),
+                bvh,
+                bounce + 1,
+            ),
+        )
+
+        # good lighting spots, bad floor and overall illumination
+        # radiance = linInterp(
+        #     radiance,
+        #     ifelse(
+        #         dot(normal, incoming) * dot(normal, outgoing) <= 0,
+        #         SVec3f(0, 0, 0),
+        #         color * abs(dot(normal, incoming)),
+        #     ),
+        #     weight,
+        # )
+
+    elseif material.type == "reflective"
+        if material.roughness == 0
+            incoming = reflect(outgoing, normal)
+            radiance += ifelse(
+                dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                SVec3f(0, 0, 0),
+                color *
+                fresnelSchlick(color, normal, incoming) *
+                shaderIndirectNaive(
+                    scene,
+                    Ray(position, incoming),
+                    bvh,
+                    bounce + 1,
+                ),
+            )
+
+        else
+            exponent = 2.0f0 / material.roughness^2
+            halfway = sampleHemisphereCosPower(exponent, normal)
+            incoming = reflect(outgoing, halfway)
+            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+            halfway = norm(incoming + outgoing)
+            F = fresnelConductor(
+                reflectivityToEta(color),
+                SVec3f(0, 0, 0),
+                halfway,
+                incoming,
+            )
+            D = microfacetDistribution(material.roughness, upNormal, halfway)
+            G = microfacetShadowing(
+                material.roughness,
+                upNormal,
+                halfway,
+                outgoing,
+                incoming,
+            )
+            radiance += ifelse(
+                dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                SVec3f(0, 0, 0),
+                color .* F .* D .* G ./
+                (4 .* dot(upNormal, outgoing) .* dot(upNormal, incoming)) .*
+                abs(dot(upNormal, incoming)) * shaderIndirectNaive(
+                    scene,
+                    Ray(position, incoming),
+                    bvh,
+                    bounce + 1,
+                ),
+            )
+        end
+    elseif material.type == "glossy"
+        upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
+        F1 = fresnelDielectric(material.ior, upNormal, outgoing)
+        if (rand() < F1)
+            halfway = sampleMicrofacet(material.roughness, upNormal)
+            incoming = reflect(outgoing, halfway)
+            if (sameHemisphere(upNormal, outgoing, incoming))
+                incoming = SVec3f(0, 0, 0)
+            end
+        else
+            incoming = sampleHemisphereCos(upNormal)
+        end
+
+        halfway = norm(incoming + outgoing)
+        F = fresnelDielectric(material.ior, halfway, incoming)
+        D = microfacetDistribution(material.roughness, upNormal, halfway)
+        G = microfacetShadowing(
+            material.roughness,
+            upNormal,
+            halfway,
+            outgoing,
+            incoming,
+        )
+        radiance += ifelse(
+            dot(normal, incoming) * dot(normal, outgoing) <= 0,
+            SVec3f(0, 0, 0),
+            color * (1 - F1) / pi * abs(dot(upNormal, incoming)) +
+            SVec3f(1, 1, 1) * F * D * G /
+            (4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)) *
+            abs(dot(upNormal, incoming)) *
+            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
+        )
+    else
+        upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+        incoming = sampleHemisphereCos(upNormal)
+        if incoming == SVec3f(0, 0, 0)
+            return radiance
+        end
+        radiance += ifelse(
+            dot(normal, incoming) * dot(normal, outgoing) <= 0,
+            SVec3f(0, 0, 0),
+            color *
+            abs(dot(normal, incoming)) *
+            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
+        )
+    end
     return radiance
 end
 
 function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     # intersection::Intersection = intersectScene(ray, scene)
     radiance = SVec3f(0, 0, 0)
-    maxBounce = 64
+    maxBounce = 32
     newRay = ray
 
     for b = 1:maxBounce
@@ -416,7 +526,6 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                         SVec3f(0, 0, 0),
                         color .* fresnelSchlick(color, normal, incoming),
                     )
-
             else
                 exponent = 2.0f0 / material.roughness^2
                 halfway = sampleHemisphereCosPower(exponent, normal)
@@ -495,7 +604,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 weight * ifelse(
                     dot(normal, incoming) * dot(normal, outgoing) <= 0,
                     SVec3f(0, 0, 0),
-                    materialColor * abs(dot(normal, incoming)),
+                    color * abs(dot(normal, incoming)),
                 )
         end
 

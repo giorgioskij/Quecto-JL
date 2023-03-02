@@ -273,6 +273,8 @@ function evalTexture(
     clampToEdge::Bool,
 )::SVec4f
     sizeY, sizeX = size(texture.image)
+    # println("sizeY: ", sizeY)
+    # println("sizeX: ", sizeX)
     # if !isempty(texture.image)
     #     sizeY, sizeX = size(texture.image)
     # elseif !isempty(texture.hdrImage)
@@ -335,7 +337,7 @@ end
     # i the column
 
     sizeY = size(texture.image, 1)
-    return texture.image[sizeY-j+1, i]
+    return texture.image[j, i]
     # if !isempty(texture.image)
     #     sizeY, sizeX = size(texture.image)
     #     return texture.image[sizeY-j+1, i]
@@ -360,23 +362,6 @@ function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
     normal = unitVector(pointHit - sphereCenter)
     return normal
 end
-
-# TODO: remove, no longer used
-# function evalMaterialColor(scene::Scene, intersection::Intersection)::SVec3f
-#     instance::Instance = scene.instances[intersection.instanceIndex]
-#     material::Material = scene.materials[instance.materialIndex]
-#     elementIndex::Int = intersection.elementIndex
-#     u::Float32 = intersection.u
-#     v::Float32 = intersection.v
-
-#     textureU, textureV = evalTexcoord(scene, instance, elementIndex, u, v)
-
-#     colorTexture = evalTexture(scene, material.colorTex, textureU, textureV)
-
-#     pointColor = material.color * xyz(colorTexture)
-
-#     return pointColor
-# end
 
 function evalTexcoord(
     scene::Scene,
