@@ -59,7 +59,7 @@ function intersectScene(
     ray::Ray,
     scene::Scene,
     sceneBvh::SceneBvh,
-    findAny::Bool,
+    findAny::Bool = false,
 )::Intersection
     masterBvh = sceneBvh.bvh
 

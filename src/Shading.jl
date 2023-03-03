@@ -249,11 +249,11 @@ function shaderIndirectNaive(
     maxBounce = 32
 
     # INTERSECT SCENE
-    intersection::Intersection = intersectScene(ray, scene, bvh, false)
+    intersection::Intersection = intersectScene(ray, scene, bvh)
 
-    radiance = SVec3f(0, 0, 0)
     # EVAL ENVIRONMENT
     if !intersection.hit
+        radiance = SVec3f(0, 0, 0)
         radiance += evalEnvironment(scene, ray.direction)
         return radiance
     end
@@ -282,7 +282,7 @@ function shaderIndirectNaive(
     outgoing = -ray.direction
 
     # NORMAL CORRECTIONS
-    if !isempty(shape.triangles) && dot(normal, outgoing) < 0
+    if dot(normal, outgoing) < 0
         normal = -normal
     end
 
@@ -308,7 +308,7 @@ function shaderIndirectNaive(
     end
 
     # ACCUMULATE EMISSION
-    radiance += emission
+    radiance = emission
 
     # EXIT IF RAY IS DONE
     if bounce >= maxBounce
@@ -318,20 +318,23 @@ function shaderIndirectNaive(
     # COMPUTE ILLUMINATION 
 
     if material.type == "matte"
-        upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
-        incoming = sampleHemisphereCos(upNormal)
+        # upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
+        incoming = sampleHemisphereCos(normal)
         # if incoming == SVec3f(0, 0, 0)
         #     return radiance
         # end
 
         #good floor and overall illumination, bad lighting
-        radiance += ifelse(
-            dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-            SVec3f(0, 0, 0),
+        # radiance += ifelse(
+        #     dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
+        #     SVec3f(0, 0, 0),
+        #     color *
+        #     abs(dot(upNormal, incoming)) *
+        #     shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
+        # )
+        radiance +=
             color *
-            abs(dot(upNormal, incoming)) *
-            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
-        )
+            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
 
         # good lighting spots, bad floor and overall illumination
         # radiance = linInterp(
