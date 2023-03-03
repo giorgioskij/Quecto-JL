@@ -236,7 +236,7 @@ function evalEnvironment(
 
     # TEMP: try to invert X and Y
     # textureX = 1 - textureX
-    # textureY = 1 - textureY
+    textureY = 1 - textureY
 
     return env.emission *
            xyz(evalTexture(scene, env.emissionTex, textureX, textureY))
@@ -337,7 +337,7 @@ end
     # i the column
 
     sizeY, sizeX = size(texture.image)
-    return texture.image[j, i]
+    return texture.image[sizeY-j+1, i]
     # if !isempty(texture.image)
     #     sizeY, sizeX = size(texture.image)
     #     return texture.image[sizeY-j+1, i]
