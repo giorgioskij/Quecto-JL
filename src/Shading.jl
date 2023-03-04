@@ -7,7 +7,7 @@ using ..Bvh
 using ..Types
 using ..Algebra
 
-using StaticArrays: dot
+using StaticArrays: dot, cross
 
 export shaderEyelight,
     shaderMaterial, shaderNormal, shaderIndirectNaive, shaderEyelightBsdf
@@ -253,8 +253,7 @@ function shaderIndirectNaive(
 
     # EVAL ENVIRONMENT
     if !intersection.hit
-        radiance = SVec3f(0, 0, 0)
-        radiance += evalEnvironment(scene, ray.direction)
+        radiance = evalEnvironment(scene, ray.direction)
         return radiance
     end
 
@@ -318,23 +317,23 @@ function shaderIndirectNaive(
     # COMPUTE ILLUMINATION 
 
     if material.type == "matte"
-        # upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
+        upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
         incoming = sampleHemisphereCos(normal)
-        # if incoming == SVec3f(0, 0, 0)
-        #     return radiance
-        # end
+        if incoming == SVec3f(0, 0, 0)
+            return radiance
+        end
 
         #good floor and overall illumination, bad lighting
-        # radiance += ifelse(
-        #     dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-        #     SVec3f(0, 0, 0),
-        #     color *
-        #     abs(dot(upNormal, incoming)) *
-        #     shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
-        # )
-        radiance +=
+        radiance += ifelse(
+            dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
+            SVec3f(0, 0, 0),
             color *
-            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
+            abs(dot(upNormal, incoming)) *
+            shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
+        )
+        # radiance +=
+        #     color *
+        #     shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1)
 
         # good lighting spots, bad floor and overall illumination
         # radiance = linInterp(
@@ -351,6 +350,10 @@ function shaderIndirectNaive(
         if material.roughness == 0
             upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
             incoming = reflect(outgoing, upNormal)
+            if incoming == SVec3f(0, 0, 0)
+                return radiance
+            end
+
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
                 SVec3f(0, 0, 0),
@@ -376,6 +379,9 @@ function shaderIndirectNaive(
             if (!sameHemisphere(upNormal, outgoing, incoming))
                 return radiance
             end
+            if incoming == SVec3f(0, 0, 0)
+                return radiance
+            end
             #halfway = norm(incoming + outgoing)
             F = fresnelConductor(
                 reflectivityToEta(color),
@@ -394,9 +400,11 @@ function shaderIndirectNaive(
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
                 SVec3f(0, 0, 0),
-                color .* F .* D .* G ./
-                (4 .* dot(upNormal, outgoing) .* dot(upNormal, incoming)) .*
-                abs(dot(upNormal, incoming)) * shaderIndirectNaive(
+                color * F * D * G / (
+                    4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)
+                ) *
+                abs(dot(upNormal, incoming)) *
+                shaderIndirectNaive(
                     scene,
                     Ray(position, incoming),
                     bvh,
@@ -416,10 +424,14 @@ function shaderIndirectNaive(
             else
                 incoming = sampleHemisphereCos(upNormal)
             end
+            if incoming == SVec3f(0, 0, 0)
+                return radiance
+            end
 
             halfway = norm(incoming + outgoing)
-            F = fresnelDielectric(material.ior, halfway, incoming)
-            # how we must compute D here for a sharp plastic?
+            F = fresnelDielectric(2 * material.ior, halfway, incoming)
+            # how we compute D for sharp plastic?
+            #D = microfacetDistribution(material.roughness, upNormal, halfway)
             G = microfacetShadowing(
                 material.roughness,
                 upNormal,
@@ -434,7 +446,7 @@ function shaderIndirectNaive(
                 SVec3f(1, 1, 1) * F * G / (
                     4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)
                 ) *
-                abs(dot(upNormal, incoming)) *
+                abs(dot(upNormal, incoming))^1.75 *
                 shaderIndirectNaive(
                     scene,
                     Ray(position, incoming),
@@ -457,9 +469,15 @@ function shaderIndirectNaive(
                 )
                 #incoming = sampleHemisphereCos(upNormal)
             end
+
+            if incoming == SVec3f(0, 0, 0)
+                return radiance
+            end
+
             halfway = norm(incoming + outgoing)
             F = fresnelDielectric(material.ior, halfway, incoming)
             D = microfacetDistribution(material.roughness, upNormal, halfway)
+            #D = preciseMicrofacetDistribution(material.roughness, upNormal, halfway)
             G = microfacetShadowing(
                 material.roughness,
                 upNormal,
@@ -474,7 +492,7 @@ function shaderIndirectNaive(
                 SVec3f(1, 1, 1) * F * D * G / (
                     4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)
                 ) *
-                abs(dot(upNormal, incoming)) *
+                abs(dot(upNormal, incoming))^1.05 *
                 shaderIndirectNaive(
                     scene,
                     Ray(position, incoming),
@@ -524,7 +542,7 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         outgoing = -newRay.direction
         position = evalShadingPosition(scene, intersection, outgoing)
         normal = evalNormal(shape, intersection, frame)
-        if dot(normal, outgoing) < 0
+        if dot(normal, outgoing) <= 0
             normal = -normal
         end
 
@@ -538,165 +556,174 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         #incoming = outgoing   # decomment for eyelight shader
         #radiance += weight * emission
 
-        if material.type == "matte"
-            upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
-            incoming = sampleHemisphereCos(upNormal)
-            if incoming == SVec3f(0, 0, 0)
-                break
-            end
+        incoming = sampleBSDF(material, normal, outgoing)
 
-            #good floor and overall illumination, bad lighting
-            radiance =
-                weight * ifelse(
-                    dot(normal, incoming) * dot(normal, outgoing) <= 0,
-                    SVec3f(0, 0, 0),
-                    color / pi,
-                )
-
-            # good lighting spots, bad floor and overall illumination
-            # radiance = linInterp(
-            #     radiance,
-            #     ifelse(
-            #         dot(normal, incoming) * dot(normal, outgoing) <= 0,
-            #         SVec3f(0, 0, 0),
-            #         color * abs(dot(normal, incoming)),
-            #     ),
-            #     weight,
-            # )
-
-        elseif material.type == "reflective"
-            if material.roughness == 0
-                upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
-                incoming = reflect(outgoing, upNormal)
-                radiance =
-                    weight * ifelse(
-                        dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-                        SVec3f(0, 0, 0),
-                        color * fresnelConductor(
-                            reflectivityToEta(color),
-                            SVec3f(0, 0, 0),
-                            upNormal,
-                            outgoing,
-                        ),
-                    )
-            else
-                exponent = 2.0f0 / material.roughness^2
-                halfway = sampleHemisphereCosPower(exponent, normal)
-                incoming = reflect(outgoing, halfway)
-                upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
-                halfway = norm(incoming + outgoing)
-                F = fresnelConductor(
-                    reflectivityToEta(color),
-                    SVec3f(0, 0, 0),
-                    halfway,
-                    incoming,
-                )
-                D = microfacetDistribution(
-                    material.roughness,
-                    upNormal,
-                    halfway,
-                )
-                G = microfacetShadowing(
-                    material.roughness,
-                    upNormal,
-                    halfway,
-                    outgoing,
-                    incoming,
-                )
-                radiance =
-                    weight * ifelse(
-                        dot(normal, incoming) * dot(normal, outgoing) <= 0,
-                        SVec3f(0, 0, 0),
-                        color .* F .* D .* G ./ (
-                            4 .* dot(upNormal, outgoing) .*
-                            dot(upNormal, incoming)
-                        ) .* abs(dot(upNormal, incoming)),
-                    )
-            end
-        elseif material.type == "glossy"
-            upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
-            F1 = fresnelDielectric(material.ior, upNormal, outgoing)
-            if material.roughness == 0
-                if (rand(Float32) < F1)
-                    incoming = reflect(outgoing, upNormal)
-                    if (!sameHemisphere(upNormal, outgoing, incoming))
-                        return radiance
-                    end
-                else
-                    incoming = sampleHemisphereCos(upNormal)
-                end
-
-                halfway = norm(incoming + outgoing)
-                F = fresnelDielectric(material.ior, halfway, incoming)
-                # TODO: how to compute D for sharp plastic?
-                G = microfacetShadowing(
-                    material.roughness,
-                    upNormal,
-                    halfway,
-                    outgoing,
-                    incoming,
-                )
-
-                radiance =
-                    weight * ifelse(
-                        dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-                        SVec3f(0, 0, 0),
-                        color * (1 - F1) / pi * abs(dot(upNormal, incoming)) +
-                        SVec3f(1, 1, 1) * F * G / (
-                            4.0f0 *
-                            dot(upNormal, outgoing) *
-                            dot(upNormal, incoming)
-                        ) * abs(dot(upNormal, incoming)),
-                    )
-
-            else
-                if (rand(Float32) < F1)
-                    halfway = sampleMicrofacet(material.roughness, upNormal)
-                    incoming = reflect(outgoing, halfway)
-                    if (!sameHemisphere(upNormal, outgoing, incoming))
-                        return radiance
-                    end
-                else
-                    incoming = sampleHemisphereCosPower(
-                        2.0f0 / (material.roughness * material.roughness),
-                        upNormal,
-                    )
-                    #incoming = sampleHemisphereCos(upNormal)
-                end
-
-                halfway = norm(incoming + outgoing)
-                F = fresnelDielectric(material.ior, halfway, incoming)
-                D = microfacetDistribution(
-                    material.roughness,
-                    upNormal,
-                    halfway,
-                )
-                G = microfacetShadowing(
-                    material.roughness,
-                    upNormal,
-                    halfway,
-                    outgoing,
-                    incoming,
-                )
-                radiance =
-                    weight * ifelse(
-                        dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-                        SVec3f(0, 0, 0),
-                        color * (1 - F1) / pi * abs(dot(upNormal, incoming)) +
-                        SVec3f(1, 1, 1) * F * D * G / (
-                            4.0f0 *
-                            dot(upNormal, outgoing) *
-                            dot(upNormal, incoming)
-                        ) * abs(dot(upNormal, incoming)),
-                    )
-            end
-        else
-            error("Unknown material type")
+        if incoming == SVec3f(0, 0, 0)
+            break
         end
+
+        radiance =
+            weight * evalBSDF(material, normal, incoming, outgoing, color)
 
         newRay = Ray(position, incoming)
     end
     return radiance
+end
+
+function sampleBSDF(material, normal, outgoing)
+    # if (material.roughness == 0)
+    #     return SVec3f(0, 0, 0)
+    # end
+
+    if material.type == "matte"
+        incoming = sampleHemisphereCos(normal)
+
+        return incoming
+    elseif material.type == "reflective"
+        if material.roughness == 0
+            incoming = reflect(outgoing, normal)
+        else
+            # exponent = 2.0f0 / material.roughness^2
+            # halfway = sampleHemisphereCosPower(exponent, normal)
+            # incoming = reflect(outgoing, halfway)
+            halfway = sampleMicrofacet(material.roughness, normal)
+            incoming = reflect(outgoing, halfway)
+            if (!sameHemisphere(normal, outgoing, incoming))
+                return SVec3f(0, 0, 0)
+            end
+        end
+        return incoming
+    elseif material.type == "glossy"
+        F1 = fresnelDielectric(material.ior, normal, outgoing)
+        if material.roughness == 0
+            if (rand(Float32) < F1)
+                incoming = reflect(outgoing, normal)
+                if (!sameHemisphere(normal, outgoing, incoming))
+                    return SVec3f(0, 0, 0)
+                end
+            else
+                incoming = sampleHemisphereCos(normal)
+            end
+
+            return incoming
+        else
+            if (rand(Float32) < F1)
+                halfway = sampleMicrofacet(material.roughness, normal)
+                incoming = reflect(outgoing, halfway)
+                if (!sameHemisphere(normal, outgoing, incoming))
+                    return SVec3f(0, 0, 0)
+                end
+            else
+                incoming = sampleHemisphereCosPower(
+                    2.0f0 / (material.roughness * material.roughness),
+                    normal,
+                )
+                #incoming = sampleHemisphereCos(upNormal)
+            end
+
+            return incoming
+        end
+    else
+        error("Unknown material type")
+    end
+end
+
+function evalBSDF(material, normal, incoming, outgoing, color)
+    if dot(normal, incoming) * dot(normal, outgoing) <= 0
+        return SVec3f(0, 0, 0)
+    end
+
+    if material.type == "matte"
+        #good floor and overall illumination, bad lighting
+        radiance = color / pi * abs(dot(normal, incoming))
+
+        # good lighting spots, bad floor and overall illumination
+        # radiance = linInterp(
+        #     radiance, color * abs(dot(normal, incoming)),
+        #     weight )
+        return radiance
+
+    elseif material.type == "reflective"
+        if material.roughness == 0
+            radiance =
+            #color / pi * 
+                fresnelConductor(
+                    reflectivityToEta(color),
+                    SVec3f(0, 0, 0),
+                    normal,
+                    outgoing,
+                ) / pi
+
+        else
+            halfway = norm(incoming + outgoing)
+            F = fresnelConductor(
+                reflectivityToEta(color),
+                SVec3f(0, 0, 0),
+                halfway,
+                incoming,
+            )
+            D = microfacetDistribution(material.roughness, normal, halfway)
+            # D = preciseMicrofacetDistribution(material.roughness, normal, halfway)
+            G = microfacetShadowing(
+                material.roughness,
+                normal,
+                halfway,
+                outgoing,
+                incoming,
+            )
+            radiance =
+            #color / pi * 
+                F * D * G /
+                (4.0f0 * pi * dot(normal, outgoing) * dot(normal, incoming)) *
+                abs(dot(normal, incoming))
+        end
+        return radiance
+
+    elseif material.type == "glossy"
+        F1 = fresnelDielectric(material.ior, normal, outgoing)
+        halfway = norm(incoming + outgoing)
+
+        if material.roughness == 0
+            F = fresnelDielectric(2 * material.ior, halfway, incoming)
+            # D = microfacetDistribution(material.roughness, normal, halfway)
+            # D = preciseMicrofacetDistribution(material.roughness, normal, halfway)
+            # TODO: how to compute D for sharp plastic?
+            G = microfacetShadowing(
+                material.roughness,
+                normal,
+                halfway,
+                outgoing,
+                incoming,
+            )
+
+            radiance =
+                color * (1 - F1) / (2 * pi) * abs(dot(normal, incoming)) +
+                SVec3f(1, 1, 1) * F * G /
+                (4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) *
+                abs(dot(normal, incoming))^1.75
+
+            return radiance
+        else
+            F = fresnelDielectric(material.ior, halfway, incoming)
+            D = microfacetDistribution(material.roughness, normal, halfway)
+            # D = preciseMicrofacetDistribution(material.roughness, normal, halfway)
+            G = microfacetShadowing(
+                material.roughness,
+                normal,
+                halfway,
+                outgoing,
+                incoming,
+            )
+            radiance =
+                color * (1 - F1) / (2 * pi) * abs(dot(normal, incoming)) +
+                SVec3f(1, 1, 1) * F * D * G /
+                (4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) *
+                abs(dot(normal, incoming))^1.5
+            return radiance
+        end
+    else
+        error("Unknown material type")
+    end
 end
 
 @inline function sameHemisphere(
@@ -706,14 +733,6 @@ end
 )
     return dot(normal, outgoing) * dot(normal, incoming) >= 0
 end
-
-# @inline function evalEmission(
-#     material::Material,
-#     normal::SVec3f,
-#     outgoing::SVec3f,
-# )
-#     ifelse(dot(normal, outgoing) >= 0, material.emission, SVec3f(0, 0, 0))
-# end
 
 # @inline function fresnelSchlick(
 #     specular::SVec3f,
@@ -805,11 +824,28 @@ end
     roughness2 = roughness * roughness
     cosine2 = cosine * cosine
     if ggx
-        return roughness2 / ((pi * (cosine2 * roughness2 + 1 - cosine2)^2))
+        return roughness2 / ((
+            pi *
+            (cosine2 * roughness2 + 1 - cosine2) *
+            (cosine2 * roughness2 + 1 - cosine2)
+        ))
     else
         return exp((cosine2 - 1) / (roughness2 * cosine2)) /
                (pi * roughness2 * cosine2 * cosine2)
     end
+end
+
+@inline function preciseMicrofacetDistribution(
+    roughness::Float32,
+    normal::SVec3f,
+    halfway::SVec3f,
+)::Float32
+    cosine = dot(normal, halfway)
+    nxh = cross(normal, halfway)
+
+    a = cosine * roughness
+    k = roughness / (dot(nxh, nxh) + a * a)
+    return k * k / pi
 end
 
 @inline function microfacetShadowing(
