@@ -357,14 +357,13 @@ function shaderIndirectNaive(
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
                 SVec3f(0, 0, 0),
-                color *
+                # color *
                 fresnelConductor(
                     reflectivityToEta(color),
                     SVec3f(0, 0, 0),
                     upNormal,
                     outgoing,
-                ) *
-                shaderIndirectNaive(
+                ) * shaderIndirectNaive(
                     scene,
                     Ray(position, incoming),
                     bvh,
@@ -400,7 +399,8 @@ function shaderIndirectNaive(
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
                 SVec3f(0, 0, 0),
-                color * F * D * G / (
+                #color * 
+                F * D * G / (
                     4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)
                 ) *
                 abs(dot(upNormal, incoming)) *
@@ -513,15 +513,17 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     radiance = SVec3f(0, 0, 0)
     maxBounce = 128
     newRay = ray
+    opbounce::Int32 = 0
+    weight = SVec3f(1, 1, 1)
 
     for b = 1:maxBounce
-        weight::Float32 = 1.0f0 / b
+        # weight::Float32 = 1.0f0 / b
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
-            if b > 1
-                radiance += weight * evalEnvironment(scene, newRay.direction)
-            end
+            #if b > 1
+            radiance += weight * evalEnvironment(scene, newRay.direction)
+            #end
             break
         end
 
@@ -530,7 +532,6 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         frame::Frame = instance.frame
         shape::Shape = scene.shapes[instance.shapeIndex]
         material::Material = scene.materials[instance.materialIndex]
-
         textureX, textureY = evalTexcoord(
             scene,
             instance,
@@ -554,13 +555,34 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         color::SVec3f = material.color * xyz(materialColorTex)
 
         #incoming = outgoing   # decomment for eyelight shader
+        opacity::Float32 = material.opacity * materialColorTex[4]
+
+        # HANDLE OPACITY
+        if (material.opacity < 1 && rand(Float32) >= opacity)
+            if opbounce > 128
+                break
+            end
+            opbounce += 1
+            newRay = Ray(position + newRay.direction * 1e-2f, newRay.direction)
+            bounce -= 1
+            continue
+        end
+
         #radiance += weight * emission
 
+        # if (rand(Float32) < 0.5f0) # TODO: implement lights
         incoming = sampleBSDF(material, normal, outgoing)
+        # else
+        #     incoming = sample_lights(scene, lights, position) # TODO: implement lights
+        # end
 
         if incoming == SVec3f(0, 0, 0)
             break
         end
+
+        weight *=
+            evalBSDF(material, normal, incoming, outgoing, color) /
+            pdfBSDF(material, normal, outgoing, incoming)
 
         radiance =
             weight * evalBSDF(material, normal, incoming, outgoing, color)
@@ -570,7 +592,71 @@ function shaderMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     return radiance
 end
 
-function sampleBSDF(material, normal, outgoing)
+function pdfBSDF(material, normal, outgoing, incoming)
+    if material.type == "matte"
+        return pdfHemisphereCos(normal, incoming)
+    elseif material.type == "reflective"
+        if material.roughness == 0
+            return ifelse(
+                dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                0.0f0,
+                1.0f0,
+            )
+        else
+            halfway = norm(incoming + outgoing)
+            return pdfMicrofacet(material.roughness, normal, halfway) /
+                   (4.0f0 * abs(dot(outgoing, halfway)))
+        end
+    elseif material.type == "glossy"
+        F = fresnelDielectric(material.ior, normal, outgoing)
+        halfway = norm(incoming + outgoing)
+
+        if material.roughness == 0
+            if rand(Float32) < F
+                return ifelse(
+                    dot(normal, incoming) * dot(normal, outgoing) <= 0,
+                    0.0f0,
+                    1.0f0,
+                )
+            else
+                return F * (4.0f0 * abs(dot(outgoing, halfway))) +
+                       (1 - F) * pdfHemisphereCos(normal, incoming)
+            end
+        else
+            return F * pdfMicrofacet(material.roughness, normal, halfway) /
+                   (4.0f0 * abs(dot(outgoing, halfway))) +
+                   (1 - F) * pdfHemisphereCos(normal, incoming)
+        end
+    else
+        error("Unknown material type")
+    end
+end
+
+@inline function pdfHemisphereCos(normal::SVec3f, direction::SVec3f)::Float32
+    cosw = dot(normal, direction)
+    return ifelse(cosw <= 0, 0.0f0, cosw / pi)
+end
+
+@inline function pdfMicrofacet(
+    roughness::Float32,
+    normal::SVec3f,
+    halfway::SVec3f,
+    ggx::Bool = true,
+)::Float32
+    cosine = dot(normal, halfway)
+    return ifelse(
+        cosine <= 0,
+        0.0f0,
+        # preciseMicrofacetDistribution(roughness, normal, halfway, ggx) * cosine
+        microfacetDistribution(roughness, normal, halfway, ggx) * cosine,
+    )
+end
+
+function sampleBSDF(
+    material::Material,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)::SVec3f
     # if (material.roughness == 0)
     #     return SVec3f(0, 0, 0)
     # end
@@ -700,7 +786,7 @@ function evalBSDF(material, normal, incoming, outgoing, color)
                 color * (1 - F1) / (2 * pi) * abs(dot(normal, incoming)) +
                 SVec3f(1, 1, 1) * F * G /
                 (4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) *
-                abs(dot(normal, incoming))^1.75
+                abs(dot(normal, incoming))^2.5
 
             return radiance
         else
@@ -718,7 +804,7 @@ function evalBSDF(material, normal, incoming, outgoing, color)
                 color * (1 - F1) / (2 * pi) * abs(dot(normal, incoming)) +
                 SVec3f(1, 1, 1) * F * D * G /
                 (4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) *
-                abs(dot(normal, incoming))^1.5
+                abs(dot(normal, incoming))^1.3
             return radiance
         end
     else
