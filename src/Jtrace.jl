@@ -209,7 +209,7 @@ function prettyPrint(c::Dates.CompoundPeriod)::String
     micro = Microsecond(t)
     timestring = ""
     for (symbol, value) in zip(
-        ["hour", "min", "sec", "m", "μ"],
+        ["hour", "min", "sec", "ms", "μ"],
         (hour, minute, second, milli, micro),
     )
         if value.value == 0 && typeof(value) != Second
