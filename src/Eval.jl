@@ -239,8 +239,10 @@ function evalEnvironment(
     textureY = 1 - textureY
 
     # FIX: here adding srgb to rgb makes the image more blueish, but not as much as yocto. why?
-    return env.emission *
-           xyz(evalTexture(scene, env.emissionTex, textureX, textureY))
+    textureColor = evalTexture(scene, env.emissionTex, textureX, textureY)
+    # textureColor = srgbToRgb(textureColor)
+    @show textureColor
+    return env.emission * xyz(textureColor)
 end
 
 function evalTexture(
