@@ -56,15 +56,18 @@ function trace(;
     image = zeros(SVec4f, height, width)
 
     if lowercase(shader) == "eyelight"
-        shaderFunc = shaderEyelightBsdf
+        shaderFunc = shadeEyelight
     elseif lowercase(shader) == "normal"
-        shaderFunc = shaderNormal
-    elseif lowercase(shader) == "naive"
-        shaderFunc = shaderIndirectNaive
+        shaderFunc = shadeNormal
+    elseif lowercase(shader) == "color"
+        shaderFunc = shadeColor
+    elseif lowercase(shader) == "raytrace"
+        shaderFunc = shadeRaytrace
+
     elseif lowercase(shader) == "material"
-        shaderFunc = shaderMaterial
+        shaderFunc = shadeMaterial
     elseif lowercase(shader) == "path"
-        shaderFunc = shaderPath
+        shaderFunc = shadePath
     else
         error("No shader named $shader")
     end

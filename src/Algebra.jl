@@ -115,8 +115,16 @@ end
     return frame.x * v[1] + frame.y * v[2] + frame.z * v[3]
 end
 
+@inline function transformVector(a::Mat3f, v::SVec3f)::SVec3f
+    return a.x * v[1] + a.y * v[2] + a.z * v[3]
+end
+
 @inline function transformDirection(frame::Frame, v::SVec3f)::SVec3f
     return norm(transformVector(frame, v))
+end
+
+@inline function transformDirection(a::Mat3f, v::SVec3f)::SVec3f
+    return norm(transformVector(a, v))
 end
 
 @inline function unitVector(v::SVec3f)::SVec3f

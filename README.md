@@ -35,10 +35,25 @@ Spheres = {Int, Float}
 - [x] Antialiasing
 - [x] Eyelight shading
 - [x] Load triangles
-- [ ] Evaluate normals
-- [ ] Textures
-- [ ] Environment maps
-- [ ] Hit other stuff with rays
+- [x] Evaluate normals
+- [x] Textures
+- [x] Environment maps
+- [x] Hit other stuff with rays
+- [ ] Solve HDR loading problem
+- [ ] Separate shaders 
+- [ ] Fix the 1 pixel shift between yocto and us
+- [ ] Bounces in input 
+
+
+## Shaders
+Here we define the shaders implemented and their main characteristics
+
+- Color only
+- Normal falsecolor 
+- Eyelight: single bounce, with opacity.
+- Pathtracer: complete pathtracer, with materials, opacity, rr, bsdf, pdf.
+
+- Raytracer: simple raytracer, no bsdf, with materials
 
 
 ## Timings 
@@ -52,11 +67,6 @@ BVH built:                               00 sec, 052 m, 833 μ
 Image rendered:                          23 sec, 139 m, 236 μ
 Image saved at out/jtrace.png:           00 sec, 550 m, 824 μ
 ```
-
-
-## Benchmarking
-In a starting state, with no computation in the shader, representing the image
-with SVectors as colors is slower.
 
 
 ## Long term todo:

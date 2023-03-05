@@ -16,18 +16,14 @@ function evalNormal(
     shape::Shape,
     intersection::Intersection,
     frame::Frame,
-    # outgoing::SVec3f,
+    outgoing::SVec3f,
+    materialType::String,
 )::SVec3f
     if isempty(shape.normals)
         normal = computeNormal(shape, intersection, frame)
-        return normal
-        # normal correction
-        # return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
-    end
-
-    if !isempty(shape.triangles)
+    elseif !isempty(shape.triangles)
         @inbounds t = shape.triangles[intersection.elementIndex]
-        @inbounds return transformNormal(
+        @inbounds normal = transformNormal(
             frame,
             norm(
                 interpolateTriangle(
@@ -39,29 +35,9 @@ function evalNormal(
                 ),
             ),
         )
-
-        # (indexA, indexB, indexC) =
-        #     @view shape.triangles[intersection.elementIndex, :]
-
-        # normalA = SVec3f(@view shape.normals[indexA, :])
-        # normalB = SVec3f(@view shape.normals[indexB, :])
-        # normalC = SVec3f(@view shape.normals[indexC, :])
-        # normal = transformNormal(
-        #     frame,
-        #     norm(
-        #         interpolateTriangle(
-        #             normalA,
-        #             normalB,
-        #             normalC,
-        #             intersection.u,
-        #             intersection.v,
-        #         ),
-        #     ),
-        # )
-
     elseif !isempty(shape.quads)
         @inbounds q = shape.quads[intersection.elementIndex]
-        @inbounds return transformNormal(
+        @inbounds normal = transformNormal(
             frame,
             norm(
                 interpolateQuad(
@@ -74,35 +50,19 @@ function evalNormal(
                 ),
             ),
         )
-
-        # indexA, indexB, indexC, indexD =
-        #     @view shape.quads[intersection.elementIndex, :]
-
-        # normalA = SVec3f(@view shape.normals[indexA, :])
-        # normalB = SVec3f(@view shape.normals[indexB, :])
-        # normalC = SVec3f(@view shape.normals[indexC, :])
-        # normalD = SVec3f(@view shape.normals[indexD, :])
-        # normal = transformNormal(
-        #     frame,
-        #     norm(
-        #         interpolateQuad(
-        #             normalA,
-        #             normalB,
-        #             normalC,
-        #             normalD,
-        #             intersection.u,
-        #             intersection.v,
-        #         ),
-        #     ),
-        # )
-
         # TODO normalmap
         # TODO refractive material
         # return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
-        return normal
+        # return normal
     else
         error("Only triangles and quads right now")
     end
+
+    if materialType == "refractive"
+        return normal
+    end
+
+    return dot(normal, outgoing) >= 0 ? normal : -normal
 end
 
 function computeNormal(shape::Shape, intersection::Intersection, frame::Frame)
@@ -116,16 +76,6 @@ function computeNormal(shape::Shape, intersection::Intersection, frame::Frame)
                 shape.positions[t.z],
             ),
         )
-
-        # (indexA, indexB, indexC) =
-        #     @view shape.triangles[intersection.elementIndex, :]
-        # pointA = SVec3f(@view shape.positions[indexA, :])
-        # pointB = SVec3f(@view shape.positions[indexB, :])
-        # pointC = SVec3f(@view shape.positions[indexC, :])
-        # return transformNormal(
-        #     frame,
-        #     computeTriangleNormal(pointA, pointB, pointC),
-        # )
     elseif !isempty(shape.quads)
         @inbounds q = shape.quads[intersection.elementIndex]
         @inbounds return transformNormal(
@@ -137,17 +87,6 @@ function computeNormal(shape::Shape, intersection::Intersection, frame::Frame)
                 shape.positions[q.w],
             ),
         )
-        # indexA, indexB, indexC, indexD =
-        #     @view shape.quads[intersection.elementIndex, :]
-        # pointA = SVec3f(@view shape.positions[indexA, :])
-        # pointB = SVec3f(@view shape.positions[indexB, :])
-        # pointC = SVec3f(@view shape.positions[indexC, :])
-        # pointD = SVec3f(@view shape.positions[indexD, :])
-
-        # return transformNormal(
-        #     frame,
-        #     computeQuadNormal(pointA, pointB, pointC, pointD),
-        # )
     else
         error("Only triangles and quads right now")
     end
@@ -159,7 +98,7 @@ end
     pointB::SVec3f,
     pointC::SVec3f,
 )
-    return norm(cross(pointB .- pointA, pointC .- pointA))
+    return norm(cross(pointB - pointA, pointC - pointA))
 end
 
 # computes the normal of a quad 
@@ -241,7 +180,7 @@ function evalEnvironment(
     # FIX: here adding srgb to rgb makes the image more blueish, but not as much as yocto. why?
     textureColor = evalTexture(scene, env.emissionTex, textureX, textureY)
     # textureColor = srgbToRgb(textureColor)
-    @show textureColor
+    # @show textureColor
     return env.emission * xyz(textureColor)
 end
 
@@ -386,15 +325,6 @@ function evalTexcoord(
             u,
             v,
         )
-
-        # t1, t2, t3 = @view shape.triangles[elementIndex, :]
-        # return interpolateTriangle(
-        #     SVec2f(@view shape.textureCoords[t1, :]),
-        #     SVec2f(@view shape.textureCoords[t2, :]),
-        #     SVec2f(@view shape.textureCoords[t3, :]),
-        #     u,
-        #     v,
-        # )
     elseif !isempty(shape.quads)
         @inbounds q = shape.quads[elementIndex]
         @inbounds return interpolateQuad(
@@ -405,27 +335,13 @@ function evalTexcoord(
             u,
             v,
         )
-
-        # q1, q2, q3, q4 = @view shape.quads[elementIndex, :]
-        # return interpolateQuad(
-        #     SVec2f(@view shape.textureCoords[q1, :]),
-        #     SVec2f(@view shape.textureCoords[q2, :]),
-        #     SVec2f(@view shape.textureCoords[q3, :]),
-        #     SVec2f(@view shape.textureCoords[q4, :]),
-        #     u,
-        #     v,
-        # )
     else
         error("No triangles or quads in this shape")
     end
 end
 
 # TODO: remove, its just a wrapper
-function evalShadingPosition(
-    scene::Scene,
-    intersection::Intersection,
-    outgoing::SVec3f,
-)::SVec3f
+function evalShadingPosition(scene::Scene, intersection::Intersection)::SVec3f
     instance = scene.instances[intersection.instanceIndex]
     element = intersection.elementIndex
     u = intersection.u
@@ -456,18 +372,6 @@ function evalPosition(
                 v,
             ),
         )
-
-        # t1, t2, t3 = @view shape.triangles[element, :]
-        # return transformPoint(
-        #     instance.frame,
-        #     interpolateTriangle(
-        #         SVec3f(@view shape.positions[t1, :]),
-        #         SVec3f(@view shape.positions[t2, :]),
-        #         SVec3f(@view shape.positions[t3, :]),
-        #         u,
-        #         v,
-        #     ),
-        # )
     elseif !isempty(shape.quads)
         @inbounds q = shape.quads[element]
         return transformPoint(
@@ -481,19 +385,6 @@ function evalPosition(
                 v,
             ),
         )
-
-        # q1, q2, q3, q4 = @view shape.quads[element, :]
-        # return transformPoint(
-        #     instance.frame,
-        #     interpolateQuad(
-        #         SVec3f(@view shape.positions[q1, :]),
-        #         SVec3f(@view shape.positions[q2, :]),
-        #         SVec3f(@view shape.positions[q3, :]),
-        #         SVec3f(@view shape.positions[q4, :]),
-        #         u,
-        #         v,
-        #     ),
-        # )
     else
         error("No triangles or quads in this shape")
     end
