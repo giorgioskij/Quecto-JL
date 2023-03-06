@@ -169,18 +169,22 @@ function pdfBSDF(
         upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
         return pdfHemisphereCos(upNormal, incoming)
     elseif material.type == "reflective"
+        if dot(normal, incoming) * dot(normal, outgoing) <= 0
+            return 0
+        end
         if material.roughness == 0
-            return ifelse(
-                dot(normal, incoming) * dot(normal, outgoing) <= 0,
-                0.0f0,
-                1.0f0,
-            )
+            return 1.0f0
         else
+            normal = dot(normal, outgoing) <= 0 ? -normal : normal
             halfway = norm(incoming + outgoing)
             return pdfMicrofacet(material.roughness, normal, halfway) /
                    (4.0f0 * abs(dot(outgoing, halfway)))
         end
     elseif material.type == "glossy"
+        if dot(normal, incoming) * dot(normal, outgoing) <= 0
+            return 0
+        end
+        normal = dot(normal, outgoing) <= 0 ? -normal : normal
         F = fresnelDielectric(material.ior, normal, outgoing)
         halfway = norm(incoming + outgoing)
 
@@ -207,7 +211,7 @@ end
 
 @inline function pdfHemisphereCos(normal::SVec3f, direction::SVec3f)::Float32
     cosw = dot(normal, direction)
-    return ifelse(cosw <= 0, 0.0f0, cosw / pi)
+    return cosw <= 0 ? 0.0f0 : cosw / pi
 end
 
 @inline function pdfMicrofacet(
@@ -217,12 +221,11 @@ end
     ggx::Bool = true,
 )::Float32
     cosine = dot(normal, halfway)
-    return ifelse(
-        cosine <= 0,
-        0.0f0,
-        # preciseMicrofacetDistribution(roughness, normal, halfway, ggx) * cosine
-        microfacetDistribution(roughness, normal, halfway, ggx) * cosine,
-    )
+    if cosine < 0
+        return 0
+    end
+    return microfacetDistribution(roughness, normal, halfway, ggx) * cosine
+    # preciseMicrofacetDistribution(roughness, normal, halfway, ggx) * cosine
 end
 
 function sampleBSDF(
@@ -240,9 +243,9 @@ function sampleBSDF(
 
         return incoming
     elseif material.type == "reflective"
+        normal = dot(normal, outgoing) <= 0 ? -normal : normal
         if material.roughness == 0
-            upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
-            incoming = reflect(outgoing, upNormal)
+            incoming = reflect(outgoing, normal)
         else
             # exponent = 2.0f0 / material.roughness^2
             # halfway = sampleHemisphereCosPower(exponent, normal)
@@ -255,7 +258,8 @@ function sampleBSDF(
         end
         return incoming
     elseif material.type == "glossy"
-        F1 = fresnelDielectric(material.ior, normal, outgoing)
+        upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+        F1 = fresnelDielectric(material.ior, upNormal, outgoing)
         if material.roughness == 0
             if (rand(Float32) < F1)
                 incoming = reflect(outgoing, normal)
@@ -269,20 +273,20 @@ function sampleBSDF(
             return incoming
         else
             if (rand(Float32) < F1)
-                halfway = sampleMicrofacet(material.roughness, normal)
+                halfway = sampleMicrofacet(material.roughness, upNormal)
                 incoming = reflect(outgoing, halfway)
-                if (!sameHemisphere(normal, outgoing, incoming))
+                if (!sameHemisphere(upNormal, outgoing, incoming))
                     return SVec3f(0, 0, 0)
                 end
+                return incoming
             else
-                incoming = sampleHemisphereCosPower(
-                    2.0f0 / (material.roughness * material.roughness),
-                    normal,
-                )
-                #incoming = sampleHemisphereCos(upNormal)
+                # incoming = sampleHemisphereCosPower(
+                #     2.0f0 / (material.roughness * material.roughness),
+                #     normal,
+                # )
+                incoming = sampleHemisphereCos(upNormal)
+                return incoming
             end
-
-            return incoming
         end
     else
         error("Unknown material type")
@@ -310,18 +314,21 @@ function evalBSDF(
         return radiance
 
     elseif material.type == "reflective"
-        upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+        normal = dot(normal, outgoing) <= 0 ? -normal : normal
         if material.roughness == 0
             radiance =
             #material.color / pi * 
                 fresnelConductor(
                     reflectivityToEta(material.color),
                     SVec3f(0, 0, 0),
-                    upNormal,
+                    normal,
                     outgoing,
                 )# / pi
 
         else
+            if dot(normal, incoming) * dot(normal, outgoing) <= 0
+                return SVec3f(0, 0, 0)
+            end
             halfway = norm(incoming + outgoing)
             F = fresnelConductor(
                 reflectivityToEta(material.color),
@@ -347,6 +354,10 @@ function evalBSDF(
         return radiance
 
     elseif material.type == "glossy"
+        if dot(normal, incoming) * dot(normal, outgoing) <= 0
+            return SVec3f(0, 0, 0)
+        end
+        normal = dot(normal, outgoing) <= 0 ? -normal : normal
         F1 = fresnelDielectric(material.ior, normal, outgoing)
         halfway = norm(incoming + outgoing)
 
@@ -493,11 +504,11 @@ end
     roughness2 = roughness * roughness
     cosine2 = cosine * cosine
     if ggx
-        return roughness2 / ((
+        return roughness2 / (
             pi *
             (cosine2 * roughness2 + 1 - cosine2) *
             (cosine2 * roughness2 + 1 - cosine2)
-        ))
+        )
     else
         return exp((cosine2 - 1) / (roughness2 * cosine2)) /
                (pi * roughness2 * cosine2 * cosine2)
@@ -548,12 +559,9 @@ end
                (abs(cosine) + sqrt(cosine2 - roughness2 * cosine2 + roughness2))
     else
         ci = abs(cosine) / (roughness * sqrt(1 - cosine2))
-        return ifelse(
-            ci < 1.6f0,
-            (3.535f0 * ci + 2.181f0 * ci * ci) /
-            (1.0f0 + 2.276f0 * ci + 2.577f0 * ci * ci),
-            1.0f0,
-        )
+        return ci < 1.6f0 ?
+               (3.535f0 * ci + 2.181f0 * ci * ci) /
+               (1.0f0 + 2.276f0 * ci + 2.577f0 * ci * ci) : 1.0f0
     end
 end
 
@@ -600,7 +608,7 @@ end
     if ggx
         theta = atan(roughness * sqrt(ruvy / (1 - ruvy)))
     else
-        theta = atan(sqrt(-roughness^2 * log(1 - ruvy)))
+        theta = atan(sqrt(-(roughness^2) * log(1 - ruvy)))
     end
     localHalfVector =
         SVec3f(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta))

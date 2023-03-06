@@ -8,10 +8,4 @@ using Jtrace
 # scenePath = "12_ecosys/ecosys.json"
 scenePath = "materials1/materials1.json"
 
-@time trace(
-    scenePath = scenePath,
-    shader = "material",
-    width = 1920,
-    samples = 32,
-    multithreaded = true,
-)
+trace(scenePath = scenePath, shader = "material", width = 1920, samples = 32)
