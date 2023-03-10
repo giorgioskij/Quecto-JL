@@ -9,6 +9,7 @@ export MaterialPoint,
     sameHemisphere,
     reflectivityToEta,
     reflect,
+    refract,
     fresnelDielectric,
     fresnelConductor,
     microfacetDistribution,
@@ -67,6 +68,16 @@ end
 # TODO: understand if put this in Algebra.jl
 @inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
     return -w + 2.0f0 * dot(n, w) * n
+end
+
+# TODO: understand if put this in Algebra.jl
+@inline function refract(w::SVec3f, n::SVec3f, invEta::Float32)::SVec3f
+    cosine = dot(n, w)
+    k = 1 + invEta * invEta * (cosine * cosine - 1)
+    if k < 0
+        return SVec3f(0, 0, 0)
+    end
+    return -w * invEta + (invEta * cosine - sqrt(k)) * n
 end
 
 @inline function fresnelDielectric(

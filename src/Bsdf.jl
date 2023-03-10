@@ -26,10 +26,27 @@ export sampleBSDF, evalBSDF, evalDelta, sampleDelta
         return sampleGlossy(material.ior, material.roughness, normal, outgoing)
     elseif material.type == "reflective"
         return sampleReflective(material.roughness, normal, outgoing)
-        # TODO: implement other materials
-        # transparent
-        # refractive
-        # subsurface
+    elseif material.type == "transparent"
+        return sampleTransparent(
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+        )
+    elseif material.type == "refractive"
+        return sampleRefractive(
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+        )
+    elseif material.type == "subsurface"
+        return sampleRefractive(
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+        )
     else
         error("Unknown material type")
     end
@@ -79,6 +96,56 @@ end
     return incoming
 end
 
+@inline function sampleTransparent(
+    ior::Float32,
+    roughness::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)
+    halfway = sampleMicrofacet(roughness, normal)
+    if (rand(Float32) < fresnelDielectric(ior, halfway, outgoing))
+        incoming = reflect(outgoing, halfway)
+        if (!sameHemisphere(normal, outgoing, incoming))
+            return SVec3f(0, 0, 0)
+        end
+        return incoming
+    else
+        reflected = reflect(outgoing, halfway)
+        incoming = -reflect(reflected, normal)
+        if (sameHemisphere(normal, outgoing, incoming))
+            return SVec3f(0, 0, 0)
+        end
+        return incoming
+    end
+end
+
+@inline function sampleRefractive(
+    ior::Float32,
+    roughness::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)
+    entering = dot(normal, outgoing) >= 0
+    upNormal = entering ? normal : -normal
+    halfway = sampleMicrofacet(roughness, upNormal)
+    if (
+        rand(Float32) <
+        fresnelDielectric(entering ? ior : (1.0f0 / ior), halfway, outgoing)
+    )
+        incoming = reflect(outgoing, halfway)
+        if (!sameHemisphere(upNormal, outgoing, incoming))
+            return SVec3f(0, 0, 0)
+        end
+        return incoming
+    else
+        incoming = refract(outgoing, halfway, entering ? (1.0f0 / ior) : ior)
+        if (sameHemisphere(upNormal, outgoing, incoming))
+            return SVec3f(0, 0, 0)
+        end
+        return incoming
+    end
+end
+
 #####################################
 # Eval BSDF
 #####################################
@@ -106,7 +173,6 @@ function evalBSDF(
             outgoing,
             incoming,
         )
-
     elseif material.type == "reflective"
         return evalReflective(
             material.color,
@@ -116,10 +182,33 @@ function evalBSDF(
             incoming,
         )
 
-        #TODO: implement other materials
-        # transparent
-        # refractive
-        # subsurface
+    elseif material.type == "transparent"
+        return evalTransparent(
+            material.color,
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+            incoming,
+        )
+    elseif material.type == "refractive"
+        return evalRefractive(
+            material.color,
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+            incoming,
+        )
+    elseif material.type == "subsurface"
+        return evalRefractive(
+            material.color,
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+            incoming,
+        )
     else
         error("Unknown material type")
     end
@@ -187,6 +276,89 @@ end
         F * D * G / (4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) * #* pi
         abs(dot(normal, incoming))
     return radiance
+end
+
+@inline function evalTransparent(
+    color::SVec3f,
+    ior::Float32,
+    roughness::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+)::SVec3f
+    if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
+        halfway = norm(incoming + outgoing)
+        F = fresnelDielectric(ior, halfway, outgoing)
+        D = microfacetDistribution(roughness, normal, halfway)
+        G = microfacetShadowing(roughness, normal, halfway, outgoing, incoming)
+
+        return SVec3f(1, 1, 1) * F * D * G /
+               (4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) *
+               abs(dot(normal, incoming))
+    else
+        reflected = reflect(-incoming, normal)
+        halfway = norm(reflected + outgoing)
+        F = fresnelDielectric(ior, halfway, outgoing)
+        D = microfacetDistribution(roughness, normal, halfway)
+        G = microfacetShadowing(roughness, normal, halfway, outgoing, reflected)
+
+        return color * (1.0f0 - F) * D * G /
+               (4.0f0 * dot(normal, outgoing) * dot(normal, reflected)) *
+               (abs(dot(normal, reflected)))
+    end
+end
+
+@inline function evalRefractive(
+    color::SVec3f,
+    ior::Float32,
+    roughness::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+)::SVec3f
+    entering = dot(normal, outgoing) >= 0
+    upNormal = entering ? normal : -normal
+    relIor = entering ? ior : (1.0f0 / ior)
+    if (dot(normal, incoming) * dot(normal, outgoing))
+        halfway = norm(incoming + outgoing)
+        F = fresnelDielectric(relIor, halfway, outgoing)
+        D = microfacetDistribution(roughness, upNormal, halfway)
+        G = microfacetShadowing(
+            roughness,
+            upNormal,
+            halfway,
+            outgoing,
+            incoming,
+        )
+
+        return SVec3f(1, 1, 1) * F * D * G /
+               abs(4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) *
+               abs(dot(normal, incoming))
+    else
+        halfway =
+            -norm(relIor * incoming + outgoing) * (entering ? 1.0f0 : -1.0f0)
+        F = fresnelDielectric(relIor, halfway, outgoing)
+        D = microfacetDistribution(roughness, upNormal, halfway)
+        G = microfacetShadowing(
+            roughness,
+            upNormal,
+            halfway,
+            outgoing,
+            incoming,
+        )
+
+        return SVec3f(1, 1, 1) *
+               abs(
+                   (dot(outgoing, halfway) * dot(incoming, halfway)) /
+                   (dot(outgoing, normal) * dot(incoming, normal)),
+               ) *
+               (1 - F) *
+               D *
+               G /
+               (
+            rel_ior * dot(halfway, incoming) + dot(halfway, outgoing),
+        )^2.0f0 * abs(dot(normal, incoming))
+    end
 end
 
 #####################################
@@ -259,7 +431,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::SVec3f
     if material.roughness != 0
         return SVec3f(0, 0, 0)
     end

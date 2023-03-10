@@ -104,31 +104,30 @@ end
         )
     elseif material.type == "reflective"
         pdfBSDFReflective(material.roughness, normal, outgoing, incoming)
-        # TODO: implement other materials
-        # elseif material.type == "transparent"
-        #     pdfBSDFTransparent(
-        #         material.ior,
-        #         material.roughness,
-        #         normal,
-        #         outgoing,
-        #         incoming,
-        #     )
-        # elseif material.type == "refractive"
-        #     pdfBSDFRefractive(
-        #         material.ior,
-        #         material.roughness,
-        #         normal,
-        #         outgoing,
-        #         incoming,
-        #     )
-        # elseif material.type == "subsurface"
-        #     pdfBSDFRefractive(
-        #         material.ior,
-        #         material.roughness,
-        #         normal,
-        #         outgoing,
-        #         incoming,
-        #     )
+    elseif material.type == "transparent"
+        pdfBSDFTransparent(
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+            incoming,
+        )
+    elseif material.type == "refractive"
+        pdfBSDFRefractive(
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+            incoming,
+        )
+    elseif material.type == "subsurface"
+        pdfBSDFRefractive(
+            material.ior,
+            material.roughness,
+            normal,
+            outgoing,
+            incoming,
+        )
     else
         error("Unknown material type")
     end
@@ -146,21 +145,6 @@ end
     return pdfHemisphereCos(normal, incoming)
 end
 
-@inline function pdfBSDFReflective(
-    roughness::Float32,
-    normal::SVec3f,
-    outgoing::SVec3f,
-    incoming::SVec3f,
-)
-    if dot(normal, incoming) * dot(normal, outgoing) <= 0
-        return 0
-    end
-
-    halfway = norm(outgoing + incoming)
-    return pdfMicrofacet(roughness, normal, halfway) /
-           (4.0f0 * abs(dot(outgoing, halfway)))
-end
-
 @inline function pdfBSDFGlossy(
     ior::Float32,
     roughness::Float32,
@@ -176,6 +160,70 @@ end
     return F * pdfMicrofacet(roughness, normal, halfway) /
            (4.0f0 * abs(dot(outgoing, halfway))) +
            (1 - F) * pdfHemisphereCos(normal, incoming)
+end
+
+@inline function pdfBSDFReflective(
+    roughness::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+)
+    if dot(normal, incoming) * dot(normal, outgoing) <= 0
+        return 0
+    end
+
+    halfway = norm(outgoing + incoming)
+    return pdfMicrofacet(roughness, normal, halfway) /
+           (4.0f0 * abs(dot(outgoing, halfway)))
+end
+
+@inline function pdfBSDFTransparent(
+    ior::Float32,
+    roughness::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+)
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+    if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
+        halfway = norm(incoming + outgoing)
+        return fresnelDielectric(ior, halfway, outgoing) *
+               pdfMicrofacet(roughness, upNormal, halfway) /
+               (4.0f0 * abs(dot(outgoing, halfway)))
+    else
+        reflected = reflect(-incoming, upNormal)
+        halfway = norm(reflected + outgoing)
+        d =
+            (1 - fresnelDielectric(ior, halfway, outgoing)) *
+            pdfMicrofacet(roughness, upNormal, halfway)
+        return d / (4.0f0 * abs(dot(outgoing, halfway)))
+    end
+end
+
+@inline function pdfBSDFRefractive(
+    ior::Float32,
+    roughness::Float32,
+    normal::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+)
+    entering = dot(normal, outgoing) >= 0
+    upNormal = entering ? normal : -normal
+    relIor = entering ? ior : (1.0f0 / ior)
+    if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
+        halfway = norm(incoming + outgoing)
+        return fresnelDielectric(relIor, halfway, outgoing) *
+               pdfMicrofacet(roughness, upNormal, halfway) /
+               (4.0f0 * abs(dot(outgoing, halfway)))
+    else
+        halfway =
+            -normalize(relIor * incoming + outgoing) *
+            (entering ? 1.0f0 : -1.0f0)
+        return (1.0f0 - fresnelDielectric(relIor, halfway, outgoing)) *
+               pdfMicrofacet(roughness, upNormal, halfway) *
+               abs(dot(halfway, incoming)) /
+               (relIor * dot(halfway, incoming) + dot(halfway, outgoing))^2.0f0
+    end
 end
 
 @inline function pdfHemisphereCos(normal::SVec3f, direction::SVec3f)::Float32
