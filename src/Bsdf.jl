@@ -21,7 +21,7 @@ export sampleBSDF, evalBSDF, evalDelta, sampleDelta
         return SVec3f(0, 0, 0)
     end
     if material.type == "matte"
-        return sampleMatte(normal)
+        return sampleMatte(normal, outgoing)
     elseif material.type == "glossy"
         return sampleGlossy(material.ior, material.roughness, normal, outgoing)
     elseif material.type == "reflective"
@@ -52,8 +52,9 @@ export sampleBSDF, evalBSDF, evalDelta, sampleDelta
     end
 end
 
-@inline function sampleMatte(normal::SVec3f)::SVec3f
-    incoming = sampleHemisphereCos(normal)
+@inline function sampleMatte(normal::SVec3f, outgoing::SVec3f)::SVec3f
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+    incoming = sampleHemisphereCos(upNormal)
     return incoming
 end
 
@@ -102,17 +103,18 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
 )
-    halfway = sampleMicrofacet(roughness, normal)
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+    halfway = sampleMicrofacet(roughness, upNormal)
     if (rand(Float32) < fresnelDielectric(ior, halfway, outgoing))
         incoming = reflect(outgoing, halfway)
-        if (!sameHemisphere(normal, outgoing, incoming))
+        if (!sameHemisphere(upNormal, outgoing, incoming))
             return SVec3f(0, 0, 0)
         end
         return incoming
     else
         reflected = reflect(outgoing, halfway)
-        incoming = -reflect(reflected, normal)
-        if (sameHemisphere(normal, outgoing, incoming))
+        incoming = -reflect(reflected, upNormal)
+        if (sameHemisphere(upNormal, outgoing, incoming))
             return SVec3f(0, 0, 0)
         end
         return incoming
@@ -138,7 +140,7 @@ end
         end
         return incoming
     else
-        incoming = refract(outgoing, halfway, entering ? (1.0f0 / ior) : ior)
+        incoming = refract(outgoing, halfway, (entering ? (1.0f0 / ior) : ior))
         if (sameHemisphere(upNormal, outgoing, incoming))
             return SVec3f(0, 0, 0)
         end
@@ -150,19 +152,18 @@ end
 # Eval BSDF
 #####################################
 
-function evalBSDF(
+@inline function evalBSDF(
     material::MaterialPoint,
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
 )
-    if (dot(normal, incoming) * dot(normal, outgoing) <= 0) ||
-       (material.roughness == 0)
+    if (material.roughness == 0) #(dot(normal, incoming) * dot(normal, outgoing) <= 0) ||
         return SVec3f(0, 0, 0)
     end
 
     if material.type == "matte"
-        return evalMatte(material.color, normal, incoming)
+        return evalMatte(material.color, normal, incoming, outgoing)
 
     elseif material.type == "glossy"
         return evalGlossy(
@@ -193,7 +194,6 @@ function evalBSDF(
         )
     elseif material.type == "refractive"
         return evalRefractive(
-            material.color,
             material.ior,
             material.roughness,
             normal,
@@ -202,7 +202,6 @@ function evalBSDF(
         )
     elseif material.type == "subsurface"
         return evalRefractive(
-            material.color,
             material.ior,
             material.roughness,
             normal,
@@ -218,7 +217,11 @@ end
     color::SVec3f,
     normal::SVec3f,
     incoming::SVec3f,
+    outgoing::SVec3f,
 )::SVec3f
+    if (dot(normal, incoming) * dot(normal, outgoing) <= 0)
+        return SVec3f(0, 0, 0)
+    end
     radiance = color / pi * abs(dot(normal, incoming))
     return radiance
 end
@@ -309,7 +312,6 @@ end
 end
 
 @inline function evalRefractive(
-    color::SVec3f,
     ior::Float32,
     roughness::Float32,
     normal::SVec3f,
@@ -318,8 +320,8 @@ end
 )::SVec3f
     entering = dot(normal, outgoing) >= 0
     upNormal = entering ? normal : -normal
-    relIor = entering ? ior : (1.0f0 / ior)
-    if (dot(normal, incoming) * dot(normal, outgoing))
+    relIor::Float32 = entering ? ior : (1.0f0 / ior)
+    if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
         halfway = norm(incoming + outgoing)
         F = fresnelDielectric(relIor, halfway, outgoing)
         D = microfacetDistribution(roughness, upNormal, halfway)
@@ -356,7 +358,7 @@ end
                D *
                G /
                (
-            rel_ior * dot(halfway, incoming) + dot(halfway, outgoing),
+            relIor * dot(halfway, incoming) + dot(halfway, outgoing) # here if happer a comma from formatter delete it!
         )^2.0f0 * abs(dot(normal, incoming))
     end
 end
@@ -396,8 +398,9 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
 )::SVec3f
-    if (rand(Float32) < fresnelDielectric(ior, normal, outgoing))
-        return reflect(outgoing, normal)
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+    if (rand(Float32) < fresnelDielectric(ior, upNormal, outgoing))
+        return reflect(outgoing, upNormal)
     else
         return -outgoing
     end
@@ -439,7 +442,13 @@ end
     if material.type == "reflective"
         return evalDeltaReflective(material.color, normal, outgoing)
     elseif material.type == "transparent"
-        return evalDeltaTransparent(material.ior, normal, outgoing, incoming)
+        return evalDeltaTransparent(
+            material.color,
+            material.ior,
+            normal,
+            outgoing,
+            incoming,
+        )
     elseif material.type == "refractive"
         return evalDeltaRefractive(material.ior, normal, outgoing, incoming)
         # elseif material.type == "volumetric" # not implemented for now
@@ -448,7 +457,7 @@ end
     end
 end
 
-function evalDeltaReflective(
+@inline function evalDeltaReflective(
     color::SVec3f,
     normal::SVec3f,
     outgoing::SVec3f,
@@ -465,15 +474,17 @@ function evalDeltaReflective(
 end
 
 @inline function evalDeltaTransparent(
+    color::SVec3f,
     ior::Float32,
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
 )::SVec3f
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
     if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
-        return vec3f{1,1,1} * fresnelDielectric(ior, normal, outgoing)
+        return SVec3f(1, 1, 1) * fresnelDielectric(ior, upNormal, outgoing)
     else
-        return color * (1 - fresnelDielectric(ior, normal, outgoing))
+        return color * (1 - fresnelDielectric(ior, upNormal, outgoing))
     end
 end
 
@@ -496,7 +507,7 @@ end
     else
         return SVec3f(1, 1, 1) *
                (1.0f0 / (relIor * relIor)) *
-               (1 - fresnelDielectric(relIor, upNormal, outgoing))
+               (1.0f0 - fresnelDielectric(relIor, upNormal, outgoing))
     end
 end
 

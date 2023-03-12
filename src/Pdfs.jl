@@ -52,10 +52,11 @@ end
     outgoing::SVec3f,
     incoming::SVec3f,
 )
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
     if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
-        return fresnelDielectric(ior, normal, outgoing)
+        return fresnelDielectric(ior, upNormal, outgoing)
     else
-        return 1.0f0 - fresnelDielectric(ior, normal, outgoing)
+        return 1.0f0 - fresnelDielectric(ior, upNormal, outgoing)
     end
 end
 
@@ -66,7 +67,7 @@ end
     incoming::SVec3f,
 )
     if (abs(ior - 1.0f0) < 1.0f-3)
-        return dot(normal, incoming) * dot(normal, outgoing) < 0 ? 1.0f0 : 0
+        return dot(normal, incoming) * dot(normal, outgoing) < 0 ? 1.0f0 : 0.0f0
     end
     entering = dot(normal, outgoing) >= 0
     upNormal = entering ? normal : -normal
@@ -74,7 +75,7 @@ end
     if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
         return fresnelDielectric(relIor, upNormal, outgoing)
     else
-        return (1 - fresnelDielectric(relIor, upNormal, outgoing))
+        return (1.0f0 - fresnelDielectric(relIor, upNormal, outgoing))
     end
 end
 
@@ -142,7 +143,8 @@ end
         return 0
     end
 
-    return pdfHemisphereCos(normal, incoming)
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
+    return pdfHemisphereCos(upNormal, incoming)
 end
 
 @inline function pdfBSDFGlossy(
@@ -172,8 +174,9 @@ end
         return 0
     end
 
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
     halfway = norm(outgoing + incoming)
-    return pdfMicrofacet(roughness, normal, halfway) /
+    return pdfMicrofacet(roughness, upNormal, halfway) /
            (4.0f0 * abs(dot(outgoing, halfway)))
 end
 
@@ -217,8 +220,7 @@ end
                (4.0f0 * abs(dot(outgoing, halfway)))
     else
         halfway =
-            -normalize(relIor * incoming + outgoing) *
-            (entering ? 1.0f0 : -1.0f0)
+            -norm(relIor * incoming + outgoing) * (entering ? 1.0f0 : -1.0f0)
         return (1.0f0 - fresnelDielectric(relIor, halfway, outgoing)) *
                pdfMicrofacet(roughness, upNormal, halfway) *
                abs(dot(halfway, incoming)) /
@@ -228,7 +230,7 @@ end
 
 @inline function pdfHemisphereCos(normal::SVec3f, direction::SVec3f)::Float32
     cosw = dot(normal, direction)
-    return cosw <= 0 ? 0.0f0 : (cosw / pi)
+    return (cosw <= 0) ? 0.0f0 : (cosw / pi)
 end
 
 @inline function pdfMicrofacet(

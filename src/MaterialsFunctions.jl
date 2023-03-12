@@ -43,7 +43,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Bool
     return dot(normal, outgoing) * dot(normal, incoming) >= 0
 end
 
@@ -73,7 +73,7 @@ end
 # TODO: understand if put this in Algebra.jl
 @inline function refract(w::SVec3f, n::SVec3f, invEta::Float32)::SVec3f
     cosine = dot(n, w)
-    k = 1 + invEta * invEta * (cosine * cosine - 1)
+    k = 1.0f0 + invEta * invEta * (cosine * cosine - 1.0f0)
     if k < 0
         return SVec3f(0, 0, 0)
     end
@@ -87,12 +87,12 @@ end
 )::Float32
     cosw = abs(dot(normal, outgoing))
 
-    sin2 = 1 - cosw * cosw
+    sin2 = 1.0f0 - cosw * cosw
     eta2 = eta * eta
 
-    cos2t = 1 - sin2 / eta2
+    cos2t = 1.0f0 - sin2 / eta2
     if cos2t < 0
-        return 1
+        return 1.0f0
     end
 
     t0 = sqrt(cos2t)
@@ -102,7 +102,7 @@ end
     rs = (cosw - t1) / (cosw + t1)
     rp = (t0 - t2) / (t0 + t2)
 
-    return (rs * rs + rp * rp) / 2
+    return (rs * rs + rp * rp) / 2.0f0
 end
 
 @inline function fresnelConductor(
@@ -221,8 +221,8 @@ end
 @inline function sampleHemisphereCos(normal::SVec3f)::SVec3f
     ruvx = rand(Float32)
     z = sqrt(rand(Float32))  # ruvy
-    r = sqrt(1 - z * z)
-    phi = 2 * pi * ruvx
+    r = sqrt(1.0f0 - z * z)
+    phi = 2.0f0 * pi * ruvx
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
 end
@@ -250,12 +250,12 @@ end
     phi = 2.0f0 * pi * ruvx
     theta = 0.0f0
     if ggx
-        theta = atan(roughness * sqrt(ruvy / (1 - ruvy)))
+        theta = atan(roughness * sqrt(ruvy / (1.0f0 - ruvy)))
     else
-        theta = atan(sqrt(-(roughness^2) * log(1 - ruvy)))
+        theta = atan(sqrt(-(roughness^2.0f0) * log(1.0f0 - ruvy)))
     end
     localHalfVector =
-        SVec3f(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta))
+        SVec3f(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta))
     return transformDirection(basisFromz(normal), localHalfVector)
 end
 

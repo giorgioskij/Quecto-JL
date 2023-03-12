@@ -16,10 +16,10 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     radiance = SVec3f(0, 0, 0)
     maxBounce = 128
     newRay = ray
-    opbounce::Int32 = 0
+    opbounce::Int8 = 0
     weight = SVec3f(1, 1, 1)
 
-    for b = 1:maxBounce
+    for bounce = 1:maxBounce
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
@@ -66,6 +66,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         # next direction
         if materialPoint.roughness != 0
+            # BSDF materials
             incoming = sampleBSDF(materialPoint, normal, outgoing)
             if incoming == SVec3f(0, 0, 0)
                 break
@@ -74,6 +75,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 evalBSDF(materialPoint, normal, outgoing, incoming) /
                 pdfBSDF(materialPoint, normal, outgoing, incoming)
         else
+            # Delta materials
             incoming = sampleDelta(materialPoint, normal, outgoing)
             if incoming == SVec3f(0, 0, 0)
                 break
@@ -89,7 +91,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         end
 
         # russian roulette
-        if (b > 4)
+        if (bounce > 4)
             rrProb = min(0.99f0, maximum(weight))
             if rand(Float32) >= rrProb
                 break
