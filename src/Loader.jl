@@ -231,6 +231,7 @@ function loadTexturePng(filename::String)::Matrix{SVec4f}
     image = load(filename)
     # undo srgb and transform into Vector{SVector}
     imageVector = map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, x.alpha)), image)
+    # reverse!(imageVector, dims = 1)
     return imageVector
 end
 
@@ -286,6 +287,7 @@ function loadShape(filename::String)
         v = ply["vertex"]["v"]
 
         textureCoords = map(SVec2f, zip(u, v))
+        textureCoords = map((x) -> SVec2f(x[1], 1 - x[2]), textureCoords)
     end
 
     faces = ply["face"]["vertex_indices"]

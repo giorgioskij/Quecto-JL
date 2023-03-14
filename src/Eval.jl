@@ -237,27 +237,38 @@ function evalTexture(
         s = clamp(textureX, 0, 1.0f0) * sizeX
         t = clamp(textureY, 0, 1.0f0) * sizeY
     else
-        s = rem(textureX, 1.0f0) * sizeX
-        if (s <= 0)
+        # s = rem(textureX, 1.0f0) * sizeX
+        s = mod1(textureX, 1.0f0) * sizeX
+        # if (s <= 0)
+        if (s < 0)
             s += sizeX
         end
-        t = rem(textureY, 1.0f0) * sizeY
-        if (t <= 0)
+        # t = rem(textureY, 1.0f0) * sizeY
+        t = mod1(textureY, 1.0f0) * sizeY
+        # if (t <= 0)
+        if (t < 0)
             t += sizeY
         end
     end
 
-    i::Int = clamp(Int(floor(s)), 1, sizeX)
-    j::Int = clamp(Int(floor(t)), 1, sizeY)
+    # i::Int = clamp(Int(floor(s)), 1, sizeX)
+    # j::Int = clamp(Int(floor(t)), 1, sizeY)
+    i::Int = clamp(floor(Int, s), 0, sizeX - 1)
+    j::Int = clamp(floor(Int, t), 0, sizeY - 1)
 
-    ii::Int = i + 1
-    jj::Int = j + 1
-    if ii > sizeX
-        ii -= sizeX
-    end
-    if jj > sizeY
-        jj -= sizeY
-    end
+    # ii::Int = i + 1
+    # jj::Int = j + 1
+    # # if ii > sizeX
+    # if ii >= sizeX
+    #     ii -= sizeX
+    # end
+    # # if jj > sizeY
+    # if jj >= sizeY
+    #     jj -= sizeY
+    # end
+
+    ii = (i + 1) % sizeX
+    jj = (j + 1) % sizeY
 
     u::Float32 = s - i
     v::Float32 = t - j
@@ -279,7 +290,9 @@ end
     # i the column
 
     sizeY, sizeX = size(texture.image)
-    return texture.image[sizeY-j+1, i]
+    # return texture.image[sizeY-j+1, i]
+    # return texture.image[sizeY-j, i+1]
+    return texture.image[j+1, i+1]
     # if !isempty(texture.image)
     #     sizeY, sizeX = size(texture.image)
     #     return texture.image[sizeY-j+1, i]

@@ -381,7 +381,7 @@ function intersectPrimitiveTriangle(
         return PrimitiveIntersection(false)
     end
 
-    inverseDet = 1.0f0 ./ det
+    inverseDet = 1.0f0 / det
 
     tvec = ray.origin - p0
     u = StaticArrays.dot(tvec, pvec) * inverseDet
