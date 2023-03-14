@@ -252,7 +252,8 @@ end
     if ggx
         theta = atan(roughness * sqrt(ruvy / (1.0f0 - ruvy)))
     else
-        theta = atan(sqrt(-(roughness^2.0f0) * log(1.0f0 - ruvy)))
+        roughness2 = roughness * roughness
+        theta = atan(sqrt(-roughness2 * log(1.0f0 - ruvy)))
     end
     localHalfVector =
         SVec3f(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta))

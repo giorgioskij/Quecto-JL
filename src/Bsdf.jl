@@ -64,6 +64,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
 )::SVec3f
+    normal = dot(normal, outgoing) <= 0 ? -normal : normal
     if (rand(Float32) < fresnelDielectric(ior, normal, outgoing))
         halfway = sampleMicrofacet(roughness, normal)
         incoming = reflect(outgoing, halfway)
@@ -89,6 +90,7 @@ end
     # exponent = 2.0f0 / material.roughness^2
     # halfway = sampleHemisphereCosPower(exponent, normal)
     # incoming = reflect(outgoing, halfway)
+    normal = dot(normal, outgoing) <= 0 ? -normal : normal
     halfway = sampleMicrofacet(roughness, normal)
     incoming = reflect(outgoing, halfway)
     if (!sameHemisphere(normal, outgoing, incoming))
@@ -237,19 +239,20 @@ end
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return SVec3f(0, 0, 0)
     end
+    upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
 
-    F1 = fresnelDielectric(ior, normal, outgoing)
+    F1 = fresnelDielectric(ior, upNormal, outgoing)
     halfway = norm(incoming + outgoing)
     F = fresnelDielectric(ior, halfway, incoming)
-    D = microfacetDistribution(roughness, normal, halfway)
+    D = microfacetDistribution(roughness, upNormal, halfway)
     # D = preciseMicrofacetDistribution(roughness, normal, halfway)
-    G = microfacetShadowing(roughness, normal, halfway, outgoing, incoming)
+    G = microfacetShadowing(roughness, upNormal, halfway, outgoing, incoming)
     radiance =
         color * (1 - F1) / pi * #2 *
-        abs(dot(normal, incoming)) +
+        abs(dot(upNormal, incoming)) +
         SVec3f(1, 1, 1) * F * D * G /
-        (4.0f0 * dot(normal, outgoing) * dot(normal, incoming)) *
-        abs(dot(normal, incoming)) #^1.3
+        (4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)) *
+        abs(dot(upNormal, incoming)) #^1.3
     return radiance
 end
 
@@ -263,6 +266,7 @@ end
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return SVec3f(0, 0, 0)
     end
+    normal = dot(normal, outgoing) <= 0 ? -normal : normal
 
     halfway = norm(incoming + outgoing)
     F = fresnelConductor(
@@ -389,6 +393,7 @@ end
 end
 
 @inline function sampleDeltaReflective(normal::SVec3f, outgoing::SVec3f)::SVec3f
+    normal = dot(normal, outgoing) <= 0 ? -normal : normal
     incoming = reflect(outgoing, normal)
     return incoming
 end
@@ -440,7 +445,7 @@ end
     end
 
     if material.type == "reflective"
-        return evalDeltaReflective(material.color, normal, outgoing)
+        return evalDeltaReflective(material.color, normal, outgoing, incoming)
     elseif material.type == "transparent"
         return evalDeltaTransparent(
             material.color,
@@ -461,7 +466,12 @@ end
     color::SVec3f,
     normal::SVec3f,
     outgoing::SVec3f,
+    incoming::SVec3f,
 )::SVec3f
+    if dot(normal, incoming) * dot(normal, outgoing) <= 0
+        return SVec3f(0, 0, 0)
+    end
+    normal = dot(normal, outgoing) <= 0 ? -normal : normal
     radiance =
     #material.color / pi * 
         fresnelConductor(

@@ -50,7 +50,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 break
             end
             opbounce += 1
-            newRay = Ray(position + newRay.direction * 1.0f-2, newRay.direction)
+            newRay = Ray(position + newRay.direction * 0.01f0, newRay.direction)
             bounce -= 1
             continue
         end
@@ -71,8 +71,8 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
             if incoming == SVec3f(0, 0, 0)
                 break
             end
-            weight *=
-                evalBSDF(materialPoint, normal, outgoing, incoming) /
+            weight =
+                weight .* evalBSDF(materialPoint, normal, outgoing, incoming) /
                 pdfBSDF(materialPoint, normal, outgoing, incoming)
         else
             # Delta materials
@@ -80,8 +80,8 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
             if incoming == SVec3f(0, 0, 0)
                 break
             end
-            weight *=
-                evalDelta(materialPoint, normal, outgoing, incoming) /
+            weight =
+                weight .* evalDelta(materialPoint, normal, outgoing, incoming) /
                 pdfDelta(materialPoint, normal, outgoing, incoming)
         end
 
@@ -110,7 +110,9 @@ function evalMaterial(
     instance::Instance,
     intersection::Intersection,
 )::MaterialPoint
-    minRoughness = 0.3f0 * 0.3f0
+
+    # minRoughness = 0.3f0 * 0.3f0   ---- WRONG
+    minRoughness = 0.03f0 * 0.03f0
 
     material::Material = scene.materials[instance.materialIndex]
 
@@ -134,6 +136,8 @@ function evalMaterial(
     emission::SVec3f = material.emission * xyz(materialEmissionTex)
     color::SVec3f = material.color * xyz(materialColorTex)
     roughness::Float32 = material.roughness
+    # FIX: roughness needs to be squared for some reason
+    roughness = roughness * roughness
 
     # fix roughness
     if material.type == "matte" ||

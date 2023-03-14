@@ -41,9 +41,8 @@ end
 )
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return 0
-    else
-        return 1.0f0
     end
+    return 1.0f0
 end
 
 @inline function pdfDeltaTransparent(
@@ -157,6 +156,7 @@ end
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return 0
     end
+    normal = dot(normal, outgoing) <= 0 ? -normal : normal
     F = fresnelDielectric(ior, normal, outgoing)
     halfway = norm(outgoing + incoming)
     return F * pdfMicrofacet(roughness, normal, halfway) /
