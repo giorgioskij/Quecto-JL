@@ -175,7 +175,7 @@ function evalEnvironment(
 
     # TEMP: try to invert X and Y
     # textureX = 1 - textureX
-    textureY = 1 - textureY
+    # textureY = 1 - textureY
 
     # FIX: here adding srgb to rgb makes the image more blueish, but not as much as yocto. why?
     textureColor = evalTexture(scene, env.emissionTex, textureX, textureY)
