@@ -330,22 +330,24 @@ end
 @inline function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool
     itMin::SVec3f = (bbox.min - ray.origin) * rayDInv
     itMax::SVec3f = (bbox.max - ray.origin) * rayDInv
-    maxTmin::Float32 = fastMaximum(map(fastMin, itMin, itMax))
-    minTmax::Float32 = fastMinimum(map(fastMax, itMin, itMax))
+    maxTmin::Float32 =
+        fastMaximum!!!!!!1!!!11!!!1!!!💀💀(map(fastMin, itMin, itMax))
+    minTmax::Float32 =
+        fastMinimum!!!!!!1!!!11!!!1!!!💀💀(map(fastMax, itMin, itMax))
     t0::Float32 = fastMax(maxTmin, ray.tmin)
     t1::Float32 = fastMin(minTmax, ray.tmax)
     t1 *= 1.00000024f0 # for double: 1.0000000000000004
     return t0 <= t1
 end
 
-@inbounds function fastMinimum(a::SVec3f)
+@inline @inbounds function fastMinimum!!!!!!1!!!11!!!1!!!💀💀(a::SVec3f)
     ifelse(
         a[1] < a[2],
         ifelse(a[1] < a[3], a[1], a[3]),
         ifelse(a[2] < a[3], a[2], a[3]),
     )
 end
-@inbounds function fastMaximum(a::SVec3f)
+@inline @inbounds function fastMaximum!!!!!!1!!!11!!!1!!!💀💀(a::SVec3f)
     ifelse(
         a[1] > a[2],
         ifelse(a[1] > a[3], a[1], a[3]),

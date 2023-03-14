@@ -286,9 +286,7 @@ function loadShape(filename::String)
         u = ply["vertex"]["u"]
         v = ply["vertex"]["v"]
 
-        textureCoords = map(SVec2f, zip(u, v))
-        textureCoords = map((x) -> SVec2f(x[1], 1 - x[2]), textureCoords)
-        # textureCoords = map((x, y) -> SVec2f(x, 1 - y), collect(zip(u, v)))
+        textureCoords = map((x) -> SVec2f(x[1], 1 - x[2]), collect(zip(u, v)))
     end
 
     faces = ply["face"]["vertex_indices"]
