@@ -197,7 +197,8 @@ function traceSample(
 )::SVec3f
 
     # send a ray
-    ray = sampleCamera(camera, i, j, imwidth, imheight)
+    # ray = sampleCamera(camera, i, j, imwidth, imheight) --- wrong
+    ray = sampleCamera(camera, i - 1, j - 1, imwidth, imheight)
 
     # call the shader
     radiance = shader(scene, ray, bvh)
