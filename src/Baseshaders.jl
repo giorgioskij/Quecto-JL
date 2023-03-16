@@ -56,7 +56,7 @@ end
 function shadeEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
     # initialize
-    radiance::SVec3f = SVec3f(0, 0, 0)
+    radiance::SVec3f = zeroSV3f
     weight::SVec3f = SVec3f(1, 1, 1)
     maxBounces = 4
     opacityBounce = 0
@@ -152,8 +152,7 @@ function shadeEyelight(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         incoming::SVec3f = outgoing
 
         # missing: bsdf
-        emission =
-            dot(normal, outgoing) >= 0 ? materialEmission : SVec3f(0, 0, 0)
+        emission = dot(normal, outgoing) >= 0 ? materialEmission : zeroSV3f
         radiance += weight * emission
 
         # brdf + light

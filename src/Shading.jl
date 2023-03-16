@@ -17,7 +17,7 @@ include("Raytrace.jl")
 
 # this is meant to be a copy of trace_naive but with only matte
 function shadePath(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
-    radiance::SVec3f = SVec3f(0, 0, 0)
+    radiance::SVec3f = zeroSV3f
     weight::SVec3f = SVec3f(1, 1, 1)
     hit::Bool = false
     opbounce::Int = 0
@@ -84,7 +84,7 @@ function shadePath(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         radiance += weight * evalEmission(materialEmission, normal, outgoing)
 
         # next direction
-        incoming::SVec3f = SVec3f(0, 0, 0)
+        incoming::SVec3f = zeroSV3f
         if materialRoughness != 0
             incoming = sampleBsdfCos(
                 material.type,
@@ -93,7 +93,7 @@ function shadePath(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 normal,
                 outgoing,
             )
-            if incoming == SVec3f(0, 0, 0)
+            if incoming == zeroSV3f
                 break
             end
             weight *=
@@ -117,7 +117,7 @@ function shadePath(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         end
 
         # check weight
-        if weight == SVec3f(0, 0, 0) || !all(isfinite.(weight))
+        if weight == zeroSV3f || !all(isfinite.(weight))
             break
         end
 
@@ -146,7 +146,7 @@ function sampleBsdfCos(
 )::SVec3f
     if materialRoughness == 0
         error("Wait shouldnt be 0")
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     # only matte 
     if materialType == "matte"
@@ -169,7 +169,7 @@ function sampleBsdfCosPdf(
 )::Float32
     if materialRoughness == 0
         error("Wait shouldnt be 0")
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     # only matte 
     if materialType == "matte"
@@ -199,7 +199,7 @@ function evalBsdfCos(
 )::SVec3f
     if materialRoughness == 0
         error("wait what")
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
 
     # only matte materials
@@ -212,13 +212,13 @@ end
 
 @inline function evalMatte(materialColor, normal, outgoing, incoming)
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     return materialColor / pi * abs(dot(normal, incoming))
 end
 
 function evalEmission(materialEmission, normal, outgoing)::SVec3f
-    return dot(normal, outgoing) >= 0 ? materialEmission : SVec3f(0, 0, 0)
+    return dot(normal, outgoing) >= 0 ? materialEmission : zeroSV3f
 end
 
 end

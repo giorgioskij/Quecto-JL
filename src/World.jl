@@ -65,13 +65,8 @@ struct Environment
     Environment(frame, emission, emissionTex) =
         new(frame, emission, emissionTex)
     Environment() = new(
-        Frame(
-            SVec3f(1, 0, 0),
-            SVec3f(0, 1, 0),
-            SVec3f(0, 0, 1),
-            SVec3f(0, 0, 0),
-        ),
-        SVec3f(0, 0, 0),
+        Frame(SVec3f(1, 0, 0), SVec3f(0, 1, 0), SVec3f(0, 0, 1), zeroSV3f),
+        zeroSV3f,
         -1,
     )
 end

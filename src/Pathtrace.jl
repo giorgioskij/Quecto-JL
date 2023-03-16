@@ -13,7 +13,7 @@ using StaticArrays: dot, cross
 export shadeMaterial
 
 function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
-    radiance = SVec3f(0, 0, 0)
+    radiance = zeroSV3f
     maxBounce = 128
     newRay = ray
     opbounce::Int8 = 0
@@ -57,18 +57,16 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         # accumulate emission
         radiance +=
-            weight * (
-                dot(normal, outgoing) >= 0 ? materialPoint.emission :
-                SVec3f(0, 0, 0)
-            )
+            weight *
+            (dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f)
 
-        incoming = SVec3f(0, 0, 0)
+        incoming = zeroSV3f
 
         # next direction
         if materialPoint.roughness != 0
             # BSDF materials
             incoming = sampleBSDF(materialPoint, normal, outgoing)
-            if incoming == SVec3f(0, 0, 0)
+            if incoming == zeroSV3f
                 break
             end
             weight =
@@ -77,7 +75,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         else
             # Delta materials
             incoming = sampleDelta(materialPoint, normal, outgoing)
-            if incoming == SVec3f(0, 0, 0)
+            if incoming == zeroSV3f
                 break
             end
             weight =
@@ -86,7 +84,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         end
 
         # check weight
-        if (weight == SVec3f(0, 0, 0) || !all(isfinite.(weight)))
+        if (weight == zeroSV3f || !all(isfinite.(weight)))
             break
         end
 

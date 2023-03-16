@@ -91,14 +91,14 @@ function shadeRaytrace(
     if material.type == "matte"
         upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
         incoming = sampleHemisphereCos(normal)
-        if incoming == SVec3f(0, 0, 0)
+        if incoming == zeroSV3f
             return radiance
         end
 
         #good floor and overall illumination, bad lighting
         radiance += ifelse(
             dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-            SVec3f(0, 0, 0),
+            zeroSV3f,
             color *
             abs(dot(upNormal, incoming)) *
             shaderIndirectNaive(scene, Ray(position, incoming), bvh, bounce + 1),
@@ -112,7 +112,7 @@ function shadeRaytrace(
         #     radiance,
         #     ifelse(
         #         dot(normal, incoming) * dot(normal, outgoing) <= 0,
-        #         SVec3f(0, 0, 0),
+        #         zeroSV3f,
         #         color * abs(dot(normal, incoming)),
         #     ),
         #     weight,
@@ -122,17 +122,17 @@ function shadeRaytrace(
         if material.roughness == 0
             upNormal = ifelse(dot(normal, outgoing) <= 0, -normal, normal)
             incoming = reflect(outgoing, upNormal)
-            if incoming == SVec3f(0, 0, 0)
+            if incoming == zeroSV3f
                 return radiance
             end
 
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-                SVec3f(0, 0, 0),
+                zeroSV3f,
                 # color *
                 fresnelConductor(
                     reflectivityToEta(color),
-                    SVec3f(0, 0, 0),
+                    zeroSV3f,
                     upNormal,
                     outgoing,
                 ) * shaderIndirectNaive(
@@ -150,13 +150,13 @@ function shadeRaytrace(
             if (!sameHemisphere(upNormal, outgoing, incoming))
                 return radiance
             end
-            if incoming == SVec3f(0, 0, 0)
+            if incoming == zeroSV3f
                 return radiance
             end
             #halfway = norm(incoming + outgoing)
             F = fresnelConductor(
                 reflectivityToEta(color),
-                SVec3f(0, 0, 0),
+                zeroSV3f,
                 halfway,
                 incoming,
             )
@@ -170,7 +170,7 @@ function shadeRaytrace(
             )
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-                SVec3f(0, 0, 0),
+                zeroSV3f,
                 #color * 
                 F * D * G / (
                     4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)
@@ -196,7 +196,7 @@ function shadeRaytrace(
             else
                 incoming = sampleHemisphereCos(upNormal)
             end
-            if incoming == SVec3f(0, 0, 0)
+            if incoming == zeroSV3f
                 return radiance
             end
 
@@ -213,7 +213,7 @@ function shadeRaytrace(
             )
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-                SVec3f(0, 0, 0),
+                zeroSV3f,
                 color * (1 - F1) / pi * abs(dot(upNormal, incoming)) +
                 SVec3f(1, 1, 1) * F * G / (
                     4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)
@@ -242,7 +242,7 @@ function shadeRaytrace(
                 #incoming = sampleHemisphereCos(upNormal)
             end
 
-            if incoming == SVec3f(0, 0, 0)
+            if incoming == zeroSV3f
                 return radiance
             end
 
@@ -259,7 +259,7 @@ function shadeRaytrace(
             )
             radiance += ifelse(
                 dot(upNormal, incoming) * dot(upNormal, outgoing) <= 0,
-                SVec3f(0, 0, 0),
+                zeroSV3f,
                 color * (1 - F1) / pi * abs(dot(upNormal, incoming)) +
                 SVec3f(1, 1, 1) * F * D * G / (
                     4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)

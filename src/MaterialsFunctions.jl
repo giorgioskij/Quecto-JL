@@ -31,8 +31,8 @@ struct MaterialPoint
 
     MaterialPoint(
         type = "matte",
-        emission = SVec3f(0, 0, 0),
-        color = SVec3f(0, 0, 0),
+        emission = zeroSV3f,
+        color = zeroSV3f,
         opacity = 1,
         roughness = 0,
         ior = 1,
@@ -52,8 +52,8 @@ end
 #     normal::SVec3f,
 #     outgoing::SVec3f,
 # )::SVec3f
-#     if specular == SVec3f(0, 0, 0)
-#         return SVec3f(0, 0, 0)
+#     if specular == zeroSV3f
+#         return zeroSV3f
 #     end
 #     cosine = dot(normal, outgoing)
 #     specular .+
@@ -75,7 +75,7 @@ end
     cosine = dot(n, w)
     k = 1.0f0 + invEta * invEta * (cosine * cosine - 1.0f0)
     if k < 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     return -w * invEta + (invEta * cosine - sqrt(k)) * n
 end
@@ -113,7 +113,7 @@ end
 )::SVec3f
     cosw::Float32 = dot(normal, outgoing)
     if cosw <= 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     cosw = clamp(cosw, -1.0f0, 1.0f0)
     cos2::Float32 = cosw * cosw

@@ -135,7 +135,7 @@ end
 #         return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
 #         # ignoring lines and points
 #     else
-#         return SVec3f(0, 0, 0)
+#         return zeroSV3f
 #     end
 # end
 
@@ -153,7 +153,7 @@ end
 # end
 
 function evalEnvironment(scene::Scene, direction::SVec3f)::SVec3f
-    emission = SVec3f(0, 0, 0)
+    emission = zeroSV3f
     for env in scene.environments
         emission += evalEnvironment(scene, env, direction)
     end
@@ -292,7 +292,7 @@ end
     sizeY, sizeX = size(texture.image)
     # return texture.image[sizeY-j+1, i]
     # return texture.image[sizeY-j, i+1]
-    return texture.image[j+1, i+1]
+    return @inbounds texture.image[j+1, i+1]
     # if !isempty(texture.image)
     #     sizeY, sizeX = size(texture.image)
     #     return texture.image[sizeY-j+1, i]

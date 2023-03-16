@@ -271,7 +271,7 @@ function splitMiddle(
     cbbox = Bbox3f(boxMin, boxMax)
     csize = cbbox.max - cbbox.min
 
-    if csize == SVec3f(0, 0, 0)
+    if csize == zeroSV3f
         return Int(floor((startIdx + endIdx) / 2)), 1
     end
 

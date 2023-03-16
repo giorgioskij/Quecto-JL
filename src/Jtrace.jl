@@ -121,15 +121,15 @@ function saveImage(filename::String, image::Matrix{SVec4f}, multithreaded::Bool)
 end
 
 function traceSamples(
-    shader,
-    image,
-    scene,
-    imwidth,
-    imheight,
-    samples,
-    bvh,
-    camera,
-    multithreaded,
+    shader::Function,
+    image::Matrix{SVec4f},
+    scene::Scene,
+    imwidth::Int,
+    imheight::Int,
+    samples::Int,
+    bvh::SceneBvh,
+    camera::Camera,
+    multithreaded::Bool,
 )
     for s = 1:samples
         if multithreaded
@@ -146,7 +146,7 @@ function traceSamples(
                         bvh,
                     )
                     weight::Float32 = 1 / s
-                    image[j, i] =
+                    @inbounds image[j, i] =
                     # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
                     # linInterp(image[j, i], color, weight)
                         linInterp(
@@ -171,7 +171,7 @@ function traceSamples(
                     )
 
                     weight::Float32 = 1 / s
-                    image[j, i] =
+                    @inbounds image[j, i] =
                     # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
                     # linInterp(image[j, i], color, weight)
                         linInterp(

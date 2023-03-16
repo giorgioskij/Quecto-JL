@@ -18,7 +18,7 @@ export sampleBSDF, evalBSDF, evalDelta, sampleDelta
     outgoing::SVec3f,
 )::SVec3f
     if (material.roughness == 0)
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     if material.type == "matte"
         return sampleMatte(normal, outgoing)
@@ -69,7 +69,7 @@ end
         halfway = sampleMicrofacet(roughness, normal)
         incoming = reflect(outgoing, halfway)
         if (!sameHemisphere(normal, outgoing, incoming))
-            return SVec3f(0, 0, 0)
+            return zeroSV3f
         end
         return incoming
     else
@@ -94,7 +94,7 @@ end
     halfway = sampleMicrofacet(roughness, normal)
     incoming = reflect(outgoing, halfway)
     if (!sameHemisphere(normal, outgoing, incoming))
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     return incoming
 end
@@ -110,14 +110,14 @@ end
     if (rand(Float32) < fresnelDielectric(ior, halfway, outgoing))
         incoming = reflect(outgoing, halfway)
         if (!sameHemisphere(upNormal, outgoing, incoming))
-            return SVec3f(0, 0, 0)
+            return zeroSV3f
         end
         return incoming
     else
         reflected = reflect(outgoing, halfway)
         incoming = -reflect(reflected, upNormal)
         if (sameHemisphere(upNormal, outgoing, incoming))
-            return SVec3f(0, 0, 0)
+            return zeroSV3f
         end
         return incoming
     end
@@ -138,13 +138,13 @@ end
     )
         incoming = reflect(outgoing, halfway)
         if (!sameHemisphere(upNormal, outgoing, incoming))
-            return SVec3f(0, 0, 0)
+            return zeroSV3f
         end
         return incoming
     else
         incoming = refract(outgoing, halfway, (entering ? (1.0f0 / ior) : ior))
         if (sameHemisphere(upNormal, outgoing, incoming))
-            return SVec3f(0, 0, 0)
+            return zeroSV3f
         end
         return incoming
     end
@@ -161,7 +161,7 @@ end
     incoming::SVec3f,
 )
     if (material.roughness == 0) #(dot(normal, incoming) * dot(normal, outgoing) <= 0) ||
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
 
     if material.type == "matte"
@@ -222,7 +222,7 @@ end
     outgoing::SVec3f,
 )::SVec3f
     if (dot(normal, incoming) * dot(normal, outgoing) <= 0)
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     radiance = color / pi * abs(dot(normal, incoming))
     return radiance
@@ -237,7 +237,7 @@ end
     incoming::SVec3f,
 )::SVec3f
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
 
@@ -264,17 +264,12 @@ end
     incoming::SVec3f,
 )::SVec3f
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     normal = dot(normal, outgoing) <= 0 ? -normal : normal
 
     halfway = norm(incoming + outgoing)
-    F = fresnelConductor(
-        reflectivityToEta(color),
-        SVec3f(0, 0, 0),
-        halfway,
-        incoming,
-    )
+    F = fresnelConductor(reflectivityToEta(color), zeroSV3f, halfway, incoming)
     D = microfacetDistribution(roughness, normal, halfway)
     # D = preciseMicrofacetDistribution(roughness, normal, halfway)
     G = microfacetShadowing(roughness, normal, halfway, outgoing, incoming)
@@ -377,7 +372,7 @@ end
     outgoing::SVec3f,
 )
     if material.roughness != 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
 
     if material.type == "reflective"
@@ -441,7 +436,7 @@ end
     incoming::SVec3f,
 )::SVec3f
     if material.roughness != 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
 
     if material.type == "reflective"
@@ -469,17 +464,12 @@ end
     incoming::SVec3f,
 )::SVec3f
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     normal = dot(normal, outgoing) <= 0 ? -normal : normal
     radiance =
     #material.color / pi * 
-        fresnelConductor(
-            reflectivityToEta(color),
-            SVec3f(0, 0, 0),
-            normal,
-            outgoing,
-        )# / pi
+        fresnelConductor(reflectivityToEta(color), zeroSV3f, normal, outgoing)# / pi
     return radiance
 end
 
@@ -506,7 +496,7 @@ end
 )::SVec3f
     if (abs(ior - 1.0f0) < 1.0f-3)
         return dot(normal, incoming) * dot(normal, outgoing) <= 0 ?
-               SVec3f(1, 1, 1) : SVec3f(0, 0, 0)
+               SVec3f(1, 1, 1) : zeroSV3f
     end
 
     entering = dot(normal, outgoing) >= 0

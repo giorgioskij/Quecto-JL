@@ -12,7 +12,7 @@ using StaticArrays: dot, cross
 export shadeMaterial
 
 function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
-    radiance = SVec3f(0, 0, 0)
+    radiance = zeroSV3f
     maxBounce = 128
     newRay = ray
     opbounce::Int32 = 0
@@ -56,14 +56,12 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
 
         # accumulate emission
         radiance +=
-            weight * (
-                dot(normal, outgoing) >= 0 ? materialPoint.emission :
-                SVec3f(0, 0, 0)
-            )
+            weight *
+            (dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f)
 
         # next direction
         incoming = sampleBSDF(materialPoint, normal, outgoing)
-        if incoming == SVec3f(0, 0, 0)
+        if incoming == zeroSV3f
             break
         end
         weight *=
@@ -71,7 +69,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
             pdfBSDF(materialPoint, normal, outgoing, incoming)
 
         # check weight
-        if (weight == SVec3f(0, 0, 0) || !all(isfinite.(weight)))
+        if (weight == zeroSV3f || !all(isfinite.(weight)))
             break
         end
 
@@ -99,8 +97,8 @@ struct MaterialPoint
 
     MaterialPoint(
         type = "matte",
-        emission = SVec3f(0, 0, 0),
-        color = SVec3f(0, 0, 0),
+        emission = zeroSV3f,
+        color = zeroSV3f,
         opacity = 1,
         roughness = 0,
         ior = 1,
@@ -237,7 +235,7 @@ function sampleBSDF(
     outgoing::SVec3f,
 )::SVec3f
     # if (material.roughness == 0)
-    #     return SVec3f(0, 0, 0)
+    #     return zeroSV3f
     # end
 
     if material.type == "matte"
@@ -257,7 +255,7 @@ function sampleBSDF(
             halfway = sampleMicrofacet(material.roughness, normal)
             incoming = reflect(outgoing, halfway)
             if (!sameHemisphere(normal, outgoing, incoming))
-                return SVec3f(0, 0, 0)
+                return zeroSV3f
             end
         end
         return incoming
@@ -269,7 +267,7 @@ function sampleBSDF(
         #     if (rand(Float32) < F1)
         #         incoming = reflect(outgoing, normal)
         #         if (!sameHemisphere(normal, outgoing, incoming))
-        #             return SVec3f(0, 0, 0)
+        #             return zeroSV3f
         #         end
         #     else
         #         incoming = sampleHemisphereCos(normal)
@@ -283,7 +281,7 @@ function sampleBSDF(
             incoming = reflect(outgoing, halfway)
             #if (!sameHemisphere(upNormal, outgoing, incoming))
             if (!sameHemisphere(normal, outgoing, incoming))
-                return SVec3f(0, 0, 0)
+                return zeroSV3f
             end
             return incoming
         else
@@ -308,7 +306,7 @@ function evalBSDF(
     incoming::SVec3f,
 )
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
 
     if material.type == "matte"
@@ -328,19 +326,19 @@ function evalBSDF(
             #material.color / pi * 
                 fresnelConductor(
                     reflectivityToEta(material.color),
-                    SVec3f(0, 0, 0),
+                    zeroSV3f,
                     normal,
                     outgoing,
                 )# / pi
 
         else
             if dot(normal, incoming) * dot(normal, outgoing) <= 0
-                return SVec3f(0, 0, 0)
+                return zeroSV3f
             end
             halfway = norm(incoming + outgoing)
             F = fresnelConductor(
                 reflectivityToEta(material.color),
-                SVec3f(0, 0, 0),
+                zeroSV3f,
                 halfway,
                 incoming,
             )
@@ -363,7 +361,7 @@ function evalBSDF(
 
     elseif material.type == "glossy"
         if dot(normal, incoming) * dot(normal, outgoing) <= 0
-            return SVec3f(0, 0, 0)
+            return zeroSV3f
         end
         #normal = dot(normal, outgoing) <= 0 ? -normal : normal
         F1 = fresnelDielectric(material.ior, normal, outgoing)
@@ -426,8 +424,8 @@ end
 #     normal::SVec3f,
 #     outgoing::SVec3f,
 # )::SVec3f
-#     if specular == SVec3f(0, 0, 0)
-#         return SVec3f(0, 0, 0)
+#     if specular == zeroSV3f
+#         return zeroSV3f
 #     end
 #     cosine = dot(normal, outgoing)
 #     specular .+
@@ -476,7 +474,7 @@ end
 )::SVec3f
     cosw::Float32 = dot(normal, outgoing)
     if cosw <= 0
-        return SVec3f(0, 0, 0)
+        return zeroSV3f
     end
     cosw = clamp(cosw, -1.0f0, 1.0f0)
     cos2::Float32 = cosw * cosw
