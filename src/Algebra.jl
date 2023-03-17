@@ -27,12 +27,16 @@ export transformNormal,
     xyz,
     transformRay,
     srgbToRgb,
-    rgbToSrgb
+    rgbToSrgb,
+    reflect,
+    refract,
+    basisFromz
 
-@inline function *(a::SVector, b::SVector)
+@inline function *(a::SVector, b::SVector)::SVector
     @turbo map(*, a, b)
 end
-@inline function /(a::SVector, b::SVector)
+
+@inline function /(a::SVector, b::SVector)::SVector
     @turbo map(/, a, b)
 end
 
@@ -90,7 +94,7 @@ end
     p3::SVec3f,
     u::Float32,
     v::Float32,
-)
+)::SVec3f
     if (u + v <= 1)
         return interpolateTriangle(p0, p1, p3, u, v)
     else
@@ -107,15 +111,15 @@ end
     return sqrt(dot(v, v))
 end
 
-@inline function transformPoint(frame::Frame, v::SVec3f)::SVec3f
+@inline @inbounds function transformPoint(frame::Frame, v::SVec3f)::SVec3f
     return frame.x * v[1] + frame.y * v[2] + frame.z * v[3] + frame.o
 end
 
-@inline function transformVector(frame::Frame, v::SVec3f)::SVec3f
+@inline @inbounds function transformVector(frame::Frame, v::SVec3f)::SVec3f
     return frame.x * v[1] + frame.y * v[2] + frame.z * v[3]
 end
 
-@inline function transformVector(a::Mat3f, v::SVec3f)::SVec3f
+@inline @inbounds function transformVector(a::Mat3f, v::SVec3f)::SVec3f
     return a.x * v[1] + a.y * v[2] + a.z * v[3]
 end
 
@@ -135,7 +139,7 @@ end
     return a * (1 - weight) .+ b * weight
 end
 
-@inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)
+@inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)::SVec3f
     a = map(clamp01nan, a)
     b = map(clamp01nan, b)
 
@@ -148,11 +152,11 @@ end
     return cos(phi) * r, sin(phi) * r
 end
 
-@inline function determinant(a::Mat3f)::Float32
+@inline @inbounds function determinant(a::Mat3f)::Float32
     return dot(a.x, StaticArrays.cross(a.y, a.z))
 end
 
-@inline function adjoint(a::Mat3f)::Mat3f
+@inline @inbounds function adjoint(a::Mat3f)::Mat3f
     return transposeMat(
         Mat3f(
             StaticArrays.cross(a.y, a.z),
@@ -176,11 +180,11 @@ end
     end
 end
 
-@inline function rotation(frame::Frame)::Mat3f
+@inline @inbounds function rotation(frame::Frame)::Mat3f
     return Mat3f(frame.x, frame.y, frame.z)
 end
 
-@inline function transposeMat(mat::Mat3f)::Mat3f
+@inline @inbounds function transposeMat(mat::Mat3f)::Mat3f
     return Mat3f(
         SVec3f(mat.x[1], mat.y[1], mat.z[1]),
         SVec3f(mat.x[2], mat.y[2], mat.z[2]),
@@ -188,19 +192,19 @@ end
     )
 end
 
-@inline function makeFrame(m::Mat3f, t::SVec3f)::Frame
+@inline @inbounds function makeFrame(m::Mat3f, t::SVec3f)::Frame
     return Frame(m.x, m.y, m.z, t)
 end
 
-@inline function matMulVec(a::Mat3f, b::SVec3f)::SVec3f
+@inline @inbounds function matMulVec(a::Mat3f, b::SVec3f)::SVec3f
     return SVec3f(a.x * b[1] + a.y * b[2] + a.z * b[3])
 end
 
-@inline function matMulFloat(a::Mat3f, b::Float32)::Mat3f
+@inline @inbounds function matMulFloat(a::Mat3f, b::Float32)::Mat3f
     return Mat3f(a.x * b, a.y * b, a.z * b)
 end
 
-@inline function xyz(a::SVec4f)::SVec3f
+@inline @inbounds function xyz(a::SVec4f)::SVec3f
     return SVec3f(a[1], a[2], a[3])
 end
 
@@ -213,7 +217,7 @@ end
     )
 end
 
-@inline function srgbToRgb(srgb::SVec4f)::SVec4f
+@inline @inbounds function srgbToRgb(srgb::SVec4f)::SVec4f
     SVec4f(srgbToRgb(srgb[1]), srgbToRgb(srgb[2]), srgbToRgb(srgb[3]), srgb[4])
     # return SVec4f(srgbToRgb.(srgb)..., srgb[4])
 end
@@ -223,7 +227,7 @@ end
     return srgbToRgb.(srgb)
 end
 
-@inline function rgbToSrgb(rgb::SVec4f)::SVec4f
+@inline @inbounds function rgbToSrgb(rgb::SVec4f)::SVec4f
     return SVec4f(rgbToSrgb(rgb.x), rgbToSrgb(rgb.y), rgbToSrgb(rgb.z), rgb[4])
 end
 
@@ -247,8 +251,32 @@ end
 end
 
 # wtf? yeah you read it right, this can be slightly faster in julia. I know.
-@inline function fastPow(a::Float32, b::Float32)
+@inline function fastPow(a::Float32, b::Float32)::Float32
     return exp(log(a) * b)
+end
+
+@inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
+    return -w + 2.0f0 * dot(n, w) * n
+end
+
+@inline function refract(w::SVec3f, n::SVec3f, invEta::Float32)::SVec3f
+    cosine = dot(n, w)
+    k = 1.0f0 + invEta * invEta * (cosine * cosine - 1.0f0)
+    if k < 0
+        return zeroSV3f
+    end
+    return -w * invEta + (invEta * cosine - sqrt(k)) * n
+end
+
+# Constructs a basis from a direction
+@inline function basisFromz(v::SVec3f)
+    z = norm(v)
+    sign = copysign(1.0f0, z.z)
+    a = -1.0f0 / (sign + z.z)
+    b = z.x * z.y * a
+    x = SVec3f(1.0f0 + sign * z.x * z.x * a, sign * b, -sign * z.x)
+    y = SVec3f(b, sign + z.y * z.y * a, -z.y)
+    return Mat3f(x, y, z)
 end
 
 # end module

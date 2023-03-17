@@ -103,17 +103,19 @@ end
 function saveImage(filename::String, image::Matrix{SVec4f}, multithreaded::Bool)
     pngImage = zeros(RGBA, size(image))
     if multithreaded
-        Threads.@threads for i = 1:size(image, 1)
-            Threads.@threads for j = 1:size(image, 2)
+        @inbounds Threads.@threads for i = 1:size(image, 1)
+            @inbounds Threads.@threads for j = 1:size(image, 2)
                 srgb = rgbToSrgb(clamp01nan.(image[i, j]))
-                pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
+                @inbounds pngImage[i, j] =
+                    RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
             end
         end
     else
-        for i = 1:size(image, 1)
-            for j = 1:size(image, 2)
+        @inbounds for i = 1:size(image, 1)
+            @inbounds for j = 1:size(image, 2)
                 srgb = rgbToSrgb(clamp01nan.(image[i, j]))
-                pngImage[i, j] = RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
+                @inbounds pngImage[i, j] =
+                    RGBA(srgb[1], srgb[2], srgb[3], srgb[4])
             end
         end
     end
@@ -193,7 +195,7 @@ function traceSample(
     camera::Camera,
     imwidth::Int,
     imheight::Int,
-    bvh,
+    bvh::SceneBvh,
 )::SVec3f
 
     # send a ray

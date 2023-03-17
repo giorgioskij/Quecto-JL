@@ -5,11 +5,8 @@ using ..Algebra
 
 using StaticArrays: dot, cross
 
-export MaterialPoint,
-    sameHemisphere,
+export sameHemisphere,
     reflectivityToEta,
-    reflect,
-    refract,
     fresnelDielectric,
     fresnelConductor,
     microfacetDistribution,
@@ -20,24 +17,6 @@ export MaterialPoint,
     sampleHemisphereCosPower,
     sampleMicrofacet,
     basisFromz
-
-struct MaterialPoint
-    type::String
-    emission::SVec3f
-    color::SVec3f
-    opacity::Float32
-    roughness::Float32
-    ior::Float32
-
-    MaterialPoint(
-        type = "matte",
-        emission = zeroSV3f,
-        color = zeroSV3f,
-        opacity = 1,
-        roughness = 0,
-        ior = 1,
-    ) = new(type, emission, color, opacity, roughness, ior)
-end
 
 @inline function sameHemisphere(
     normal::SVec3f,
@@ -63,21 +42,6 @@ end
 @inline function reflectivityToEta(color::SVec3f)::SVec3f
     reflectivity::SVec3f = clamp.(color, 0.0f0, 0.99f0)
     return (1.0f0 .+ sqrt.(reflectivity)) / (1.0f0 .- sqrt.(reflectivity))
-end
-
-# TODO: understand if put this in Algebra.jl
-@inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
-    return -w + 2.0f0 * dot(n, w) * n
-end
-
-# TODO: understand if put this in Algebra.jl
-@inline function refract(w::SVec3f, n::SVec3f, invEta::Float32)::SVec3f
-    cosine = dot(n, w)
-    k = 1.0f0 + invEta * invEta * (cosine * cosine - 1.0f0)
-    if k < 0
-        return zeroSV3f
-    end
-    return -w * invEta + (invEta * cosine - sqrt(k)) * n
 end
 
 @inline function fresnelDielectric(
@@ -258,18 +222,6 @@ end
     localHalfVector =
         SVec3f(cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta))
     return transformDirection(basisFromz(normal), localHalfVector)
-end
-
-# TODO: put this in Algebra.jl
-@inline function basisFromz(v::SVec3f)
-    z = norm(v)
-    sign = copysign(1.0f0, z.z)
-    a = -1.0f0 / (sign + z.z)
-    b = z.x * z.y * a
-    x = SVec3f(1.0f0 + sign * z.x * z.x * a, sign * b, -sign * z.x)
-    y = SVec3f(b, sign + z.y * z.y * a, -z.y)
-    # return Frame(x, y, z)
-    return Mat3f(x, y, z)
 end
 
 #end module

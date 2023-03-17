@@ -19,7 +19,7 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     opbounce::Int8 = 0
     weight = SVec3f(1, 1, 1)
 
-    for bounce = 1:maxBounce
+    @inbounds for bounce = 1:maxBounce
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
@@ -100,60 +100,4 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         newRay = Ray(position, incoming)
     end
     return radiance
-end
-
-# TODO: move to Eval.jl
-function evalMaterial(
-    scene::Scene,
-    instance::Instance,
-    intersection::Intersection,
-)::MaterialPoint
-
-    # minRoughness = 0.3f0 * 0.3f0   ---- WRONG
-    minRoughness = 0.03f0 * 0.03f0
-
-    material::Material = scene.materials[instance.materialIndex]
-
-    # eval texture coordinates
-    textureX, textureY = evalTexcoord(
-        scene,
-        instance,
-        intersection.elementIndex,
-        intersection.u,
-        intersection.v,
-    )
-
-    # eval material textures
-    materialEmissionTex::SVec4f =
-        evalTexture(scene, material.emissionTex, textureX, textureY)
-    materialColorTex::SVec4f =
-        evalTexture(scene, material.colorTex, textureX, textureY)
-    # ignore roughness and scattering textures
-
-    # eval material properties
-    emission::SVec3f = material.emission * xyz(materialEmissionTex)
-    color::SVec3f = material.color * xyz(materialColorTex)
-    roughness::Float32 = material.roughness
-    # FIX: roughness needs to be squared for some reason
-    roughness = roughness * roughness
-
-    # fix roughness
-    if material.type == "matte" ||
-       #material.type == "gltfpbr" ||
-       material.type == "glossy"
-        roughness = clamp(roughness, minRoughness, 1.0f0)
-    elseif roughness < minRoughness
-        roughness = 0.0f0
-    end
-
-    opacity::Float32 = material.opacity * materialColorTex[4]
-
-    return MaterialPoint(
-        material.type,
-        emission,
-        color,
-        opacity,
-        roughness,
-        material.ior,
-    )
 end

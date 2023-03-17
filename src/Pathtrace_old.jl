@@ -9,7 +9,7 @@ using ..Algebra
 
 using StaticArrays: dot, cross
 
-export shadeMaterial
+#export shadeMaterial
 
 function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     radiance = zeroSV3f

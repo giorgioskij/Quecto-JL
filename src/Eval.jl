@@ -10,7 +10,8 @@ export evalNormal,
     evalTexture,
     evalTexcoord,
     evalShadingPosition,
-    evalPosition
+    evalPosition,
+    evalMaterial
 
 function evalNormal(
     shape::Shape,
@@ -289,7 +290,7 @@ end
     # j indices the ROW of the texture
     # i the column
 
-    sizeY, sizeX = size(texture.image)
+    # sizeY, sizeX = size(texture.image)
     # return texture.image[sizeY-j+1, i]
     # return texture.image[sizeY-j, i+1]
     return @inbounds texture.image[j+1, i+1]
@@ -401,6 +402,61 @@ function evalPosition(
     else
         error("No triangles or quads in this shape")
     end
+end
+
+function evalMaterial(
+    scene::Scene,
+    instance::Instance,
+    intersection::Intersection,
+)::MaterialPoint
+
+    # minRoughness = 0.3f0 * 0.3f0   ---- WRONG
+    minRoughness = 0.03f0 * 0.03f0
+
+    material::Material = scene.materials[instance.materialIndex]
+
+    # eval texture coordinates
+    textureX, textureY = evalTexcoord(
+        scene,
+        instance,
+        intersection.elementIndex,
+        intersection.u,
+        intersection.v,
+    )
+
+    # eval material textures
+    materialEmissionTex::SVec4f =
+        evalTexture(scene, material.emissionTex, textureX, textureY)
+    materialColorTex::SVec4f =
+        evalTexture(scene, material.colorTex, textureX, textureY)
+    # ignore roughness and scattering textures
+
+    # eval material properties
+    emission::SVec3f = material.emission * xyz(materialEmissionTex)
+    color::SVec3f = material.color * xyz(materialColorTex)
+    roughness::Float32 = material.roughness
+    # FIX: roughness needs to be squared for some reason
+    roughness = roughness * roughness
+
+    # fix roughness
+    if material.type == "matte" ||
+       #material.type == "gltfpbr" ||
+       material.type == "glossy"
+        roughness = clamp(roughness, minRoughness, 1.0f0)
+    elseif roughness < minRoughness
+        roughness = 0.0f0
+    end
+
+    opacity::Float32 = material.opacity * materialColorTex[4]
+
+    return MaterialPoint(
+        material.type,
+        emission,
+        color,
+        opacity,
+        roughness,
+        material.ior,
+    )
 end
 
 end

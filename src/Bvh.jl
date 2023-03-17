@@ -61,14 +61,14 @@ function makeSceneBvh(scene::Scene)::SceneBvh
 
     # build bvh for each shape
     bvhForEachShape = Vector{ShapeBvh}(undef, size(scene.shapes, 1))
-    for (i, shape) in enumerate(scene.shapes)
+    @inbounds for (i, shape) in enumerate(scene.shapes)
         bvhForEachShape[i] = makeShapeBvh(shape)
     end
 
     # instance bounding boxes
     bboxes = Vector{Bbox3f}(undef, size(scene.instances, 1))
 
-    for (i, instance) in enumerate(scene.instances)
+    @inbounds for (i, instance) in enumerate(scene.instances)
         bboxes[i] =
             isempty(bvhForEachShape[instance.shapeIndex].bvh.nodes) ? Bbox3f() :
             transformBbox(
@@ -101,27 +101,6 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
                 shape.positions[t.z],
             )
         end
-
-        # for (i, (pointAindex, pointBindex, pointCindex)) in
-        #     enumerate(eachcol(transpose(shape.triangles)))
-        #     @inbounds pointA = SVec3f(
-        #         shape.positions[pointAindex, 1],
-        #         shape.positions[pointAindex, 2],
-        #         shape.positions[pointAindex, 3],
-        #     )
-        #     @inbounds pointB = SVec3f(
-        #         shape.positions[pointBindex, 1],
-        #         shape.positions[pointBindex, 2],
-        #         shape.positions[pointBindex, 3],
-        #     )
-        #     @inbounds pointC = SVec3f(
-        #         shape.positions[pointCindex, 1],
-        #         shape.positions[pointCindex, 2],
-        #         shape.positions[pointCindex, 3],
-        #     )
-
-        #     bboxes[i] = triangleBounds(pointA, pointB, pointC)
-        # end
     elseif (!isempty(shape.quads))
         bboxes = Vector{Bbox3f}(undef, size(shape.quads, 1))
         # bboxes for quads
@@ -134,32 +113,6 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
                 shape.positions[q.w],
             )
         end
-
-        # for (i, (pointAindex, pointBindex, pointCindex, pointDindex)) in
-        #     enumerate(eachcol(transpose(shape.quads)))
-        #     @inbounds pointA = SVec3f(
-        #         shape.positions[pointAindex, 1],
-        #         shape.positions[pointAindex, 2],
-        #         shape.positions[pointAindex, 3],
-        #     )
-        #     @inbounds pointB = SVec3f(
-        #         shape.positions[pointBindex, 1],
-        #         shape.positions[pointBindex, 2],
-        #         shape.positions[pointBindex, 3],
-        #     )
-        #     @inbounds pointC = SVec3f(
-        #         shape.positions[pointCindex, 1],
-        #         shape.positions[pointCindex, 2],
-        #         shape.positions[pointCindex, 3],
-        #     )
-        #     @inbounds pointD = SVec3f(
-        #         shape.positions[pointDindex, 1],
-        #         shape.positions[pointDindex, 2],
-        #         shape.positions[pointDindex, 3],
-        #     )
-
-        #     bboxes[i] = quadBounds(pointA, pointB, pointC, pointD)
-        # end
     else
         error("something's not right")
     end
@@ -341,7 +294,7 @@ end
 @inline center(b::Bbox3f)::SVec3f = (b.min + b.max) / 2
 
 @inline function transformBbox(frame::Frame, bbox::Bbox3f)
-    corners = [
+    @inbounds corners = [
         SVec3f(bbox.min[1], bbox.min[2], bbox.min[3]),
         SVec3f(bbox.min[1], bbox.min[2], bbox.max[3]),
         SVec3f(bbox.min[1], bbox.max[2], bbox.min[3]),

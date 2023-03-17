@@ -341,7 +341,7 @@ end
 end
 
 @inline @inbounds function fastMinimum(a::SVec3f)::Float32
-    ifelse(
+    @fastmath ifelse(
         a[1] < a[2],
         ifelse(a[1] < a[3], a[1], a[3]),
         ifelse(a[2] < a[3], a[2], a[3]),
@@ -349,23 +349,25 @@ end
 end
 
 @inline @inbounds function fastMaximum(a::SVec3f)::Float32
-    ifelse(
+    @fastmath ifelse(
         a[1] > a[2],
         ifelse(a[1] > a[3], a[1], a[3]),
         ifelse(a[2] > a[3], a[2], a[3]),
     )
 end
-@inline function fastMin(a::Float32, b::Float32)
-    a_b = a - b
+
+@inline function fastMin(a::Float32, b::Float32)::Float32
+    @fastmath a_b = a - b
     # (signbit(a_b) || isnan(a)) ? a : b
     # nan checks are for WEAK PROGRAMMERS, we want SPEED
-    signbit(a_b) ? a : b
+    @fastmath signbit(a_b) ? a : b
 end
-@inline function fastMax(a::Float32, b::Float32)
-    b_a = b - a
+
+@inline function fastMax(a::Float32, b::Float32)::Float32
+    @fastmath b_a = b - a
     # (signbit(b_a) || isnan(a)) ? a : b
     # jokes aside, nan checks actually increase time by like 2%. insane
-    signbit(b_a) ? a : b
+    @fastmath signbit(b_a) ? a : b
 end
 
 # intersect a primitive triangle, given as a list of 3d points.

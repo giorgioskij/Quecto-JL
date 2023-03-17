@@ -13,7 +13,8 @@ export Scene,
     Environment,
     Camera,
     evalCamera,
-    sampleCamera
+    sampleCamera,
+    MaterialPoint
 
 struct Camera
     frame::Frame
@@ -179,7 +180,7 @@ function sampleCamera(
     j::Int,
     imwidth::Int,
     imheight::Int,
-)
+)::Ray
     f1 = rand(Float32)
     f2 = rand(Float32)
 
@@ -193,7 +194,7 @@ function sampleCamera(
 end
 
 # takes a camera, image coordinates (uv) and generates a ray connecting them
-function evalCamera(camera::Camera, u::Float32, v::Float32)
+function evalCamera(camera::Camera, u::Float32, v::Float32)::Ray
     film::SVec2f = (
         camera.aspect >= 1 ?
         SVec2f(camera.film, camera.film / camera.aspect) :
@@ -225,6 +226,24 @@ function evalCamera(camera::Camera, u::Float32, v::Float32)
     ray_direction = transformDirection(camera.frame, direction)
 
     return Ray(ray_origin, ray_direction)
+end
+
+struct MaterialPoint
+    type::String
+    emission::SVec3f
+    color::SVec3f
+    opacity::Float32
+    roughness::Float32
+    ior::Float32
+
+    MaterialPoint(
+        type = "matte",
+        emission = zeroSV3f,
+        color = zeroSV3f,
+        opacity = 1,
+        roughness = 0,
+        ior = 1,
+    ) = new(type, emission, color, opacity, roughness, ior)
 end
 
 end
