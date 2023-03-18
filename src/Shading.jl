@@ -30,7 +30,9 @@ function shadePath(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         intersection::Intersection = intersectScene(ray, scene, bvh)
         if !intersection.hit
             # FIX: fuck , in yocto evalEnvironment yields a color with no interval
-            radiance += weight * evalEnvironment(scene, ray.direction)
+            radiance =
+                muladd.(weight, evalEnvironment(scene, ray.direction), radiance)
+            #radiance += weight * evalEnvironment(scene, ray.direction)
             # println("Bounce $bounce, radiance: $radiance")
             break
         end
@@ -81,7 +83,13 @@ function shadePath(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         end
 
         # accumulate emission
-        radiance += weight * evalEmission(materialEmission, normal, outgoing)
+        radiance =
+            muladd.(
+                weight,
+                evalEmission(materialEmission, normal, outgoing),
+                radiance,
+            )
+        #radiance += weight * evalEmission(materialEmission, normal, outgoing)
 
         # next direction
         incoming::SVec3f = zeroSV3f

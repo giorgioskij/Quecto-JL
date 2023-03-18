@@ -23,7 +23,13 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
-            radiance += weight * evalEnvironment(scene, newRay.direction)
+            radiance =
+                muladd.(
+                    weight,
+                    evalEnvironment(scene, newRay.direction),
+                    radiance,
+                )
+            #radiance += weight * evalEnvironment(scene, newRay.direction)
             break
         end
 
@@ -50,7 +56,11 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 break
             end
             opbounce += 1
-            newRay = Ray(position + newRay.direction * 0.01f0, newRay.direction)
+            newRay = Ray(
+                muladd.(newRay.direction, 0.01f0, position),
+                newRay.direction,
+            )
+            #newRay = Ray(position + newRay.direction * 0.01f0, newRay.direction)
             bounce -= 1
             continue
         end

@@ -116,8 +116,8 @@ function intersectScene(
                 nodeCur += 1
             end
         else
-            for idx = node.start:node.start+node.num-1
-                @inbounds instance = scene.instances[masterBvh.primitives[idx]]
+            @inbounds for idx = node.start:node.start+node.num-1
+                instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
 
                 sIntersection = intersectShapeBvh!(
@@ -217,9 +217,9 @@ function intersectShapeBvh!(
                 nodeCur += 1
             end
         elseif !isempty(shape.triangles)
-            for idx = node.start:node.start+node.num-1
-                @inbounds t = shape.triangles[bvh.primitives[idx]]
-                @inbounds pIntersection = intersectPrimitiveTriangle(
+            @inbounds for idx = node.start:node.start+node.num-1
+                t = shape.triangles[bvh.primitives[idx]]
+                pIntersection = intersectPrimitiveTriangle(
                     ray,
                     shape.positions[t.x],
                     shape.positions[t.y],
@@ -265,14 +265,18 @@ function intersectShapeBvh!(
             end
 
         elseif !isempty(shape.quads)
-            for idx = node.start:node.start+node.num-1
-                @inbounds q = shape.quads[bvh.primitives[idx]]
-                @inbounds pIntersection = intersectPrimitiveQuad(
+            @inbounds for idx = node.start:node.start+node.num-1
+                q = shape.quads[bvh.primitives[idx]]
+                pIntersection = intersectPrimitiveQuad(
                     ray,
                     shape.positions[q.x],
                     shape.positions[q.y],
                     shape.positions[q.z],
                     shape.positions[q.w],
+                    # shape.normals[q.x],
+                    # shape.normals[q.y],
+                    # shape.normals[q.z],
+                    # shape.normals[q.w],
                 )
 
                 # @inbounds pointAindex, pointBindex, pointCindex, pointDindex =
@@ -448,10 +452,36 @@ function intersectPrimitiveQuad(
     p1::SVec3f,
     p2::SVec3f,
     p3::SVec3f,
+    # n0::SVec3f,
+    # n1::SVec3f,
+    # n2::SVec3f,
+    # n3::SVec3f,
 )::PrimitiveIntersection
     if (p2 == p3)
         return intersectPrimitiveTriangle(ray, p0, p1, p3)
     end
+
+    # maybe can be usefull for faster quad intersection? but how obtain a correct normal here?
+    # from raytracing gems page 105, cool patches
+    # 4 corners + "normal" qn
+    # e10::SVec3f = p1 - p0 # p3 ----------- p2
+    # e11::SVec3f = p2 - p1 # |              |
+    # e00::SVec3f = p3 - p0 # | e00      e11 | we precompute
+    # qn::SVec3f = (n0 + n1 + n2 + n3) / 4.0f0#norm(    # | e10          | qn = cross(p1-p0,
+    # #                   p0 ----------- p1           p3-p2)
+    # #norm(StaticArrays.cross(e10, e00)) +
+    # #norm(StaticArrays.cross(p3 - p2, p1 - p2)),
+    # #) #
+    # p0 -= ray.origin
+    # p1 -= ray.origin
+    # a::Float32 = StaticArrays.dot(StaticArrays.cross(p0, ray.direction), e00) # the equation is
+    # c::Float32 = StaticArrays.dot(qn, ray.direction)                          # a + b u + c u^2
+    # b::Float32 = StaticArrays.dot(StaticArrays.cross(p1, ray.direction), e11) # first compute
+    # b -= a + c                                                                # a+b+c and then b
+    # det::Float32 = b * b - 4.0f0 * a * c
+    # if (det < 0)
+    #     return PrimitiveIntersection(false)
+    # end
 
     isec1 = intersectPrimitiveTriangle(ray, p0, p1, p3)
 
@@ -490,178 +520,178 @@ end
 # --------- the code below is the older naive implementation  ----------
 
 # intersect a scene without a bvh - naive bruteforce method
-function intersectScene(ray::Ray, scene::Scene)::Intersection
+# function intersectScene(ray::Ray, scene::Scene)::Intersection
 
-    # in the future this will be a BVH
-    intersection = Intersection(false)
-    for (instanceIndex, instance) in enumerate(scene.instances)
-        shape = scene.shapes[instance.shapeIndex]
-        for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
-            enumerate(eachcol(transpose(shape.triangles)))
-            @inbounds pointA = SVec3f(
-                shape.positions[pointAindex, 1],
-                shape.positions[pointAindex, 2],
-                shape.positions[pointAindex, 3],
-            )
-            @inbounds pointB = SVec3f(
-                shape.positions[pointBindex, 1],
-                shape.positions[pointBindex, 2],
-                shape.positions[pointBindex, 3],
-            )
-            @inbounds pointC = SVec3f(
-                shape.positions[pointCindex, 1],
-                shape.positions[pointCindex, 2],
-                shape.positions[pointCindex, 3],
-            )
-            triangle = Triangle(
-                transformPoint(instance.frame, pointA),
-                transformPoint(instance.frame, pointB),
-                transformPoint(instance.frame, pointC),
-            )
+#     # in the future this will be a BVH
+#     intersection = Intersection(false)
+#     for (instanceIndex, instance) in enumerate(scene.instances)
+#         shape = scene.shapes[instance.shapeIndex]
+#         for (triangleIndex, (pointAindex, pointBindex, pointCindex)) in
+#             enumerate(eachcol(transpose(shape.triangles)))
+#             @inbounds pointA = SVec3f(
+#                 shape.positions[pointAindex, 1],
+#                 shape.positions[pointAindex, 2],
+#                 shape.positions[pointAindex, 3],
+#             )
+#             @inbounds pointB = SVec3f(
+#                 shape.positions[pointBindex, 1],
+#                 shape.positions[pointBindex, 2],
+#                 shape.positions[pointBindex, 3],
+#             )
+#             @inbounds pointC = SVec3f(
+#                 shape.positions[pointCindex, 1],
+#                 shape.positions[pointCindex, 2],
+#                 shape.positions[pointCindex, 3],
+#             )
+#             triangle = Triangle(
+#                 transformPoint(instance.frame, pointA),
+#                 transformPoint(instance.frame, pointB),
+#                 transformPoint(instance.frame, pointC),
+#             )
 
-            hit::Intersection =
-                intersectTriangle(ray, triangle, instanceIndex, triangleIndex)
-            if hit.hit
-                ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
-                intersection = hit
-            end
-        end
+#             hit::Intersection =
+#                 intersectTriangle(ray, triangle, instanceIndex, triangleIndex)
+#             if hit.hit
+#                 ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
+#                 intersection = hit
+#             end
+#         end
 
-        for (quadIndex, (pointAindex, pointBindex, pointCindex, pointDindex)) in
-            enumerate(eachcol(transpose(shape.quads)))
-            @inbounds pointA = SVec3f(
-                shape.positions[pointAindex, 1],
-                shape.positions[pointAindex, 2],
-                shape.positions[pointAindex, 3],
-            )
-            @inbounds pointB = SVec3f(
-                shape.positions[pointBindex, 1],
-                shape.positions[pointBindex, 2],
-                shape.positions[pointBindex, 3],
-            )
-            @inbounds pointC = SVec3f(
-                shape.positions[pointCindex, 1],
-                shape.positions[pointCindex, 2],
-                shape.positions[pointCindex, 3],
-            )
-            @inbounds pointD = SVec3f(
-                shape.positions[pointDindex, 1],
-                shape.positions[pointDindex, 2],
-                shape.positions[pointDindex, 3],
-            )
-            quad = Quad(
-                transformPoint(instance.frame, pointA),
-                transformPoint(instance.frame, pointB),
-                transformPoint(instance.frame, pointC),
-                transformPoint(instance.frame, pointD),
-            )
+#         for (quadIndex, (pointAindex, pointBindex, pointCindex, pointDindex)) in
+#             enumerate(eachcol(transpose(shape.quads)))
+#             @inbounds pointA = SVec3f(
+#                 shape.positions[pointAindex, 1],
+#                 shape.positions[pointAindex, 2],
+#                 shape.positions[pointAindex, 3],
+#             )
+#             @inbounds pointB = SVec3f(
+#                 shape.positions[pointBindex, 1],
+#                 shape.positions[pointBindex, 2],
+#                 shape.positions[pointBindex, 3],
+#             )
+#             @inbounds pointC = SVec3f(
+#                 shape.positions[pointCindex, 1],
+#                 shape.positions[pointCindex, 2],
+#                 shape.positions[pointCindex, 3],
+#             )
+#             @inbounds pointD = SVec3f(
+#                 shape.positions[pointDindex, 1],
+#                 shape.positions[pointDindex, 2],
+#                 shape.positions[pointDindex, 3],
+#             )
+#             quad = Quad(
+#                 transformPoint(instance.frame, pointA),
+#                 transformPoint(instance.frame, pointB),
+#                 transformPoint(instance.frame, pointC),
+#                 transformPoint(instance.frame, pointD),
+#             )
 
-            hit::Intersection =
-                intersectQuad(ray, quad, instanceIndex, quadIndex)
-            if hit.hit
-                ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
-                intersection = hit
-            end
-        end
-    end
-    return intersection
-end
+#             hit::Intersection =
+#                 intersectQuad(ray, quad, instanceIndex, quadIndex)
+#             if hit.hit
+#                 ray = Ray(ray.origin, ray.direction, ray.tmin, hit.distance)
+#                 intersection = hit
+#             end
+#         end
+#     end
+#     return intersection
+# end
 
-function intersectTriangle(
-    ray::Ray,
-    triangle::Triangle,
-    instanceIndex::Int64,
-    triangleIndex::Int64,
-)::Intersection
-    edge1 = triangle.y - triangle.x
-    edge2 = triangle.z - triangle.x
-    pvec = StaticArrays.cross(ray.direction, edge2)
-    det = StaticArrays.dot(edge1, pvec)
+# function intersectTriangle(
+#     ray::Ray,
+#     triangle::Triangle,
+#     instanceIndex::Int64,
+#     triangleIndex::Int64,
+# )::Intersection
+#     edge1 = triangle.y - triangle.x
+#     edge2 = triangle.z - triangle.x
+#     pvec = StaticArrays.cross(ray.direction, edge2)
+#     det = StaticArrays.dot(edge1, pvec)
 
-    if det == 0
-        return Intersection(false)
-    end
+#     if det == 0
+#         return Intersection(false)
+#     end
 
-    inverseDet = 1.0f0 / det
+#     inverseDet = 1.0f0 / det
 
-    tvec = ray.origin - triangle.x
-    u = StaticArrays.dot(tvec, pvec) * inverseDet
-    if u < 0 || u > 1
-        return Intersection(false)
-    end
+#     tvec = ray.origin - triangle.x
+#     u = StaticArrays.dot(tvec, pvec) * inverseDet
+#     if u < 0 || u > 1
+#         return Intersection(false)
+#     end
 
-    qvec = StaticArrays.cross(tvec, edge1)
-    v = StaticArrays.dot(ray.direction, qvec) * inverseDet
-    if v < 0 || u + v > 1
-        return Intersection(false)
-    end
+#     qvec = StaticArrays.cross(tvec, edge1)
+#     v = StaticArrays.dot(ray.direction, qvec) * inverseDet
+#     if v < 0 || u + v > 1
+#         return Intersection(false)
+#     end
 
-    t = StaticArrays.dot(edge2, qvec) * inverseDet
-    if t < ray.tmin || t > ray.tmax
-        return Intersection(false)
-    end
+#     t = StaticArrays.dot(edge2, qvec) * inverseDet
+#     if t < ray.tmin || t > ray.tmax
+#         return Intersection(false)
+#     end
 
-    return Intersection(true, instanceIndex, triangleIndex, u, v, t)
-end
+#     return Intersection(true, instanceIndex, triangleIndex, u, v, t)
+# end
 
-function intersectQuad(
-    ray::Ray,
-    quad::Quad,
-    instanceIndex::Int64,
-    quadIndex::Int64,
-)
-    if (quad.c == quad.d)
-        return intersectTriangle(
-            ray,
-            Triangle(quad.a, quad.b, quad.c),
-            instanceIndex,
-            quadIndex,
-        )
-    end
+# function intersectQuad(
+#     ray::Ray,
+#     quad::Quad,
+#     instanceIndex::Int64,
+#     quadIndex::Int64,
+# )
+#     if (quad.c == quad.d)
+#         return intersectTriangle(
+#             ray,
+#             Triangle(quad.a, quad.b, quad.c),
+#             instanceIndex,
+#             quadIndex,
+#         )
+#     end
 
-    isec1 = intersectTriangle(
-        ray,
-        Triangle(quad.a, quad.b, quad.d),
-        instanceIndex,
-        quadIndex,
-    )
-    if (isec1.hit)
-        isec1 = Intersection(
-            true,
-            instanceIndex,
-            quadIndex,
-            isec1.u,
-            isec1.v,
-            isec1.distance,
-        )
-    end
-    isec2 = intersectTriangle(
-        ray,
-        Triangle(quad.c, quad.d, quad.b),
-        instanceIndex,
-        quadIndex,
-    )
-    if (isec2.hit)
-        isec2 = Intersection(
-            true,
-            instanceIndex,
-            quadIndex,
-            1 - isec2.u,
-            1 - isec2.v,
-            isec2.distance,
-        )
-    end
+#     isec1 = intersectTriangle(
+#         ray,
+#         Triangle(quad.a, quad.b, quad.d),
+#         instanceIndex,
+#         quadIndex,
+#     )
+#     if (isec1.hit)
+#         isec1 = Intersection(
+#             true,
+#             instanceIndex,
+#             quadIndex,
+#             isec1.u,
+#             isec1.v,
+#             isec1.distance,
+#         )
+#     end
+#     isec2 = intersectTriangle(
+#         ray,
+#         Triangle(quad.c, quad.d, quad.b),
+#         instanceIndex,
+#         quadIndex,
+#     )
+#     if (isec2.hit)
+#         isec2 = Intersection(
+#             true,
+#             instanceIndex,
+#             quadIndex,
+#             1 - isec2.u,
+#             1 - isec2.v,
+#             isec2.distance,
+#         )
+#     end
 
-    if (isec1.hit && !isec2.hit)
-        return isec1
-    elseif (isec2.hit && !isec1.hit)
-        return isec2
-    elseif (isec1.hit && isec2.hit)
-        return ifelse(isec1.distance < isec2.distance, isec1, isec2)
-    else
-        return isec1
-    end
-end
+#     if (isec1.hit && !isec2.hit)
+#         return isec1
+#     elseif (isec2.hit && !isec1.hit)
+#         return isec2
+#     elseif (isec1.hit && isec2.hit)
+#         return ifelse(isec1.distance < isec2.distance, isec1, isec2)
+#     else
+#         return isec1
+#     end
+# end
 
 # end module Intersect 
 end

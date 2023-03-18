@@ -59,7 +59,8 @@ end
     u::Float32,
     v::Float32,
 )::SVec2f
-    return p0 * (1 - u - v) + p1 * u + p2 * v
+    return muladd.(p0, (1 - u - v), muladd.(p1, u, p2 * v))
+    #return p0 * (1 - u - v) + p1 * u + p2 * v
 end
 
 @inline function interpolateTriangle(
@@ -69,7 +70,8 @@ end
     u::Float32,
     v::Float32,
 )::SVec3f
-    return p0 * (1 - u - v) .+ p1 * u + p2 * v
+    return muladd.(p0, (1 - u - v), muladd.(p1, u, p2 * v))
+    #return p0 * (1 - u - v) .+ p1 * u + p2 * v
 end
 
 @inline function interpolateQuad(
@@ -112,15 +114,22 @@ end
 end
 
 @inline @inbounds function transformPoint(frame::Frame, v::SVec3f)::SVec3f
-    return frame.x * v[1] + frame.y * v[2] + frame.z * v[3] + frame.o
+    return muladd.(
+        frame.x,
+        v[1],
+        muladd.(frame.y, v[2], muladd.(frame.z, v[3], frame.o)),
+    )
+    #return frame.x * v[1] + frame.y * v[2] + frame.z * v[3] + frame.o
 end
 
 @inline @inbounds function transformVector(frame::Frame, v::SVec3f)::SVec3f
-    return frame.x * v[1] + frame.y * v[2] + frame.z * v[3]
+    return muladd.(frame.x, v[1], muladd.(frame.y, v[2], frame.z * v[3]))
+    # return frame.x * v[1] + frame.y * v[2] + frame.z * v[3]
 end
 
 @inline @inbounds function transformVector(a::Mat3f, v::SVec3f)::SVec3f
-    return a.x * v[1] + a.y * v[2] + a.z * v[3]
+    return muladd.(a.x, v[1], muladd.(a.y, v[2], a.z * v[3]))
+    #return a.x * v[1] + a.y * v[2] + a.z * v[3]
 end
 
 @inline function transformDirection(frame::Frame, v::SVec3f)::SVec3f
@@ -136,14 +145,16 @@ end
 end
 
 @inline function linInterp(a::SVec4f, b::SVec4f, weight::Float32)::SVec4f
-    return a * (1 - weight) .+ b * weight
+    return muladd.(a, (1 - weight), b * weight)
+    # return a * (1 - weight) .+ b * weight
 end
 
 @inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)::SVec3f
     a = map(clamp01nan, a)
     b = map(clamp01nan, b)
 
-    return a * (1 - weight) + b * weight
+    return muladd.(a, (1 - weight), b * weight)
+    #return a * (1 - weight) + b * weight
 end
 
 @inline function sampleDisk(u::Float32, v::Float32)::SVec2f
@@ -197,7 +208,8 @@ end
 end
 
 @inline @inbounds function matMulVec(a::Mat3f, b::SVec3f)::SVec3f
-    return SVec3f(a.x * b[1] + a.y * b[2] + a.z * b[3])
+    return SVec3f(muladd.(a.x, b[1], muladd.(a.y, b[2], a.z * b[3])))
+    #return SVec3f(a.x * b[1] + a.y * b[2] + a.z * b[3])
 end
 
 @inline @inbounds function matMulFloat(a::Mat3f, b::Float32)::Mat3f
@@ -237,16 +249,19 @@ end
     return ifelse(
         rgb <= 0.0031308f0,
         12.92f0 * rgb,
-        (1 + 0.055f0) * fastPow(rgb, (1 / 2.4f0)) - 0.055f0,
+        muladd(1.055f0, fastPow(rgb, (1 / 2.4f0)), -0.055f0),
+        #(1 + 0.055f0) * fastPow(rgb, (1 / 2.4f0)) - 0.055f0,
     )
 end
+
 @inline function srgbToRgb(srgb::Float32)::Float32
     # srgb <= 0.04045 ? (srgb / 12.92f0) :
     # ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0
     return ifelse(
         srgb <= 0.04045f0,
         srgb / 12.92f0,
-        fastPow((srgb + 0.055f0) / (1.0f0 + 0.055f0), 2.4f0),
+        fastPow((srgb + 0.055f0) / 1.055f0, 2.4f0),
+        #fastPow((srgb + 0.055f0) / (1.0f0 + 0.055f0), 2.4f0),
     )
 end
 
@@ -256,16 +271,19 @@ end
 end
 
 @inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
-    return -w + 2.0f0 * dot(n, w) * n
+    return muladd.(2.0f0 * dot(n, w), n, -w)
+    #return -w + 2.0f0 * dot(n, w) * n
 end
 
 @inline function refract(w::SVec3f, n::SVec3f, invEta::Float32)::SVec3f
     cosine = dot(n, w)
-    k = 1.0f0 + invEta * invEta * (cosine * cosine - 1.0f0)
+    k = muladd(invEta * invEta, muladd(cosine, cosine, -1.0f0), 1.0f0)
+    #k = 1.0f0 + invEta * invEta * (cosine * cosine - 1.0f0)
     if k < 0
         return zeroSV3f
     end
-    return -w * invEta + (invEta * cosine - sqrt(k)) * n
+    return muladd.(-w, invEta, muladd(invEta, cosine, -sqrt(k)) * n)
+    #return -w * invEta + (invEta * cosine - sqrt(k)) * n
 end
 
 # Constructs a basis from a direction
@@ -274,8 +292,10 @@ end
     sign = copysign(1.0f0, z.z)
     a = -1.0f0 / (sign + z.z)
     b = z.x * z.y * a
-    x = SVec3f(1.0f0 + sign * z.x * z.x * a, sign * b, -sign * z.x)
-    y = SVec3f(b, sign + z.y * z.y * a, -z.y)
+    x = SVec3f(muladd(sign * z.x * z.x, a, 1.0f0), sign * b, -sign * z.x)
+    #x = SVec3f(1.0f0 + sign * z.x * z.x * a, sign * b, -sign * z.x)
+    y = SVec3f(b, muladd(z.y * z.y, a, sign), -z.y)
+    #y = SVec3f(b, sign + z.y * z.y * a, -z.y)
     return Mat3f(x, y, z)
 end
 

@@ -248,11 +248,18 @@ end
     # D = preciseMicrofacetDistribution(roughness, normal, halfway)
     G = microfacetShadowing(roughness, upNormal, halfway, outgoing, incoming)
     radiance =
-        color * (1 - F1) / pi * #2 *
-        abs(dot(upNormal, incoming)) +
-        SVec3f(1, 1, 1) * F * D * G /
-        (4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)) *
-        abs(dot(upNormal, incoming)) #^1.3
+        muladd.(
+            color,
+            (1 - F1) / pi * abs(dot(upNormal, incoming)),
+            SVec3f(1, 1, 1) * F * D * G /
+            (4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)) *
+            abs(dot(upNormal, incoming)),
+        )
+    # color * (1 - F1) / pi * #2 *
+    # abs(dot(upNormal, incoming)) +
+    # SVec3f(1, 1, 1) * F * D * G /
+    # (4.0f0 * dot(upNormal, outgoing) * dot(upNormal, incoming)) *
+    # abs(dot(upNormal, incoming)) #^1.3
     return radiance
 end
 
@@ -337,7 +344,9 @@ end
                abs(dot(normal, incoming))
     else
         halfway =
-            -norm(relIor * incoming + outgoing) * (entering ? 1.0f0 : -1.0f0)
+            -norm(muladd.(relIor, incoming, outgoing)) *
+            (entering ? 1.0f0 : -1.0f0)
+        #-norm(relIor * incoming + outgoing) * (entering ? 1.0f0 : -1.0f0)
         F = fresnelDielectric(relIor, halfway, outgoing)
         D = microfacetDistribution(roughness, upNormal, halfway)
         G = microfacetShadowing(
@@ -356,8 +365,12 @@ end
                (1 - F) *
                D *
                G /
-               (
-            relIor * dot(halfway, incoming) + dot(halfway, outgoing) # here if happer a comma from formatter delete it!
+               (muladd(
+            relIor,
+            dot(halfway, incoming),
+            dot(halfway, outgoing),
+        )
+        #relIor * dot(halfway, incoming) + dot(halfway, outgoing) # here if happer a comma from formatter delete it!
         )^2.0f0 * abs(dot(normal, incoming))
     end
 end
@@ -484,7 +497,7 @@ end
     if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
         return SVec3f(1, 1, 1) * fresnelDielectric(ior, upNormal, outgoing)
     else
-        return color * (1 - fresnelDielectric(ior, upNormal, outgoing))
+        return color * (1.0f0 - fresnelDielectric(ior, upNormal, outgoing))
     end
 end
 

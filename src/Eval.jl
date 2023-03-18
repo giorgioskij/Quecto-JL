@@ -278,11 +278,26 @@ function evalTexture(
         return lookupTexture(texture, i, j)
     else
         return (
-            lookupTexture(texture, i, j) * (1 - u) * (1 - v) +
-            lookupTexture(texture, i, jj) * (1 - u) * v +
-            lookupTexture(texture, ii, j) * u * (1 - v) +
-            lookupTexture(texture, ii, jj) * u * v
+            muladd.(
+                lookupTexture(texture, i, j),
+                (1 - u) * (1 - v),
+                muladd.(
+                    lookupTexture(texture, i, jj),
+                    (1 - u) * v,
+                    muladd.(
+                        lookupTexture(texture, ii, j),
+                        u * (1 - v),
+                        lookupTexture(texture, ii, jj) * u * v,
+                    ),
+                ),
+            )
         )
+        # return (
+        #     lookupTexture(texture, i, j) * (1 - u) * (1 - v) +
+        #     lookupTexture(texture, i, jj) * (1 - u) * v +
+        #     lookupTexture(texture, ii, j) * u * (1 - v) +
+        #     lookupTexture(texture, ii, jj) * u * v
+        # )
     end
 end
 
@@ -313,7 +328,8 @@ end
 
 function evalNormalSphere(ray::Ray, sphereCenter::SVec3f)
     # compute coordinates of point hit
-    pointHit::SVec3f = ray.origin + ray.tmin * ray.direction
+    pointHit::SVec3f = muladd.(ray.tmin, ray.direction, ray.origin)
+    #pointHit::SVec3f = ray.origin + ray.tmin * ray.direction
     # compute normal: n = (p-c) / |p-c|
     normal = unitVector(pointHit - sphereCenter)
     return normal

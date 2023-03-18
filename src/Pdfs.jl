@@ -17,7 +17,7 @@ export pdfBSDF, pdfDelta
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     if material.roughness != 0
         return 0
     end
@@ -38,7 +38,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return 0
     end
@@ -50,7 +50,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
     if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
         return fresnelDielectric(ior, upNormal, outgoing)
@@ -64,7 +64,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     if (abs(ior - 1.0f0) < 1.0f-3)
         return dot(normal, incoming) * dot(normal, outgoing) < 0 ? 1.0f0 : 0.0f0
     end
@@ -74,7 +74,7 @@ end
     if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
         return fresnelDielectric(relIor, upNormal, outgoing)
     else
-        return (1.0f0 - fresnelDielectric(relIor, upNormal, outgoing))
+        return 1.0f0 - fresnelDielectric(relIor, upNormal, outgoing)
     end
 end
 
@@ -87,7 +87,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     if (material.roughness == 0)
         return 0
     end
@@ -137,7 +137,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return 0
     end
@@ -152,16 +152,22 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return 0
     end
     normal = dot(normal, outgoing) <= 0 ? -normal : normal
     F = fresnelDielectric(ior, normal, outgoing)
     halfway = norm(outgoing + incoming)
-    return F * pdfMicrofacet(roughness, normal, halfway) /
-           (4.0f0 * abs(dot(outgoing, halfway))) +
-           (1 - F) * pdfHemisphereCos(normal, incoming)
+    return muladd(
+        F,
+        pdfMicrofacet(roughness, normal, halfway) /
+        (4.0f0 * abs(dot(outgoing, halfway))),
+        (1 - F) * pdfHemisphereCos(normal, incoming),
+    )
+    # return F * pdfMicrofacet(roughness, normal, halfway) /
+    #        (4.0f0 * abs(dot(outgoing, halfway))) +
+    #        (1 - F) * pdfHemisphereCos(normal, incoming)
 end
 
 @inline function pdfBSDFReflective(
@@ -169,7 +175,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     if dot(normal, incoming) * dot(normal, outgoing) <= 0
         return 0
     end
@@ -186,7 +192,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     upNormal = dot(normal, outgoing) <= 0 ? -normal : normal
     if (dot(normal, incoming) * dot(normal, outgoing) >= 0)
         halfway = norm(incoming + outgoing)
@@ -209,7 +215,7 @@ end
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,
-)
+)::Float32
     entering = dot(normal, outgoing) >= 0
     upNormal = entering ? normal : -normal
     relIor = entering ? ior : (1.0f0 / ior)
@@ -220,11 +226,18 @@ end
                (4.0f0 * abs(dot(outgoing, halfway)))
     else
         halfway =
-            -norm(relIor * incoming + outgoing) * (entering ? 1.0f0 : -1.0f0)
+            -norm(muladd.(relIor, incoming, outgoing)) *
+            (entering ? 1.0f0 : -1.0f0)
+        #-norm(relIor * incoming + outgoing) * (entering ? 1.0f0 : -1.0f0)
         return (1.0f0 - fresnelDielectric(relIor, halfway, outgoing)) *
                pdfMicrofacet(roughness, upNormal, halfway) *
                abs(dot(halfway, incoming)) /
-               (relIor * dot(halfway, incoming) + dot(halfway, outgoing))^2.0f0
+               muladd(
+            relIor,
+            dot(halfway, incoming),
+            dot(halfway, outgoing),
+        )^2.0f0
+        #(relIor * dot(halfway, incoming) + dot(halfway, outgoing))^2.0f0
     end
 end
 

@@ -51,7 +51,8 @@ end
 )::Float32
     cosw = abs(dot(normal, outgoing))
 
-    sin2 = 1.0f0 - cosw * cosw
+    sin2 = muladd(-cosw, cosw, 1.0f0)
+    #sin2 = 1.0f0 - cosw * cosw
     eta2 = eta * eta
 
     cos2t = 1.0f0 - sin2 / eta2
@@ -66,7 +67,8 @@ end
     rs = (cosw - t1) / (cosw + t1)
     rp = (t0 - t2) / (t0 + t2)
 
-    return (rs * rs + rp * rp) / 2.0f0
+    #return (rs * rs + rp * rp) / 2.0f0
+    return muladd(rs, rs, rp * rp) / 2.0f0 # fma seems faster but it may depends on architecture
 end
 
 @inline function fresnelConductor(
@@ -86,13 +88,15 @@ end
     etak2::SVec3f = etak * etak
 
     t0::SVec3f = eta2 - etak2 .- sin2
-    a2plusb2::SVec3f = sqrt.(t0 * t0 + 4.0f0 * eta2 * etak2)
+    a2plusb2::SVec3f = sqrt.(muladd.(t0, t0, 4.0f0 * eta2 * etak2))
+    #a2plusb2::SVec3f = sqrt.(t0 * t0 + 4.0f0 * eta2 * etak2)
     t1::SVec3f = a2plusb2 .+ cos2
     a::SVec3f = sqrt.((a2plusb2 + t0) / 2.0f0)
     t2::SVec3f = 2.0f0 * a * cosw
     rs::SVec3f = (t1 - t2) / (t1 + t2)
 
-    t3::SVec3f = cos2 * a2plusb2 .+ sin2 * sin2
+    t3::SVec3f = muladd.(a2plusb2, cos2, sin2 * sin2)
+    # t3::SVec3f = cos2 * a2plusb2 .+ sin2 * sin2
     t4::SVec3f = t2 * sin2
     rp::SVec3f = rs * (t3 - t4) / (t3 + t4)
 
@@ -114,8 +118,10 @@ end
     if ggx
         return roughness2 / (
             pi *
-            (cosine2 * roughness2 + 1 - cosine2) *
-            (cosine2 * roughness2 + 1 - cosine2)
+            muladd(cosine2, roughness2, 1 - cosine2) *
+            muladd(cosine2, roughness2, 1 - cosine2)
+            #(cosine2 * roughness2 + 1 - cosine2) *
+            #(cosine2 * roughness2 + 1 - cosine2)
         )
     else
         return exp((cosine2 - 1) / (roughness2 * cosine2)) /
@@ -132,7 +138,8 @@ end
     nxh = cross(normal, halfway)
 
     a = cosine * roughness
-    k = roughness / (dot(nxh, nxh) + a * a)
+    k = roughness / muladd(a, a, dot(nxh, nxh))
+    #k = roughness / (dot(nxh, nxh) + a * a)
     return k * k / pi
 end
 
@@ -143,7 +150,7 @@ end
     outgoing::SVec3f,
     incoming::SVec3f,
     ggx::Bool = true,
-)
+)::Float32
     return microfacetShadowing1(roughness, normal, halfway, outgoing, ggx) *
            microfacetShadowing1(roughness, normal, halfway, incoming, ggx)
 end
@@ -154,7 +161,7 @@ end
     halfway::SVec3f,
     direction::SVec3f,
     ggx::Bool,
-)
+)::Float32
     cosine = dot(normal, direction)
     cosineh = dot(halfway, direction)
     if cosine * cosineh <= 0
@@ -163,20 +170,26 @@ end
     roughness2 = roughness * roughness
     cosine2 = cosine * cosine
     if ggx
-        return 2 * abs(cosine) /
-               (abs(cosine) + sqrt(cosine2 - roughness2 * cosine2 + roughness2))
+        return 2.0f0 * abs(cosine) / (
+            abs(cosine) +
+            sqrt(muladd(-roughness2, cosine2, cosine2) + roughness2)
+        )
+        #(abs(cosine) + sqrt(cosine2 - roughness2 * cosine2 + roughness2))
     else
         ci = abs(cosine) / (roughness * sqrt(1 - cosine2))
         return ci < 1.6f0 ?
-               (3.535f0 * ci + 2.181f0 * ci * ci) /
-               (1.0f0 + 2.276f0 * ci + 2.577f0 * ci * ci) : 1.0f0
+               muladd(3.535f0, ci, 2.181f0 * ci * ci) /
+               (1.0f0 + muladd(2.276f0, ci, 2.577f0 * ci * ci)) : 1.0f0
+        #    (3.535f0 * ci + 2.181f0 * ci * ci) /
+        #    (1.0f0 + 2.276f0 * ci + 2.577f0 * ci * ci) : 1.0f0
     end
 end
 
 @inline function sampleHemisphere(normal::SVec3f)::SVec3f
     ruvx = rand(Float32)
     z = rand(Float32)  # ruvy
-    r = sqrt(clamp(1 - z * z, 0.0f0, 1.0f0))
+    r = sqrt(clamp(muladd(-z, z, 1.0f0), 0.0f0, 1.0f0))
+    #r = sqrt(clamp(1 - z * z, 0.0f0, 1.0f0))
     phi = 2 * pi * ruvx
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
@@ -185,7 +198,8 @@ end
 @inline function sampleHemisphereCos(normal::SVec3f)::SVec3f
     ruvx = rand(Float32)
     z = sqrt(rand(Float32))  # ruvy
-    r = sqrt(1.0f0 - z * z)
+    r = sqrt(muladd(-z, z, 1.0f0))
+    #r = sqrt(1.0f0 - z * z)
     phi = 2.0f0 * pi * ruvx
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
@@ -198,7 +212,8 @@ end
     ruxy = rand(Float32)
     ruvy = rand(Float32)
     z = ruvy^(1.0f0 / (exponent + 1.0f0))
-    r = sqrt(1.0f0 - z * z)
+    r = sqrt(muladd(-z, z, 1.0f0))
+    #r = sqrt(1.0f0 - z * z)
     phi = 2.0f0 * pi * ruxy
     localDirection = SVec3f(r * cos(phi), r * sin(phi), z)
     return transformDirection(basisFromz(normal), localDirection)
