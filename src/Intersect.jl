@@ -77,16 +77,16 @@ function intersectScene(
     threadid::UInt8 = Threads.threadid()
     startindex = (threadid - 1) * masterBvhDepth + 1
     endindex = startindex + masterBvhDepth - 1
-    nodeStack = @view masterNodeStack[startindex:endindex]
+    nodeStack = @inbounds @view masterNodeStack[startindex:endindex]
 
-    nodeStack[nodeCur] = 1
+    @inbounds nodeStack[nodeCur] = 1
     nodeCur += 1
 
     # init intersection
     intersection::Intersection = Intersection(false)
 
-    rayDInv::SVec3f = 1.0f0 ./ ray.direction
-    rayDSign::SVec3i = rayDInv .< 0
+    @fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    @fastmath rayDSign::SVec3i = rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -226,26 +226,6 @@ function intersectShapeBvh!(
                     shape.positions[t.z],
                 )
 
-                # @inbounds pointAindex, pointBindex, pointCindex =
-                #     @view shape.triangles[bvh.primitives[idx], :]
-
-                # @inbounds pointA = SVec3f(
-                #     shape.positions[pointAindex, 1],
-                #     shape.positions[pointAindex, 2],
-                #     shape.positions[pointAindex, 3],
-                # )
-                # @inbounds pointB = SVec3f(
-                #     shape.positions[pointBindex, 1],
-                #     shape.positions[pointBindex, 2],
-                #     shape.positions[pointBindex, 3],
-                # )
-                # @inbounds pointC = SVec3f(
-                #     shape.positions[pointCindex, 1],
-                #     shape.positions[pointCindex, 2],
-                #     shape.positions[pointCindex, 3],
-                # )
-                # pIntersection =
-                #     intersectPrimitiveTriangle(ray, pointA, pointB, pointC)
                 if !pIntersection.hit
                     continue
                 end
@@ -279,31 +259,6 @@ function intersectShapeBvh!(
                     # shape.normals[q.w],
                 )
 
-                # @inbounds pointAindex, pointBindex, pointCindex, pointDindex =
-                #     @view shape.quads[bvh.primitives[idx], :]
-                # @inbounds pointA = SVec3f(
-                #     shape.positions[pointAindex, 1],
-                #     shape.positions[pointAindex, 2],
-                #     shape.positions[pointAindex, 3],
-                # )
-                # @inbounds pointB = SVec3f(
-                #     shape.positions[pointBindex, 1],
-                #     shape.positions[pointBindex, 2],
-                #     shape.positions[pointBindex, 3],
-                # )
-                # @inbounds pointC = SVec3f(
-                #     shape.positions[pointCindex, 1],
-                #     shape.positions[pointCindex, 2],
-                #     shape.positions[pointCindex, 3],
-                # )
-                # @inbounds pointD = SVec3f(
-                #     shape.positions[pointDindex, 1],
-                #     shape.positions[pointDindex, 2],
-                #     shape.positions[pointDindex, 3],
-                # )
-
-                # pIntersection =
-                #     intersectPrimitiveQuad(ray, pointA, pointB, pointC, pointD)
                 if !pIntersection.hit
                     continue
                 end
@@ -331,7 +286,11 @@ function intersectShapeBvh!(
 end
 
 # Intersect a ray with a axis-aligned bounding box
-@inline function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool
+@inline @fastmath function intersectBbox(
+    ray::Ray,
+    rayDInv::SVec3f,
+    bbox::Bbox3f,
+)::Bool
     itMin::SVec3f = (bbox.min - ray.origin) * rayDInv
     itMax::SVec3f = (bbox.max - ray.origin) * rayDInv
     # broadcast for min and max are faster than map look here: https://github.com/JuliaLang/julia/pull/45532 
@@ -345,37 +304,41 @@ end
 end
 
 @inline @inbounds function fastMinimum(a::SVec3f)::Float32
-    @fastmath ifelse(
-        a[1] < a[2],
-        ifelse(a[1] < a[3], a[1], a[3]),
-        ifelse(a[2] < a[3], a[2], a[3]),
-    )
+    # @fastmath ifelse(
+    #     a[1] < a[2],
+    #     ifelse(a[1] < a[3], a[1], a[3]),
+    #     ifelse(a[2] < a[3], a[2], a[3]),
+    # )
+    Base.FastMath.min_fast.(a[1], a[2], a[3])
 end
 
 @inline @inbounds function fastMaximum(a::SVec3f)::Float32
-    @fastmath ifelse(
-        a[1] > a[2],
-        ifelse(a[1] > a[3], a[1], a[3]),
-        ifelse(a[2] > a[3], a[2], a[3]),
-    )
+    # @fastmath ifelse(
+    #     a[1] > a[2],
+    #     ifelse(a[1] > a[3], a[1], a[3]),
+    #     ifelse(a[2] > a[3], a[2], a[3]),
+    # )
+    Base.FastMath.max_fast.(a[1], a[2], a[3])
 end
 
 @inline function fastMin(a::Float32, b::Float32)::Float32
-    @fastmath a_b = a - b
-    # (signbit(a_b) || isnan(a)) ? a : b
-    # nan checks are for WEAK PROGRAMMERS, we want SPEED
-    @fastmath signbit(a_b) ? a : b
+    # @fastmath a_b = a - b
+    # # (signbit(a_b) || isnan(a)) ? a : b
+    # # nan checks are for WEAK PROGRAMMERS, we want SPEED
+    # @fastmath signbit(a_b) ? a : b
+    Base.FastMath.min_fast(a, b)
 end
 
 @inline function fastMax(a::Float32, b::Float32)::Float32
-    @fastmath b_a = b - a
-    # (signbit(b_a) || isnan(a)) ? a : b
-    # jokes aside, nan checks actually increase time by like 2%. insane
-    @fastmath signbit(b_a) ? a : b
+    # @fastmath b_a = b - a
+    # # (signbit(b_a) || isnan(a)) ? a : b
+    # # jokes aside, nan checks actually increase time by like 2%. insane
+    # @fastmath signbit(b_a) ? a : b
+    Base.FastMath.max_fast(a, b)
 end
 
 # intersect a primitive triangle, given as a list of 3d points.
-function intersectPrimitiveTriangle(
+@fastmath function intersectPrimitiveTriangle(
     ray::Ray,
     p0::SVec3f,
     p1::SVec3f,
@@ -446,7 +409,7 @@ end
 # end
 
 # intersect a primitive quad, given as a list of 3d points.
-function intersectPrimitiveQuad(
+@fastmath function intersectPrimitiveQuad(
     ray::Ray,
     p0::SVec3f,
     p1::SVec3f,

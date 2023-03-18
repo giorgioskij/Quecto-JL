@@ -3,7 +3,7 @@ using PlyIO
 using .Types
 using Images
 
-function loadJsonScene(scenePath::String)
+function loadJsonScene(scenePath::String)::Scene
     json = JSON.parsefile(scenePath)
 
     # if haskey(json, "asset")
@@ -196,7 +196,7 @@ function loadJsonScene(scenePath::String)
         if lowercase(extension) == "png"
             image = loadTexturePng(path)
             # hdrImage = Matrix{RGB{N0f16}}(undef, 0, 0)
-            textures[i] = Texture(
+            @inbounds textures[i] = Texture(
                 image,
                 # hdrImage,
                 # false, # png is not linear
@@ -206,7 +206,7 @@ function loadJsonScene(scenePath::String)
         elseif lowercase(extension) == "hdr"
             image = loadTextureHdr(path)
             # image = Matrix{RGB{N0f8}}(undef, 0, 0)
-            textures[i] = Texture(
+            @inbounds textures[i] = Texture(
                 image,
                 # hdrImage,
                 # true, # hdr is linear
@@ -230,7 +230,8 @@ end
 function loadTexturePng(filename::String)::Matrix{SVec4f}
     image = load(filename)
     # undo srgb and transform into Vector{SVector}
-    imageVector = map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, x.alpha)), image)
+    @inbounds imageVector =
+        map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, x.alpha)), image)
     # reverse!(imageVector, dims = 1)
     return imageVector
 end
@@ -242,7 +243,7 @@ function loadTextureHdr(filename::String)::Matrix{SVec4f}
     # undo srgb and transform into Vector{SVector}
     # save("sky_test_pre.png", image)
     # FIX: julia applies srgb automatically when loading hdr
-    imageVector = map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, 1)), image)
+    @inbounds imageVector = map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, 1)), image)
     # save(
     #     "sky_test_post.png",
     #     map(x -> RGBA(x[1], x[2], x[3], x[4]), imageVector),
@@ -250,14 +251,14 @@ function loadTextureHdr(filename::String)::Matrix{SVec4f}
     return imageVector
 end
 
-function loadShape(filename::String)
+function loadShape(filename::String)::Shape
     ply = load_ply(filename)
 
     # check properties
     vertexProperties = plyname.(ply["vertex"].properties)
 
     # load positions
-    positions = Vector{SVec3f}[]
+    positions::Vector{SVec3f} = Vector{SVec3f}[]
     if "x" in vertexProperties &&
        "y" in vertexProperties &&
        "z" in vertexProperties
@@ -269,7 +270,7 @@ function loadShape(filename::String)
     end
 
     # load normals
-    normals = Vector{SVec3f}[]
+    normals::Vector{SVec3f} = Vector{SVec3f}[]
     if "nx" in vertexProperties &&
        "ny" in vertexProperties &&
        "nz" in vertexProperties
@@ -281,28 +282,31 @@ function loadShape(filename::String)
     end
 
     # load texture coordinates
-    textureCoords = Vector{SVec2f}[]
+    textureCoords::Vector{SVec2f} = Vector{SVec2f}[]
     if "u" in vertexProperties && "v" in vertexProperties
         u = ply["vertex"]["u"]
         v = ply["vertex"]["v"]
 
-        textureCoords = map((x) -> SVec2f(x[1], 1 - x[2]), collect(zip(u, v)))
+        @inbounds textureCoords =
+            map((x) -> SVec2f(x[1], 1 - x[2]), collect(zip(u, v)))
     end
 
     faces = ply["face"]["vertex_indices"]
 
     # count triangles and quads
-    triCount = count(elem -> (size(elem[1])[end] == 3), eachrow(faces))
-    quadCount = count(elem -> (size(elem[1])[end] == 4), eachrow(faces))
+    @inbounds triCount =
+        count(elem -> (size(elem[1])[end] == 3), eachrow(faces))
+    @inbounds quadCount =
+        count(elem -> (size(elem[1])[end] == 4), eachrow(faces))
     if triCount + quadCount != size(faces)[1]
-        throw(MissingException("Only implemented triangles and quads"))
+        error("Only implemented triangles and quads")
     end
 
     # load triangles and quads
-    triangles = Vector{SVec3i}[]
-    quads = Vector{SVec4i}[]
+    triangles::Vector{SVec3i} = Vector{SVec3i}[]
+    quads::Vector{SVec4i} = Vector{SVec4i}[]
     if quadCount > 0
-        quads::Vector{SVec4i} = map(
+        @inbounds quads = map(
             x ->
                 size(x[1])[end] == 3 ?
                 SVec4i(x[1][1] + 1, x[1][2] + 1, x[1][3] + 1, x[1][3] + 1) :
@@ -310,7 +314,7 @@ function loadShape(filename::String)
             eachrow(faces),
         )
     elseif triCount > 0
-        triangles = map(x -> SVec3i((x[1] .+ 1)...), eachrow(faces))
+        @inbounds triangles = map(x -> SVec3i((x[1] .+ 1)...), eachrow(faces))
     else
         error("Zero triangles and zero quads. No bueno?")
     end

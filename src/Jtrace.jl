@@ -25,7 +25,7 @@ using .Bvh
 using .World
 using .Shading
 
-export trace, t
+export trace
 
 # main entry point to the program
 function trace(;
@@ -78,7 +78,7 @@ function trace(;
 
     # call the function to trace samples
 
-    t = @elapsed traceSamples(
+    t = @elapsed traceSamples!(
         shaderFunc,
         image,
         scene,
@@ -100,7 +100,11 @@ function trace(;
     end
 end
 
-function saveImage(filename::String, image::Matrix{SVec4f}, multithreaded::Bool)
+function saveImage(
+    filename::String,
+    image::Matrix{SVec4f},
+    multithreaded::Bool,
+)::Nothing
     pngImage = zeros(RGBA, size(image))
     if multithreaded
         @inbounds Threads.@threads for i = 1:size(image, 1)
@@ -120,9 +124,10 @@ function saveImage(filename::String, image::Matrix{SVec4f}, multithreaded::Bool)
         end
     end
     save(filename, pngImage)
+    nothing
 end
 
-function traceSamples(
+function traceSamples!(
     shader::Function,
     image::Matrix{SVec4f},
     scene::Scene,
@@ -132,12 +137,13 @@ function traceSamples(
     bvh::SceneBvh,
     camera::Camera,
     multithreaded::Bool,
-)
+)::Nothing
     for s = 1:samples
+        weight::Float32 = 1.0f0 / s
         if multithreaded
-            @inbounds Threads.@threads for i = 1:size(image)[2]
-                @inbounds Threads.@threads for j = 1:size(image)[1]
-                    radiance = traceSample(
+            @inbounds Threads.@threads for i = 1:size(image, 2)
+                @inbounds Threads.@threads for j = 1:size(image, 1)
+                    radiance::SVec3f = traceSample(
                         shader,
                         i,
                         j,
@@ -147,7 +153,6 @@ function traceSamples(
                         imheight,
                         bvh,
                     )
-                    weight::Float32 = 1 / s
                     @inbounds image[j, i] =
                     # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
                     # linInterp(image[j, i], color, weight)
@@ -161,7 +166,7 @@ function traceSamples(
         else
             for i = 1:size(image)[2]
                 for j = 1:size(image)[1]
-                    radiance = traceSample(
+                    radiance::SVec3f = traceSample(
                         shader,
                         i,
                         j,
@@ -172,7 +177,6 @@ function traceSamples(
                         bvh,
                     )
 
-                    weight::Float32 = 1 / s
                     @inbounds image[j, i] =
                     # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
                     # linInterp(image[j, i], color, weight)
@@ -185,6 +189,7 @@ function traceSamples(
             end
         end
     end
+    nothing
 end
 
 function traceSample(
@@ -203,7 +208,7 @@ function traceSample(
     ray = sampleCamera(camera, i - 1, j - 1, imwidth, imheight)
 
     # call the shader
-    radiance = shader(scene, ray, bvh)
+    radiance::SVec3f = shader(scene, ray, bvh)
 
     return radiance
 end

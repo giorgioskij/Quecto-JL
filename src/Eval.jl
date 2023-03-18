@@ -207,7 +207,7 @@ function evalTexture(
     )
 end
 
-function evalTexture(
+@fastmath function evalTexture(
     texture::Texture,
     textureX::Float32,
     textureY::Float32,

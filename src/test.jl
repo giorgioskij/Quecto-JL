@@ -2,6 +2,7 @@ using Pkg
 using Revise
 using Jtrace
 using Cthulhu
+using JET
 # scenePath = "03_texture/texture.json"
 # scenePath = "02_matte/matte.json"
 #scenePath = "02_matte/bunny.json"

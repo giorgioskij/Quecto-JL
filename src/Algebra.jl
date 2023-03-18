@@ -33,14 +33,20 @@ export transformNormal,
     basisFromz
 
 @inline function *(a::SVector, b::SVector)::SVector
+    # Why this is faster than the broadcast variant?
+    # on my PC it's seems broadcast is almost the same speed
     @turbo map(*, a, b)
+    # why here we can't use vmap instead of map? It outputs monocolored image
 end
 
 @inline function /(a::SVector, b::SVector)::SVector
+    # Why this is faster than the broadcast variant?
+    # on my PC it's seems broadcast is almost the same speed
     @turbo map(/, a, b)
+    # why here we can't use vmap instead of map? It outputs monocolored image
 end
 
-@inline function transformNormal(
+@inline @fastmath function transformNormal(
     frame::Frame,
     v::SVec3f,
     nonRigid = false,
@@ -52,7 +58,7 @@ end
     end
 end
 
-@inline function interpolateTriangle(
+@inline @fastmath function interpolateTriangle(
     p0::SVec2f,
     p1::SVec2f,
     p2::SVec2f,
@@ -63,7 +69,7 @@ end
     #return p0 * (1 - u - v) + p1 * u + p2 * v
 end
 
-@inline function interpolateTriangle(
+@inline @fastmath function interpolateTriangle(
     p0::SVec3f,
     p1::SVec3f,
     p2::SVec3f,
@@ -74,7 +80,7 @@ end
     #return p0 * (1 - u - v) .+ p1 * u + p2 * v
 end
 
-@inline function interpolateQuad(
+@inline @fastmath function interpolateQuad(
     p0::SVec2f,
     p1::SVec2f,
     p2::SVec2f,
@@ -89,7 +95,7 @@ end
     end
 end
 
-@inline function interpolateQuad(
+@inline @fastmath function interpolateQuad(
     p0::SVec3f,
     p1::SVec3f,
     p2::SVec3f,
@@ -104,16 +110,19 @@ end
     end
 end
 
-@inline function norm(v::SVec3f)::SVec3f
+@inline @fastmath function norm(v::SVec3f)::SVec3f
     l = length(v)
     return ifelse(l != 0, v / l, v)
 end
 
-@inline function length(v::SVec3f)::Float32
+@inline @fastmath function length(v::SVec3f)::Float32
     return sqrt(dot(v, v))
 end
 
-@inline @inbounds function transformPoint(frame::Frame, v::SVec3f)::SVec3f
+@inline @inbounds @fastmath function transformPoint(
+    frame::Frame,
+    v::SVec3f,
+)::SVec3f
     return muladd.(
         frame.x,
         v[1],
@@ -122,12 +131,18 @@ end
     #return frame.x * v[1] + frame.y * v[2] + frame.z * v[3] + frame.o
 end
 
-@inline @inbounds function transformVector(frame::Frame, v::SVec3f)::SVec3f
+@inline @inbounds @fastmath function transformVector(
+    frame::Frame,
+    v::SVec3f,
+)::SVec3f
     return muladd.(frame.x, v[1], muladd.(frame.y, v[2], frame.z * v[3]))
     # return frame.x * v[1] + frame.y * v[2] + frame.z * v[3]
 end
 
-@inline @inbounds function transformVector(a::Mat3f, v::SVec3f)::SVec3f
+@inline @inbounds @fastmath function transformVector(
+    a::Mat3f,
+    v::SVec3f,
+)::SVec3f
     return muladd.(a.x, v[1], muladd.(a.y, v[2], a.z * v[3]))
     #return a.x * v[1] + a.y * v[2] + a.z * v[3]
 end
@@ -140,16 +155,24 @@ end
     return norm(transformVector(a, v))
 end
 
-@inline function unitVector(v::SVec3f)::SVec3f
+@inline @fastmath function unitVector(v::SVec3f)::SVec3f
     return v / length(v)
 end
 
-@inline function linInterp(a::SVec4f, b::SVec4f, weight::Float32)::SVec4f
+@inline @fastmath function linInterp(
+    a::SVec4f,
+    b::SVec4f,
+    weight::Float32,
+)::SVec4f
     return muladd.(a, (1 - weight), b * weight)
     # return a * (1 - weight) .+ b * weight
 end
 
-@inline function linInterp(a::SVec3f, b::SVec3f, weight::Float32)::SVec3f
+@inline @fastmath function linInterp(
+    a::SVec3f,
+    b::SVec3f,
+    weight::Float32,
+)::SVec3f
     a = map(clamp01nan, a)
     b = map(clamp01nan, b)
 
@@ -157,17 +180,17 @@ end
     #return a * (1 - weight) + b * weight
 end
 
-@inline function sampleDisk(u::Float32, v::Float32)::SVec2f
+@inline @fastmath function sampleDisk(u::Float32, v::Float32)::SVec2f
     r = sqrt(v)
     phi = 2 * pi * u
     return cos(phi) * r, sin(phi) * r
 end
 
-@inline @inbounds function determinant(a::Mat3f)::Float32
+@inline @inbounds @fastmath function determinant(a::Mat3f)::Float32
     return dot(a.x, StaticArrays.cross(a.y, a.z))
 end
 
-@inline @inbounds function adjoint(a::Mat3f)::Mat3f
+@inline @inbounds @fastmath function adjoint(a::Mat3f)::Mat3f
     return transposeMat(
         Mat3f(
             StaticArrays.cross(a.y, a.z),
@@ -177,11 +200,11 @@ end
     )
 end
 
-@inline function inverse(a::Mat3f)::Mat3f
+@inline @fastmath function inverse(a::Mat3f)::Mat3f
     return matMulFloat(adjoint(a), (1 / determinant(a)))
 end
 
-@inline function inverse(frame::Frame, nonRigid::Bool = false)::Frame
+@inline @fastmath function inverse(frame::Frame, nonRigid::Bool = false)::Frame
     if nonRigid
         minv = inverse(rotation(frame))
         return makeFrame(minv, -(matMulVec(minv, frame.o)))
@@ -207,12 +230,12 @@ end
     return Frame(m.x, m.y, m.z, t)
 end
 
-@inline @inbounds function matMulVec(a::Mat3f, b::SVec3f)::SVec3f
+@inline @inbounds @fastmath function matMulVec(a::Mat3f, b::SVec3f)::SVec3f
     return SVec3f(muladd.(a.x, b[1], muladd.(a.y, b[2], a.z * b[3])))
     #return SVec3f(a.x * b[1] + a.y * b[2] + a.z * b[3])
 end
 
-@inline @inbounds function matMulFloat(a::Mat3f, b::Float32)::Mat3f
+@inline @inbounds @fastmath function matMulFloat(a::Mat3f, b::Float32)::Mat3f
     return Mat3f(a.x * b, a.y * b, a.z * b)
 end
 
@@ -220,7 +243,7 @@ end
     return SVec3f(a[1], a[2], a[3])
 end
 
-@inline function transformRay(frame::Frame, ray::Ray)::Ray
+@inline @fastmath function transformRay(frame::Frame, ray::Ray)::Ray
     return Ray(
         transformPoint(frame, ray.origin),
         transformVector(frame, ray.direction),
@@ -243,7 +266,7 @@ end
     return SVec4f(rgbToSrgb(rgb.x), rgbToSrgb(rgb.y), rgbToSrgb(rgb.z), rgb[4])
 end
 
-@inline function rgbToSrgb(rgb::Float32)::Float32
+@inline @fastmath function rgbToSrgb(rgb::Float32)::Float32
     # return (rgb <= 0.0031308f0) ? 12.92f0 * rgb :
     #        (1 + 0.055f0) * (rgb^(1 / 2.4f0)) - 0.055f0
     return ifelse(
@@ -254,7 +277,7 @@ end
     )
 end
 
-@inline function srgbToRgb(srgb::Float32)::Float32
+@inline @fastmath function srgbToRgb(srgb::Float32)::Float32
     # srgb <= 0.04045 ? (srgb / 12.92f0) :
     # ((srgb + 0.055f0) / (1.0f0 + 0.055f0))^2.4f0
     return ifelse(
@@ -266,16 +289,20 @@ end
 end
 
 # wtf? yeah you read it right, this can be slightly faster in julia. I know.
-@inline function fastPow(a::Float32, b::Float32)::Float32
+@inline @fastmath function fastPow(a::Float32, b::Float32)::Float32
     return exp(log(a) * b)
 end
 
-@inline function reflect(w::SVec3f, n::SVec3f)::SVec3f
+@inline @fastmath function reflect(w::SVec3f, n::SVec3f)::SVec3f
     return muladd.(2.0f0 * dot(n, w), n, -w)
     #return -w + 2.0f0 * dot(n, w) * n
 end
 
-@inline function refract(w::SVec3f, n::SVec3f, invEta::Float32)::SVec3f
+@inline @fastmath function refract(
+    w::SVec3f,
+    n::SVec3f,
+    invEta::Float32,
+)::SVec3f
     cosine = dot(n, w)
     k = muladd(invEta * invEta, muladd(cosine, cosine, -1.0f0), 1.0f0)
     #k = 1.0f0 + invEta * invEta * (cosine * cosine - 1.0f0)

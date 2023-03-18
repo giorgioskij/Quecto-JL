@@ -195,11 +195,9 @@ end
 
 # takes a camera, image coordinates (uv) and generates a ray connecting them
 function evalCamera(camera::Camera, u::Float32, v::Float32)::Ray
-    film::SVec2f = (
-        camera.aspect >= 1 ?
-        SVec2f(camera.film, camera.film / camera.aspect) :
+    film::SVec2f =
+        camera.aspect >= 1 ? SVec2f(camera.film, camera.film / camera.aspect) :
         SVec2f(camera.film * camera.aspect, camera.film)
-    )
 
     q = SVec3f(film[1] * (0.5f0 - u), film[2] * (v - 0.5f0), camera.lens)
 
