@@ -174,7 +174,7 @@ struct Scene
     environments::Vector{Environment}
 end
 
-function sampleCamera(
+@fastmath function sampleCamera(
     camera::Camera,
     i::Int,
     j::Int,
@@ -194,7 +194,7 @@ function sampleCamera(
 end
 
 # takes a camera, image coordinates (uv) and generates a ray connecting them
-function evalCamera(camera::Camera, u::Float32, v::Float32)::Ray
+@fastmath function evalCamera(camera::Camera, u::Float32, v::Float32)::Ray
     film::SVec2f =
         camera.aspect >= 1 ? SVec2f(camera.film, camera.film / camera.aspect) :
         SVec2f(camera.film * camera.aspect, camera.film)

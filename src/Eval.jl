@@ -424,11 +424,8 @@ function evalMaterial(
     scene::Scene,
     instance::Instance,
     intersection::Intersection,
+    minRoughness::Float32 = 0.03f0 * 0.03f0,
 )::MaterialPoint
-
-    # minRoughness = 0.3f0 * 0.3f0   ---- WRONG
-    minRoughness = 0.03f0 * 0.03f0
-
     material::Material = scene.materials[instance.materialIndex]
 
     # eval texture coordinates

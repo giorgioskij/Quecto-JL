@@ -9,8 +9,15 @@ import ..Jtrace
 
 export Intersection, ShapeIntersection, PrimitiveIntersection, intersectScene
 
-const global shapeBvhDepth = 30
-const global masterBvhDepth = 20
+# TODO: I think maga mago' hack is doing/can do some "false sharing" and if we make this really 
+# big we can avoid the false sharing because this thing never go in a coerent cache of a CPU,
+# but it is an hack on an hack so this may not work or we only degrade performances.
+# So we can study the problem of read/write to the same array in different portion of it
+# by different threads and use a real method to avoid the possibility of false sharing.
+# https://en.wikipedia.org/wiki/False_sharing
+
+const global shapeBvhDepth = 32 # I have aligned to power 2
+const global masterBvhDepth = 32 # I have aligned to power 2
 const global maxnthreads = 128
 const global masterNodeStack =
     MVector{masterBvhDepth * maxnthreads,UInt32}(undef)
@@ -77,7 +84,7 @@ function intersectScene(
     threadid::UInt8 = Threads.threadid()
     startindex = (threadid - 1) * masterBvhDepth + 1
     endindex = startindex + masterBvhDepth - 1
-    nodeStack = @inbounds @view masterNodeStack[startindex:endindex]
+    nodeStack = @view masterNodeStack[startindex:endindex]
 
     @inbounds nodeStack[nodeCur] = 1
     nodeCur += 1
@@ -85,8 +92,8 @@ function intersectScene(
     # init intersection
     intersection::Intersection = Intersection(false)
 
-    @fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
-    @fastmath rayDSign::SVec3i = rayDInv .< 0
+    #@fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    @fastmath rayDSign::SVec3i = ray.invDirection .< 0 #rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -95,7 +102,7 @@ function intersectScene(
         node = masterBvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
-        if !intersectBbox(ray, rayDInv, node.bbox)
+        if !intersectBbox(ray, node.bbox) #rayDInv, node.bbox)
             continue
         end
 
@@ -185,8 +192,8 @@ function intersectShapeBvh!(
 
     intersection::ShapeIntersection = ShapeIntersection(false)
 
-    rayDInv::SVec3f = 1.0f0 ./ ray.direction
-    rayDSign::SVec3i = rayDInv .< 0
+    #@fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    @fastmath rayDSign::SVec3i = ray.invDirection .< 0 #rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -196,7 +203,7 @@ function intersectShapeBvh!(
         node = bvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
-        if !intersectBbox(ray, rayDInv, node.bbox)
+        if !intersectBbox(ray, node.bbox) #rayDInv, node.bbox)
             continue
         end
 
@@ -288,45 +295,92 @@ end
 # Intersect a ray with a axis-aligned bounding box
 @inline @fastmath function intersectBbox(
     ray::Ray,
-    rayDInv::SVec3f,
+    #rayDInv::SVec3f,
     bbox::Bbox3f,
 )::Bool
-    itMin::SVec3f = (bbox.min - ray.origin) * rayDInv
-    itMax::SVec3f = (bbox.max - ray.origin) * rayDInv
+    itMin::SVec3f = (bbox.min - ray.origin) * ray.invDirection #rayDInv
+    itMax::SVec3f = (bbox.max - ray.origin) * ray.invDirection #rayDInv
     # broadcast for min and max are faster than map look here: https://github.com/JuliaLang/julia/pull/45532 
     # in less word they allow simd execution
-    maxTmin::Float32 = fastMaximum(broadcast(fastMin, itMin, itMax))
-    minTmax::Float32 = fastMinimum(broadcast(fastMax, itMin, itMax))
-    t0::Float32 = fastMax(maxTmin, ray.tmin)
-    t1::Float32 = fastMin(minTmax, ray.tmax)
-    t1 *= 1.00000024f0 # for double: 1.0000000000000004
+    # maxTmin::Float32 = fastMaximum(broadcast(fastMin, itMin, itMax))
+    # minTmax::Float32 = fastMinimum(broadcast(fastMax, itMin, itMax))
+    # t0::Float32 = fastMax(maxTmin, ray.tmin)
+    # t1::Float32 = fastMin(minTmax, ray.tmax)
+
+    # TODO: try if it is fast to construct a SVec4f and then do the min and max
+    # seems a little faster than the previous one
+    @inbounds maxTmin::SVec4f = SVec4f(fastMin.(itMin, itMax)..., ray.tmin)
+    @inbounds minTmax::SVec4f = SVec4f(fastMax.(itMin, itMax)..., ray.tmax)
+    t0::Float32 = fastMaximumComponent(maxTmin)
+    t1::Float32 = fastMinimumComponent(minTmax)
+
+    # make a 1 pass minmax to halve the number of operations
+    # shit this is slower (or same speed) than previous one! maybe for allocation of objects
+    #tmp1::SVector{3,Tuple{Float32,Float32}} = fastMinMax.(itMin, itMax) # minmax.(itMin, itMax) 
+    # @inbounds maxTmin::SVec4f =
+    #     SVec4f(tmp1[1][1], tmp1[2][1], tmp1[3][1], ray.tmin)
+    # @inbounds minTmax::SVec4f =
+    #     SVec4f(tmp1[1][2], tmp1[2][2], tmp1[3][2], ray.tmax)
+
+    # tmp1, tmp2 = fastMinMaxVect(itMin, itMax)
+    # @inbounds maxTmin::SVec4f = SVec4f(tmp1..., ray.tmin)
+    # @inbounds minTmax::SVec4f = SVec4f(tmp2..., ray.tmax)
+
+    # t0::Float32 = fastMaximumComponent(maxTmin)
+    # t1::Float32 = fastMinimumComponent(minTmax)
+
+    #t1 *= 1.00000024f0 # for double: 1.0000000000000004 # I think this is only for C code
     return t0 <= t1
 end
 
-@inline @inbounds function fastMinimum(a::SVec3f)::Float32
-    # @fastmath ifelse(
-    #     a[1] < a[2],
-    #     ifelse(a[1] < a[3], a[1], a[3]),
-    #     ifelse(a[2] < a[3], a[2], a[3]),
-    # )
-    Base.FastMath.min_fast.(a[1], a[2], a[3])
+# @inline function fastMinMax(a::Float32, b::Float32)::Tuple{Float32,Float32}
+#     ifelse(Base.FastMath.lt_fast(b, a), (b, a), (a, b))
+# end
+
+# @inline function fastMinMaxVect(a::SVec3f, b::SVec3f)::Tuple{SVec3f,SVec3f}
+#     x, y, z =
+#         fastMinMax(a[1], b[1]), fastMinMax(a[2], b[2]), fastMinMax(a[3], b[3])
+#     return SVec3f(x[1], y[1], z[1]), SVec3f(x[2], y[2], z[2])
+# end
+
+@inline @inbounds function fastMinimumComponent(a::SVec4f)::Float32
+    fastMin(fastMin(a[1], a[2]), fastMin(a[3], a[4]))
 end
 
-@inline @inbounds function fastMaximum(a::SVec3f)::Float32
-    # @fastmath ifelse(
-    #     a[1] > a[2],
-    #     ifelse(a[1] > a[3], a[1], a[3]),
-    #     ifelse(a[2] > a[3], a[2], a[3]),
-    # )
-    Base.FastMath.max_fast.(a[1], a[2], a[3])
+@inline @inbounds function fastMaximumComponent(a::SVec4f)::Float32
+    fastMax(fastMax(a[1], a[2]), fastMax(a[3], a[4]))
 end
+
+# @inline @inbounds function fastMinimum(a::SVec3f)::Float32
+#     # @fastmath ifelse(
+#     #     a[1] < a[2],
+#     #     ifelse(a[1] < a[3], a[1], a[3]),
+#     #     ifelse(a[2] < a[3], a[2], a[3]),
+#     # )
+#     # I dont'know why the . expression (also if not needed) is faster
+#     #Base.FastMath.min_fast.(a[1], a[2], a[3])
+#     fastMin(fastMin(a[1], a[2]), a[3])
+# end
+
+# @inline @inbounds function fastMaximum(a::SVec3f)::Float32
+#     # @fastmath ifelse(
+#     #     a[1] > a[2],
+#     #     ifelse(a[1] > a[3], a[1], a[3]),
+#     #     ifelse(a[2] > a[3], a[2], a[3]),
+#     # )
+#     # I dont'know why the . expression (also if not needed) is faster
+#     #Base.FastMath.max_fast.(a[1], a[2], a[3])
+#     fastMax(fastMax(a[1], a[2]), a[3])
+# end
 
 @inline function fastMin(a::Float32, b::Float32)::Float32
     # @fastmath a_b = a - b
     # # (signbit(a_b) || isnan(a)) ? a : b
     # # nan checks are for WEAK PROGRAMMERS, we want SPEED
     # @fastmath signbit(a_b) ? a : b
-    Base.FastMath.min_fast(a, b)
+    # I dont'know why the . expression (also if not needed) is faster
+    #Base.FastMath.min_fast.(a, b)
+    ifelse(Base.FastMath.lt_fast(b, a), b, a)
 end
 
 @inline function fastMax(a::Float32, b::Float32)::Float32
@@ -334,7 +388,9 @@ end
     # # (signbit(b_a) || isnan(a)) ? a : b
     # # jokes aside, nan checks actually increase time by like 2%. insane
     # @fastmath signbit(b_a) ? a : b
-    Base.FastMath.max_fast(a, b)
+    # I dont'know why the . expression (also if not needed) is faster
+    #Base.FastMath.max_fast.(a, b)
+    ifelse(Base.FastMath.lt_fast(b, a), a, b)
 end
 
 # intersect a primitive triangle, given as a list of 3d points.
