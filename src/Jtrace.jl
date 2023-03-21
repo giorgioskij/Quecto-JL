@@ -1,5 +1,7 @@
 module Jtrace
 
+GC.enable_logging(true)
+
 include("Types.jl")
 include("Algebra.jl")
 include("World.jl")
@@ -19,6 +21,8 @@ using Images
 using BenchmarkTools
 using StaticArrays
 using Dates
+using FLoops
+using FoldsThreads
 using .Types
 using .Algebra
 using .Bvh
@@ -78,6 +82,7 @@ function trace(;
 
     # call the function to trace samples
 
+    # GC.enable(false)
     t = @elapsed traceSamples!(
         shaderFunc,
         image,
@@ -89,6 +94,8 @@ function trace(;
         camera,
         multithreaded,
     )
+    # GC.enable(true)
+
     if !quiet
         displayStat("Image rendered", t)
     end
@@ -140,54 +147,56 @@ function traceSamples!(
 )::Nothing
     for s = 1:samples
         weight::Float32 = 1.0f0 / s
-        if multithreaded
-            @inbounds Threads.@threads for i = 1:size(image, 2)
-                @inbounds Threads.@threads for j = 1:size(image, 1)
-                    radiance::SVec3f = traceSample(
-                        shader,
-                        i,
-                        j,
-                        scene,
-                        camera,
-                        imwidth,
-                        imheight,
-                        bvh,
-                    )
-                    @inbounds image[j, i] =
-                    # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
-                    # linInterp(image[j, i], color, weight)
-                        linInterp(
-                            image[j, i],
-                            SVec4f(radiance.x, radiance.y, radiance.z, 1.0),
-                            weight,
-                        )
-                end
-            end
-        else
-            for i = 1:size(image)[2]
-                for j = 1:size(image)[1]
-                    radiance::SVec3f = traceSample(
-                        shader,
-                        i,
-                        j,
-                        scene,
-                        camera,
-                        imwidth,
-                        imheight,
-                        bvh,
-                    )
+        t = @elapsed begin
+            if multithreaded
+                Threads.@threads for i = 1:size(image, 2)
+                    Threads.@threads for j = 1:size(image, 1)
+                        # Threads.@threads for idx in eachindex(image)
+                        # i = ceil(Int, idx / imheight)
+                        # j = idx % imheight
+                        # j = j == 0 ? imheight : j
 
-                    @inbounds image[j, i] =
-                    # clamp.(linInterp(image[j, i], color, weight), 0.0f0, 1.0f0)
-                    # linInterp(image[j, i], color, weight)
-                        linInterp(
+                        radiance::SVec3f = traceSample(
+                            shader,
+                            i,
+                            j,
+                            scene,
+                            camera,
+                            imwidth,
+                            imheight,
+                            bvh,
+                        )
+                        @inbounds image[j, i] = linInterp(
                             image[j, i],
                             SVec4f(radiance.x, radiance.y, radiance.z, 1.0),
                             weight,
                         )
+                    end
+                end
+            else
+                for i = 1:size(image)[2]
+                    for j = 1:size(image)[1]
+                        radiance::SVec3f = traceSample(
+                            shader,
+                            i,
+                            j,
+                            scene,
+                            camera,
+                            imwidth,
+                            imheight,
+                            bvh,
+                        )
+
+                        @inbounds image[j, i] = linInterp(
+                            image[j, i],
+                            SVec4f(radiance.x, radiance.y, radiance.z, 1.0),
+                            weight,
+                        )
+                    end
                 end
             end
         end
+        displayStat("sample $s / $samples", t)
     end
     nothing
 end

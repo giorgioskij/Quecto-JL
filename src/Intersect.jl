@@ -380,7 +380,8 @@ end
     # @fastmath signbit(a_b) ? a : b
     # I dont'know why the . expression (also if not needed) is faster
     #Base.FastMath.min_fast.(a, b)
-    ifelse(Base.FastMath.lt_fast(b, a), b, a)
+    # ifelse(Base.FastMath.lt_fast(b, a), b, a)
+    Base.FastMath.min_fast(a, b)
 end
 
 @inline function fastMax(a::Float32, b::Float32)::Float32
@@ -390,7 +391,8 @@ end
     # @fastmath signbit(b_a) ? a : b
     # I dont'know why the . expression (also if not needed) is faster
     #Base.FastMath.max_fast.(a, b)
-    ifelse(Base.FastMath.lt_fast(b, a), a, b)
+    # ifelse(Base.FastMath.lt_fast(b, a), a, b)
+    Base.FastMath.max_fast(a, b)
 end
 
 # intersect a primitive triangle, given as a list of 3d points.
