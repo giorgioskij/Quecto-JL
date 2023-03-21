@@ -49,13 +49,16 @@ end
 
 struct Shape
     # element data
-    triangles::Vector{SVec3i}
     quads::Vector{SVec4i}
+    triangles::Vector{SVec3i}
+    lines::Vector{SVec2i}
+    points::Vector{Int32}
 
     # vertex data
     positions::Vector{SVec3f}
     normals::Vector{SVec3f}
     textureCoords::Vector{SVec2f}
+    radius::Vector{Float32}
 end
 
 struct Environment

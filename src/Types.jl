@@ -3,11 +3,22 @@ using StaticArrays
 using Images
 
 export SVec4f,
-    SVec3f, SVec2f, SVec3i, SVec4i, zeroSV3f, Frame, Mat3f, Ray, Triangle, Quad
+    SVec3f,
+    SVec2f,
+    SVec2i,
+    SVec3i,
+    SVec4i,
+    zeroSV3f,
+    Frame,
+    Mat3f,
+    Ray,
+    Triangle,
+    Quad
 
 const SVec4f = SVector{4,Float32}
 const SVec3f = SVector{3,Float32}
 const SVec2f = SVector{2,Float32}
+const SVec2i = SVector{2,Int32}
 const SVec3i = SVector{3,Int32}
 const SVec4i = SVector{4,Int32}
 const zeroSV3f = SVec3f(0, 0, 0)

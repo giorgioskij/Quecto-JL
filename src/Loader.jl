@@ -291,34 +291,65 @@ function loadShape(filename::String)::Shape
             map((x) -> SVec2f(x[1], 1 - x[2]), collect(zip(u, v)))
     end
 
-    faces = ply["face"]["vertex_indices"]
-
-    # count triangles and quads
-    @inbounds triCount =
-        count(elem -> (size(elem[1])[end] == 3), eachrow(faces))
-    @inbounds quadCount =
-        count(elem -> (size(elem[1])[end] == 4), eachrow(faces))
-    if triCount + quadCount != size(faces)[1]
-        error("Only implemented triangles and quads")
+    # load radius
+    radius::Vector{Float32} = Vector{Float32}[]
+    if "radius" in vertexProperties
+        plyradius = ply["vertex"]["radius"]
+        @inbounds radius = map(x -> x[1], plyradius)
     end
 
-    # load triangles and quads
     triangles::Vector{SVec3i} = Vector{SVec3i}[]
     quads::Vector{SVec4i} = Vector{SVec4i}[]
-    if quadCount > 0
-        @inbounds quads = map(
-            x ->
-                size(x[1])[end] == 3 ?
-                SVec4i(x[1][1] + 1, x[1][2] + 1, x[1][3] + 1, x[1][3] + 1) :
-                SVec4i(x[1] .+ 1...),
-            eachrow(faces),
+    lines::Vector{SVec2i} = Vector{SVec2i}[]
+    points::Vector{Int32} = Vector{Int32}[]
+
+    if "face" in plyname.(ply.elements)
+        faces = ply["face"]["vertex_indices"]
+
+        # count triangles and quads
+        @inbounds triCount =
+            count(elem -> (size(elem[1])[end] == 3), eachrow(faces))
+        @inbounds quadCount =
+            count(elem -> (size(elem[1])[end] == 4), eachrow(faces))
+        if triCount + quadCount != size(faces)[1]
+            error("Only implemented triangles and quads")
+        end
+
+        # load triangles and quads
+
+        if quadCount > 0
+            @inbounds quads = map(
+                x ->
+                    size(x[1])[end] == 3 ?
+                    SVec4i(x[1][1] + 1, x[1][2] + 1, x[1][3] + 1, x[1][3] + 1) : SVec4i(x[1] .+ 1...),
+                eachrow(faces),
+            )
+        elseif triCount > 0
+            @inbounds triangles =
+                map(x -> SVec3i((x[1] .+ 1)...), eachrow(faces))
+        else
+            error("Zero triangles and zero quads. No bueno?")
+        end
+    elseif "line" in plyname.(ply.elements)
+        # plylines = ply["line"]["vertex_indices"]
+        lines = map(
+            x -> SVec2i((x[1] .+ 1)...),
+            eachrow(ply["line"]["vertex_indices"]),
         )
-    elseif triCount > 0
-        @inbounds triangles = map(x -> SVec3i((x[1] .+ 1)...), eachrow(faces))
-    else
-        error("Zero triangles and zero quads. No bueno?")
+    elseif "point" in plyname.(ply.elements)
+        error("not sure how to load points")
+        # points = map(x -> x[0] + 1, eachrow(ply["point"]["vertex_indices"]))
     end
 
     # create shape
-    return Shape(triangles, quads, positions, normals, textureCoords)
+    return Shape(
+        quads,
+        triangles,
+        lines,
+        points,
+        positions,
+        normals,
+        textureCoords,
+        radius,
+    )
 end

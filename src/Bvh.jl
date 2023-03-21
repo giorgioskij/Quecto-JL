@@ -91,7 +91,7 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
     bboxes = Bbox3f[]
 
     # bboxes for triangles
-    if (!isempty(shape.triangles))
+    if !isempty(shape.triangles)
         bboxes = Vector{Bbox3f}(undef, size(shape.triangles, 1))
 
         for (i, t) in enumerate(shape.triangles)
@@ -101,7 +101,7 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
                 shape.positions[t.z],
             )
         end
-    elseif (!isempty(shape.quads))
+    elseif !isempty(shape.quads)
         bboxes = Vector{Bbox3f}(undef, size(shape.quads, 1))
         # bboxes for quads
 
@@ -113,8 +113,25 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
                 shape.positions[q.w],
             )
         end
+    elseif !isempty(shape.lines)
+        bboxes = Vector{Bbox3f}(undef, size(shape.lines, 1))
+        for (i, l) in enumerate(shape.lines)
+            @inbounds bboxes[i] = lineBounds(
+                shape.positions[l.x],
+                shape.positions[l.y],
+                shape.radius[l.x],
+                shape.radius[l.y],
+            )
+        end
+    elseif !isemtpy(shape.points)
+        bboxes = Vector{Bbox3f}(undef, size(shape.points, 1))
+        for (i, p) in enumerate(shape.points)
+            @inbounds bboxes[i] =
+                pointBounds(shape.positions[p], shape.radius[p])
+        end
+
     else
-        error("something's not right")
+        error("🤷‍♂️")
     end
 
     tree::BvhTree = makeBvh(bboxes)
@@ -123,11 +140,31 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
     return shapeBvh
 end
 
-function triangleBounds(pointA::SVec3f, pointB::SVec3f, pointC::SVec3f)::Bbox3f
+@inline function pointBounds(p::SVec3f, r::Float32)::Bbox3f
+    return Bbox3f(min(p .- r, p .+ r), max(p .- r, p .+ r))
+end
+
+@inline function lineBounds(
+    pointA::SVec3f,
+    pointB::SVec3f,
+    radiusA::Float32,
+    radiusB::Float32,
+)::Bbox3f
+    return Bbox3f(
+        min.(pointA .- radiusA, pointB .- radiusB),
+        max(pointA .+ radiusA, pointB .+ radiusB),
+    )
+end
+
+@inline function triangleBounds(
+    pointA::SVec3f,
+    pointB::SVec3f,
+    pointC::SVec3f,
+)::Bbox3f
     return Bbox3f(min.(pointA, pointB, pointC), max.(pointA, pointB, pointC))
 end
 
-function quadBounds(
+@inline function quadBounds(
     pointA::SVec3f,
     pointB::SVec3f,
     pointC::SVec3f,

@@ -41,6 +41,14 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         position = evalShadingPosition(scene, intersection)
         materialPoint::MaterialPoint =
             evalMaterial(scene, instance, intersection)
+        # normal = evalShadingNormal(
+        #     scene,
+        #     instance,
+        #     intersection.elementIndex,
+        #     intersection.u,
+        #     intersection.v,
+        #     outgoing,
+        # )
         normal = evalNormal(
             shape,
             intersection,

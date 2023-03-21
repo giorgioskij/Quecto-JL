@@ -11,7 +11,98 @@ export evalNormal,
     evalTexcoord,
     evalShadingPosition,
     evalPosition,
-    evalMaterial
+    evalMaterial,
+    evalShadingNormal
+
+# function evalShadingNormal(
+#     scene::Scene,
+#     instance::Instance,
+#     elementIndex::Integer,
+#     u::Float32,
+#     v::Float32,
+#     outgoing::SVec3f,
+# )
+#     shape = scene.shapes[instance.shapeIndex]
+#     material = scene.materials[instance.materialIndex]
+
+#     if !isempty(shape.triangles) || !isempty(shape.quads)
+#         normal = evalNormal(scene, instance, elementIndex, u, v)
+#         if material.normalTex != -1
+#             error("no normal textures yet 🤷‍♂️")
+#         end
+#         if material.type == "refractive"
+#             return normal
+#         end
+#         return dot(normal, outgoing) >= 0 ? normal : -normal
+#     elseif !isempty(shape.lines)
+#         normal = evalNormal(scene, instance, elementIndex, u, v)
+#         return orthonormalize(outgoing, normal)
+#     elseif !isempty(shape.points)
+#         return outgoing
+#     else
+#         error("🤷‍♂️")
+#     end
+# end
+
+# function evalNormal(
+#     scene::Scene,
+#     instance::Instance,
+#     elementIndex::Integer,
+#     u::Float32,
+#     v::Float32,
+# )
+#     shape = scene.shapes[instance.shapeIndex]
+#     if isempty(shape.normals)
+#         return evalElementNormal(scene, instance, elementIndex)
+#     end
+#     if !isempty(shape.triangles)
+#         @inbounds t = shape.triangles[elementIndex]
+#         @inbounds normal = transformNormal(
+#             instance.frame,
+#             norm(
+#                 interpolateTriangle(
+#                     shape.normals[t.x],
+#                     shape.normals[t.y],
+#                     shape.normals[t.z],
+#                     u,
+#                     v,
+#                 ),
+#             ),
+#         )
+#         return normal
+#     elseif !isempty(shape.quads)
+#         @inbounds q = shape.quads[elementIndex]
+#         @inbounds normal = transformNormal(
+#             instance.frame,
+#             norm(
+#                 interpolateQuad(
+#                     shape.normals[q.x],
+#                     shape.normals[q.y],
+#                     shape.normals[q.z],
+#                     shape.normals[q.w],
+#                     u,
+#                     v,
+#                 ),
+#             ),
+#         )
+#         return normal
+#     elseif !isempty(shape.lines)
+#         @inbounds l = shape.lines[elementIndex]
+#         @inbounds normal = transformNormal(
+#             instance.frame,
+#             norm(interpolateLine(shape.normals[l.x], shape.normals[l.y], u)),
+#         )
+#         return normal
+#     elseif !isempty(shape.points)
+#         @inbounds normal = transformNormal(
+#             instance.frame,
+#             norm(shape.normals[shape.points[elementIndex]]),
+#         )
+#         return normal
+#     else
+#         error("🤷‍♂️")
+#     end
+# end
 
 function evalNormal(
     shape::Shape,
@@ -36,6 +127,10 @@ function evalNormal(
                 ),
             ),
         )
+        if materialType == "refractive"
+            return normal
+        end
+        return dot(normal, outgoing) >= 0 ? normal : -normal
     elseif !isempty(shape.quads)
         @inbounds q = shape.quads[intersection.elementIndex]
         @inbounds normal = transformNormal(
@@ -51,19 +146,73 @@ function evalNormal(
                 ),
             ),
         )
+        if materialType == "refractive"
+            return normal
+        end
+        return dot(normal, outgoing) >= 0 ? normal : -normal
         # TODO normalmap
         # TODO refractive material
         # return ifelse(dot(normal, outgoing) >= 0, normal, -normal)
-        # return normal
-    else
-        error("Only triangles and quads right now")
-    end
-
-    if materialType == "refractive"
+    elseif !isempty(shape.lines)
+        @inbounds l = shape.lines[intersection.elementIndex]
+        @inbounds normal = transformNormal(
+            frame,
+            norm(
+                interpolateLine(
+                    shape.normals[l.x],
+                    shape.normals[l.y],
+                    intersection.u,
+                ),
+            ),
+        )
+        normal = orthonormalize(outgoing, normal)
         return normal
+    elseif !isempty(shape.points)
+        return outgoing
+    else
+        error("🤷‍♂️")
     end
+end
 
-    return dot(normal, outgoing) >= 0 ? normal : -normal
+function evalElementNormal(
+    scene::Scene,
+    instance::Instance,
+    elementIndex::Integer,
+)::SVec3f
+    shape = scene.shapes[instance.shapeIndex]
+    frame = instance.frame
+    if !isempty(shape.triangles)
+        @inbounds t = shape.triangles[elementIndex]
+        @inbounds return transformNormal(
+            frame,
+            computeTriangleNormal(
+                shape.positions[t.x],
+                shape.positions[t.y],
+                shape.positions[t.z],
+            ),
+        )
+    elseif !isempty(shape.quads)
+        @inbounds q = shape.quads[elementIndex]
+        @inbounds return transformNormal(
+            frame,
+            computeQuadNormal(
+                shape.positions[q.x],
+                shape.positions[q.y],
+                shape.positions[q.z],
+                shape.positions[q.w],
+            ),
+        )
+    elseif !isemtpy(shape.lines)
+        @inbounds l = shape.lines[elementIndex]
+        @inbounds return transformNormal(
+            frame,
+            lineTangent(shape.positions[l.x], shape.positions[l.y]),
+        )
+    elseif !isemtpy(shape.points)
+        return SVec3f(0, 0, 1)
+    else
+        error("🤷‍♂️")
+    end
 end
 
 function computeNormal(shape::Shape, intersection::Intersection, frame::Frame)
@@ -365,8 +514,17 @@ function evalTexcoord(
             u,
             v,
         )
+    elseif !isempty(shape.lines)
+        @inbounds l = shape.lines[elementIndex]
+        @inbounds return interpolateLine(
+            shape.textureCoords[l.x],
+            shape.textureCoords[l.y],
+            u,
+        )
+    elseif !isempty(shape.points)
+        return shape.textureCoords[shape.points[elementIndex]]
     else
-        error("No triangles or quads in this shape")
+        error("🤷‍♂️")
     end
 end
 
@@ -379,6 +537,15 @@ function evalShadingPosition(scene::Scene, intersection::Intersection)::SVec3f
     shape = scene.shapes[instance.shapeIndex]
     if (!isempty(shape.triangles) || !isempty(shape.quads))
         return evalPosition(scene, instance, element, u, v)
+    elseif !isempty(shape.lines)
+        return evalPosition(scene, instance, element, u, v)
+    elseif !isemtpy(shape.points)
+        return transformPoint(
+            instance.frame,
+            shape.positions[shape.points[element]],
+        )
+    else
+        error("🤷‍♂️")
     end
 end
 
@@ -414,6 +581,12 @@ function evalPosition(
                 u,
                 v,
             ),
+        )
+    elseif !isempty(shape.lines)
+        @inbounds l = shape.lines[element]
+        return transformPoint(
+            instance.frame,
+            interpolateLine(shape.positions[l.x], shape.positions[l.y], u),
         )
     else
         error("No triangles or quads in this shape")

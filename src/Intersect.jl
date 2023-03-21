@@ -1,6 +1,7 @@
 module Intersect
 
 using StaticArrays
+using StaticArrays: dot, cross
 using ..Types
 using ..Bvh
 using ..Algebra
@@ -224,6 +225,7 @@ function intersectShapeBvh!(
                 nodeCur += 1
             end
         elseif !isempty(shape.triangles)
+            # intersect triangles
             @inbounds for idx = node.start:node.start+node.num-1
                 t = shape.triangles[bvh.primitives[idx]]
                 pIntersection = intersectPrimitiveTriangle(
@@ -252,6 +254,7 @@ function intersectShapeBvh!(
             end
 
         elseif !isempty(shape.quads)
+            # intersect quads
             @inbounds for idx = node.start:node.start+node.num-1
                 q = shape.quads[bvh.primitives[idx]]
                 pIntersection = intersectPrimitiveQuad(
@@ -260,10 +263,6 @@ function intersectShapeBvh!(
                     shape.positions[q.y],
                     shape.positions[q.z],
                     shape.positions[q.w],
-                    # shape.normals[q.x],
-                    # shape.normals[q.y],
-                    # shape.normals[q.z],
-                    # shape.normals[q.w],
                 )
 
                 if !pIntersection.hit
@@ -283,6 +282,61 @@ function intersectShapeBvh!(
                     pIntersection.distance,
                 )
             end
+        elseif !isempty(shape.lines)
+            # intersect lines
+            @inbounds for idx = node.start:node.start+node.num-1
+                l = shape.lines[bvh.primitives[idx]]
+                pIntersection = intersectPrimitiveLine(
+                    ray,
+                    shape.positions[l.x],
+                    shape.positions[l.y],
+                    shape.radius[l.x],
+                    shape.radius[l.y],
+                )
+                if !pIntersection.hit
+                    continue
+                end
+                intersection = ShapeIntersection(
+                    true,
+                    bvh.primitives[idx],
+                    pIntersection.u,
+                    pIntersection.v,
+                    pIntersection.distance,
+                )
+                ray = Ray(
+                    ray.origin,
+                    ray.direction,
+                    ray.tmin,
+                    pIntersection.distance,
+                )
+            end
+        elseif !isempty(shape.points)
+            @inbounds for idx = node.start:node.start+node.num+1
+                p = shape.points[bvh.primitives[idx]]
+                pIntersection = intersectPrimitivePoint(
+                    ray,
+                    shape.positions[p],
+                    shape.radius[p],
+                )
+                if !pIntersection.hit
+                    continue
+                end
+                intersection = ShapeIntersection(
+                    true,
+                    bvh.primitives[idx],
+                    pIntersection.u,
+                    pIntersection.v,
+                    pIntersection.distance,
+                )
+                ray = Ray(
+                    ray.origin,
+                    ray.direction,
+                    ray.tmin,
+                    pIntersection.distance,
+                )
+            end
+        else
+            error("🤷‍♂️")
         end
 
         if findAny && intersection.hit
@@ -393,6 +447,80 @@ end
     #Base.FastMath.max_fast.(a, b)
     # ifelse(Base.FastMath.lt_fast(b, a), a, b)
     Base.FastMath.max_fast(a, b)
+end
+
+function intersectPrimitivePoint(ray::Ray, p::SVec3f, r::Float32)
+    # find parameter for line-point minimum distance
+    w = p - ray.origin
+    t = dot(w, ray.direction) / dot(ray.direction, ray.direction)
+
+    # exit if not within bounds
+    if t < ray.tmin || t > ray.tmax
+        return PrimitiveIntersection(false)
+    end
+
+    # test for line-point distance vs point radius
+    rp = ray.origin + ray.direction * t
+    prp = p - rp
+    if dot(prp, prp) > r * r
+        return PrimitiveIntersection(false)
+    end
+
+    # intersection orccured: set params and exit
+    return PrimitiveIntersection(true, 0, 0, t)
+end
+
+function intersectPrimitiveLine(
+    ray::Ray,
+    p0::SVec3f,
+    p1::SVec3f,
+    r0::Float32,
+    r1::Float32,
+)::PrimitiveIntersection
+    # setup intersection params
+    u::SVec3f = ray.direction
+    v::SVec3f = p1 - p0
+    w::SVec3f = ray.origin - p0
+
+    # compute values to solve a linear system
+    a = dot(u, u)
+    b = dot(u, v)
+    c = dot(v, v)
+    d = dot(u, w)
+    e = dot(v, w)
+    det = a * c - b * b
+
+    # check determinant and exit if lines are parallel
+    if (det == 0)
+        return PrimitiveIntersection(false)
+    end
+
+    # compute parameters on both ray and segment
+    t = (b * e - c * d) / det
+    s = (a * e - b * d) / det
+
+    # exit if not within bounds
+    if (t < ray.tmin || t > ray.tmax)
+        return PrimitiveIntersection(false)
+    end
+
+    # clamp segment param to segment corners
+    s = clamp(s, 0.0f0, 1.0f0)
+
+    # compute segment-segment distance on the closest points
+    pr = ray.origin + ray.direction * t
+    pl = p0 + (p1 - p0) * s
+    prl = pr - pl
+
+    # check with the line radius at the same point
+    d2 = dot(prl, prl)
+    r = r0 * (1 - s) + r1 * s
+    if (d2 > r * r)
+        return PrimitiveIntersection(false)
+    end
+
+    # intersection occurred: set params and exit
+    return PrimitiveIntersection(true, s, sqrt(d2) / r, t)
 end
 
 # intersect a primitive triangle, given as a list of 3d points.

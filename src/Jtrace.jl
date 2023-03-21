@@ -1,6 +1,6 @@
 module Jtrace
 
-GC.enable_logging(true)
+# GC.enable_logging(true)
 
 include("Types.jl")
 include("Algebra.jl")
@@ -21,8 +21,6 @@ using Images
 using BenchmarkTools
 using StaticArrays
 using Dates
-using FLoops
-using FoldsThreads
 using .Types
 using .Algebra
 using .Bvh

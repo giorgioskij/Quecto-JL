@@ -11,6 +11,7 @@ using Images
 export transformNormal,
     interpolateTriangle,
     interpolateQuad,
+    interpolateLine,
     norm,
     length,
     transformPoint,
@@ -30,7 +31,8 @@ export transformNormal,
     rgbToSrgb,
     reflect,
     refract,
-    basisFromz
+    basisFromz,
+    orthonormalize
 
 @inline function *(a::SVector, b::SVector)::SVector
     # Why this is faster than the broadcast variant?
@@ -58,6 +60,7 @@ end
     end
 end
 
+# TODO: merge all this duplicates is a more generic type
 @inline @fastmath function interpolateTriangle(
     p0::SVec2f,
     p1::SVec2f,
@@ -108,6 +111,16 @@ end
     else
         return interpolateTriangle(p2, p3, p1, 1 - u, 1 - v)
     end
+end
+
+@inline @fastmath function interpolateLine(p0::SVec3f, p1::SVec3f, u::Float32)
+    return p0 * (1 - u) + p1 * u
+    # return muladd.(p0, (1 - u), p1 * u)
+end
+
+@inline @fastmath function interpolateLine(p0::SVec2f, p1::SVec2f, u::Float32)
+    return p0 * (1 - u) + p1 * u
+    # return muladd.(p0, (1 - u), p1 * u)
 end
 
 @inline @fastmath function norm(v::SVec3f)::SVec3f
@@ -324,6 +337,14 @@ end
     y = SVec3f(b, muladd(z.y * z.y, a, sign), -z.y)
     #y = SVec3f(b, sign + z.y * z.y * a, -z.y)
     return Mat3f(x, y, z)
+end
+
+@inline function orthonormalize(a::SVec3f, b::SVec3f)::SVec3f
+    return norm(a - b * dot(a, b))
+end
+
+@inline function lineTangent(p0::SVec3f, p1::SVec3f)::SVec3f
+    return normalize(p1 - p0)
 end
 
 # end module
