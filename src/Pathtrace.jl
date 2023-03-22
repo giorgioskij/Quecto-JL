@@ -49,26 +49,37 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
         #     intersection.v,
         #     outgoing,
         # )
+        material::Material = scene.materials[instance.materialIndex]
+
+        # normal = evalNormal(
+        #     shape,
+        #     intersection,
+        #     instanceFrame,
+        #     outgoing,
+        #     materialPoint.type,
+        #     material.normalTex,
+        # )
         normal = evalNormal(
-            shape,
-            intersection,
-            instanceFrame,
+            scene,
+            instance,
+            intersection.elementIndex,
+            intersection.u,
+            intersection.v,
             outgoing,
-            materialPoint.type,
         )
 
         # handle opacity
-        if !isapprox(materialPoint.opacity, 1) &&
-           (rand(Float32) >= materialPoint.opacity)
+        # if !isapprox(materialPoint.opacity, 1) &&
+        if materialPoint.opacity < 1 && rand(Float32) >= materialPoint.opacity
             if opbounce > 128
                 break
             end
             opbounce += 1
-            newRay = Ray(
-                muladd.(newRay.direction, 0.01f0, position),
-                newRay.direction,
-            )
-            #newRay = Ray(position + newRay.direction * 0.01f0, newRay.direction)
+            # newRay = Ray(
+            #     muladd.(newRay.direction, 0.01f0, position),
+            #     newRay.direction,
+            # )
+            newRay = Ray(position + newRay.direction * 0.01f0, newRay.direction)
             bounce -= 1
             continue
         end

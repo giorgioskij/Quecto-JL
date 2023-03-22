@@ -3,6 +3,7 @@ module World
 using StaticArrays: dot
 using ..Algebra
 using ..Types
+using ..Types: SVec3f, SVec3i
 using Images
 
 export Scene,
@@ -14,7 +15,8 @@ export Scene,
     Camera,
     evalCamera,
     sampleCamera,
-    MaterialPoint
+    MaterialPoint,
+    Subdiv
 
 struct Camera
     frame::Frame
@@ -245,6 +247,58 @@ struct MaterialPoint
         roughness = 0,
         ior = 1,
     ) = new(type, emission, color, opacity, roughness, ior)
+end
+
+struct Subdiv
+    # face-varying primitives
+    quadsPos::Vector{SVec4i}
+    quadsNorm::Vector{SVec4i}
+    quadsTexCoord::Vector{SVec4i}
+
+    # vertex data
+    positions::Vector{SVec3f}
+    normals::Vector{SVec3f}
+    textureCoords::Vector{SVec2f}
+
+    # subdivision data
+    subdivisions::Int32
+    catmullclark::Bool
+    smooth::Bool
+
+    # displacement data
+    displacement::Float32
+    displacementTex::Int32
+
+    # shape reference
+    shapeIndex::Int32
+
+    Subdiv(;
+        quadsPos = Vector{SVec4i}[],
+        quadsNorm = Vector{SVec4i}[],
+        quadsTexCoord = Vector{SVec4i}[],
+        positions = Vector{SVec3f}[],
+        normals = Vector{SVec3f}[],
+        textureCoords = Vector{SVec2f}[],
+        subdivisions = 0,
+        catmullclark = true,
+        smooth = true,
+        displacement = 0,
+        displacementTex = -1,
+        shapeIndex = -1,
+    ) = new(
+        quadsPos,
+        quadsNorm,
+        quadsTexCoord,
+        positions,
+        normals,
+        textureCoords,
+        subdivisions,
+        catmullclark,
+        smooth,
+        displacement,
+        displacementTex,
+        shapeIndex,
+    )
 end
 
 end

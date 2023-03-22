@@ -59,6 +59,7 @@ function loadJsonScene(scenePath::String)::Scene
     end
 
     # Materials
+    materials = Vector{Material}(undef, 0)
     if haskey(json, "materials")
         group = json["materials"]
         materials = Vector{Material}(undef, size(group, 1))
@@ -115,7 +116,7 @@ function loadJsonScene(scenePath::String)::Scene
     end
 
     # SHAPES
-    # shapeFilenames = Vector{String}(undef, 0)
+    shapeFilenames = Vector{String}[]
     if haskey(json, "shapes")
         group = json["shapes"]
         shapeFilenames = Vector{String}(undef, size(group, 1))
@@ -127,7 +128,47 @@ function loadJsonScene(scenePath::String)::Scene
         end
     end
 
+    # SUBDIVS
+    # subdivs = Vector{Subdiv}[]
+    # subdivsFilenames = Vector{String}[]
+    # if haskey(json, "subdivs")
+    #     group = json["subdivs"]
+    #     subdivs = Vector{Subdiv}(undef, size(group, 1))
+    #     subdivsFilenames = Vector{String}(undef, size(group, 1))
+    #     defaultSubdiv::Subdiv = Subdiv()
+    #     for (i, element) in enumerate(group)
+    #         if !haskey(element, "uri")
+    #             throw(MissingException("uri not present"))
+    #         end
+    #         subdivsFilenames[i] = element["uri"]
+    #         shapeIndex = get(element, "shape", defaultSubdiv.shapeIndex)
+    #         subs = get(element, "subdivisions", defaultSubdiv.subdivisions)
+    #         cmk = get(element, "catmullclark", defaultSubdiv.catmullclark)
+    #         smooth = get(element, "smooth", defaultSubdiv.smooth)
+    #         disp = get(element, "displacement", defaultSubdiv.displacement)
+    #         dispTex =
+    #             get(element, "displacement_tex", defaultSubdiv.displacementTex)
+
+    #         if dispTex != -1
+    #             dispTex += 1
+    #         end
+    #         if shapeIndex != -1
+    #             shapeIndex += 1
+    #         end
+
+    #         subdivs[i] = Subdiv(
+    #             shapeIndex = shapeIndex,
+    #             subdivisions = subs,
+    #             catmullclark = cmk,
+    #             smooth = smooth,
+    #             displacement = disp,
+    #             displacementTex = dispTex,
+    #         )
+    #     end
+    # end
+
     # INSTANCES
+    instances = Vector{Instance}[]
     if haskey(json, "instances")
         group = json["instances"]
         instances = Vector{Instance}(undef, size(group, 1))
@@ -187,14 +228,27 @@ function loadJsonScene(scenePath::String)::Scene
         shapes[i] = shape
     end
 
+    # load subdivs
+    # for (i, filename) in enumerate(subdivsFilenames)
+    #     path = (dirname(scenePath), filename) |> joinpath
+    # end
+
     # load textures
+    # understand which textures are used as normal textures
+    normalTexturesIndices = Set(map(m -> m.normalTex, materials))
     for (i, filename) in enumerate(textureFilenames)
+        if i in normalTexturesIndices
+            convertToRgb = false
+        else
+            convertToRgb = true
+        end
+
         path = (dirname(scenePath), filename) |> joinpath
 
         # check that extension is png
         extension = path[findlast(==('.'), path)+1:end]
         if lowercase(extension) == "png"
-            image = loadTexturePng(path)
+            image = loadTexturePng(path, convertToRgb)
             # hdrImage = Matrix{RGB{N0f16}}(undef, 0, 0)
             @inbounds textures[i] = Texture(
                 image,
@@ -227,11 +281,15 @@ end
 
 # loads a texture image in png format
 # function loadTexturePng(filename::String)::Matrix{RGBA{N0f8}}
-function loadTexturePng(filename::String)::Matrix{SVec4f}
+function loadTexturePng(filename::String, toRgb::Bool = true)::Matrix{SVec4f}
     image = load(filename)
     # undo srgb and transform into Vector{SVector}
-    @inbounds imageVector =
-        map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, x.alpha)), image)
+    if toRgb
+        @inbounds imageVector =
+            map(x -> srgbToRgb(SVec4f(x.r, x.g, x.b, x.alpha)), image)
+    else
+        @inbounds imageVector = map(x -> SVec4f(x.r, x.g, x.b, x.alpha), image)
+    end
     # reverse!(imageVector, dims = 1)
     return imageVector
 end
