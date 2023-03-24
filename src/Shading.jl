@@ -9,7 +9,7 @@ using ..Algebra
 
 using StaticArrays: dot, cross
 
-export shadePath, shadeMaterial
+export shadePath, shadeMaterial, shadeEyelight, shadeNormal, shadeColor
 
 include("Baseshaders.jl")
 include("Pathtrace.jl")

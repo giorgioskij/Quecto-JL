@@ -12,14 +12,18 @@ using StaticArrays: dot, cross
 
 export shadeMaterial
 
-function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
+function shadeMaterial(
+    scene::Scene,
+    ray::Ray,
+    bvh::SceneBvh,
+    maxBounces::Int64,
+)::SVec3f
     radiance = zeroSV3f
-    maxBounce = 128
     newRay = ray
     opbounce::Int8 = 0
     weight = SVec3f(1, 1, 1)
 
-    @inbounds for bounce = 1:maxBounce
+    @inbounds for bounce = 1:maxBounces
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
@@ -29,7 +33,6 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                     evalEnvironment(scene, newRay.direction),
                     radiance,
                 )
-            #radiance += weight * evalEnvironment(scene, newRay.direction)
             break
         end
 
@@ -75,19 +78,27 @@ function shadeMaterial(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
                 break
             end
             opbounce += 1
+            newRay = Ray(
+                muladd.(newRay.direction, 0.01f0, position),
+                newRay.direction,
+            )
             # newRay = Ray(
-            #     muladd.(newRay.direction, 0.01f0, position),
+            #     position + newRay.direction * 0.01f0,
             #     newRay.direction,
             # )
-            newRay = Ray(position + newRay.direction * 0.01f0, newRay.direction)
             bounce -= 1
             continue
         end
 
         # accumulate emission
-        radiance +=
-            weight *
-            (dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f)
+        # radiance +=
+        #     weight * (
+        #         dot(normal, outgoing) >= 0 ? materialPoint.emission :
+        #         zeroSV3f
+        #     )
+        emission =
+            dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f
+        radiance = muladd.(weight, emission, radiance)
 
         incoming = zeroSV3f
 

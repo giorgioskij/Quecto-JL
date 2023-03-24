@@ -37,6 +37,7 @@ function trace(;
     samples = 2,
     multithreaded::Bool = true,
     quiet::Bool = false,
+    maxBounces::Int64 = 128,
 )
     if !quiet
         println(
@@ -60,19 +61,18 @@ function trace(;
     # generate empty starting image
     image = zeros(SVec4f, height, width)
 
-    if lowercase(shader) == "eyelight"
-        shaderFunc = shadeEyelight
+    shaderFunc::Function = if lowercase(shader) == "eyelight"
+        shadeEyelight
     elseif lowercase(shader) == "normal"
-        shaderFunc = shadeNormal
+        shadeNormal
     elseif lowercase(shader) == "color"
-        shaderFunc = shadeColor
+        shadeColor
     elseif lowercase(shader) == "raytrace"
-        shaderFunc = shadeRaytrace
-
+        shadeRaytrace
     elseif lowercase(shader) == "material"
-        shaderFunc = shadeMaterial
+        shadeMaterial
     elseif lowercase(shader) == "path"
-        shaderFunc = shadePath
+        shadePath
     else
         error("No shader named $shader")
     end
@@ -91,6 +91,7 @@ function trace(;
         bvh,
         camera,
         multithreaded,
+        maxBounces,
     )
     # GC.enable(true)
 
@@ -129,11 +130,14 @@ function saveImage(
         end
     end
     save(filename, pngImage)
-    nothing
+
+    return nothing
 end
 
 function traceSamples!(
-    shader::Function,
+    shader, # this is a such pain in the ass the type here is always a function 
+    # and each time this is passed to trace sample it is evaluated and
+    # after it got a good type different by Any (with Function go to Any idk) 
     image::Matrix{SVec4f},
     scene::Scene,
     imwidth::Int,
@@ -142,6 +146,7 @@ function traceSamples!(
     bvh::SceneBvh,
     camera::Camera,
     multithreaded::Bool,
+    maxBounces::Int64,
 )::Nothing
     for s = 1:samples
         weight::Float32 = 1.0f0 / s
@@ -153,7 +158,6 @@ function traceSamples!(
                         # i = ceil(Int, idx / imheight)
                         # j = idx % imheight
                         # j = j == 0 ? imheight : j
-
                         radiance::SVec3f = traceSample(
                             shader,
                             i,
@@ -163,7 +167,9 @@ function traceSamples!(
                             imwidth,
                             imheight,
                             bvh,
+                            maxBounces,
                         )
+
                         @inbounds image[j, i] = linInterp(
                             image[j, i],
                             SVec4f(radiance.x, radiance.y, radiance.z, 1.0),
@@ -183,6 +189,7 @@ function traceSamples!(
                             imwidth,
                             imheight,
                             bvh,
+                            maxBounces,
                         )
 
                         @inbounds image[j, i] = linInterp(
@@ -194,12 +201,13 @@ function traceSamples!(
                 end
             end
         end
-        displayStat("sample $s / $samples", t)
+        #displayStat("sample $s / $samples", t)
     end
-    nothing
+
+    return nothing
 end
 
-function traceSample(
+@inline function traceSample(
     shader::Function,
     i::Int,
     j::Int,
@@ -208,14 +216,15 @@ function traceSample(
     imwidth::Int,
     imheight::Int,
     bvh::SceneBvh,
+    maxBounces::Int64,
 )::SVec3f
 
     # send a ray
     # ray = sampleCamera(camera, i, j, imwidth, imheight) --- wrong
-    ray = sampleCamera(camera, i - 1, j - 1, imwidth, imheight)
+    ray::Ray = sampleCamera(camera, i - 1, j - 1, imwidth, imheight)
 
     # call the shader
-    radiance::SVec3f = shader(scene, ray, bvh)
+    radiance::SVec3f = shader(scene, ray, bvh, maxBounces)
 
     return radiance
 end

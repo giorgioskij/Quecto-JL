@@ -314,7 +314,7 @@ function evalNormal(
         #if lines
     elseif !isempty(shape.lines)
         if isempty(shape.normals)
-            return computeNormal(shape, frame)
+            return computeNormal(shape, elementIndex, frame)
         end
         @inbounds l = shape.lines[elementIndex]
         @inbounds normal = transformNormal(
@@ -467,7 +467,7 @@ function evalEnvironment(scene::Scene, direction::SVec3f)::SVec3f
     return emission
 end
 
-function evalEnvironment(
+@fastmath function evalEnvironment(
     scene::Scene,
     env::Environment,
     direction::SVec3f,

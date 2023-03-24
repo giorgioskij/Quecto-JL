@@ -68,7 +68,7 @@ end
     u::Float32,
     v::Float32,
 )::SVec2f
-    return muladd.(p0, (1 - u - v), muladd.(p1, u, p2 * v))
+    return muladd.(p0, (1.0f0 - u - v), muladd.(p1, u, p2 * v))
     #return p0 * (1 - u - v) + p1 * u + p2 * v
 end
 
@@ -79,7 +79,7 @@ end
     u::Float32,
     v::Float32,
 )::SVec3f
-    return muladd.(p0, (1 - u - v), muladd.(p1, u, p2 * v))
+    return muladd.(p0, (1.0f0 - u - v), muladd.(p1, u, p2 * v))
     #return p0 * (1 - u - v) .+ p1 * u + p2 * v
 end
 
@@ -94,7 +94,7 @@ end
     if u + v <= 1
         return interpolateTriangle(p0, p1, p3, u, v)
     else
-        return interpolateTriangle(p2, p3, p1, 1 - u, 1 - v)
+        return interpolateTriangle(p2, p3, p1, 1.0f0 - u, 1.0f0 - v)
     end
 end
 
@@ -109,17 +109,17 @@ end
     if (u + v <= 1)
         return interpolateTriangle(p0, p1, p3, u, v)
     else
-        return interpolateTriangle(p2, p3, p1, 1 - u, 1 - v)
+        return interpolateTriangle(p2, p3, p1, 1.0f0 - u, 1.0f0 - v)
     end
 end
 
 @inline @fastmath function interpolateLine(p0::SVec3f, p1::SVec3f, u::Float32)
-    return p0 * (1 - u) + p1 * u
+    return p0 * (1.0f0 - u) + p1 * u
     # return muladd.(p0, (1 - u), p1 * u)
 end
 
 @inline @fastmath function interpolateLine(p0::SVec2f, p1::SVec2f, u::Float32)
-    return p0 * (1 - u) + p1 * u
+    return p0 * (1.0f0 - u) + p1 * u
     # return muladd.(p0, (1 - u), p1 * u)
 end
 
@@ -177,25 +177,25 @@ end
     b::SVec4f,
     weight::Float32,
 )::SVec4f
-    return muladd.(a, (1 - weight), b * weight)
+    return muladd.(a, (1.0f0 - weight), b .* weight)
     # return a * (1 - weight) .+ b * weight
 end
 
-@inline @fastmath function linInterp(
-    a::SVec3f,
-    b::SVec3f,
-    weight::Float32,
-)::SVec3f
-    a = map(clamp01nan, a)
-    b = map(clamp01nan, b)
+# @inline @fastmath function linInterp(
+#     a::SVec3f,
+#     b::SVec3f,
+#     weight::Float32,
+# )::SVec3f
+#     map!(clamp01nan, a, a)
+#     map!(clamp01nan, b, b)
 
-    return muladd.(a, (1 - weight), b * weight)
-    #return a * (1 - weight) + b * weight
-end
+#     return muladd.(a, (1 - weight), b * weight)
+#     #return a * (1 - weight) + b * weight
+# end
 
 @inline @fastmath function sampleDisk(u::Float32, v::Float32)::SVec2f
     r = sqrt(v)
-    phi = 2 * pi * u
+    phi = 2.0f0 * pi * u
     return cos(phi) * r, sin(phi) * r
 end
 
@@ -285,7 +285,7 @@ end
     return ifelse(
         rgb <= 0.0031308f0,
         12.92f0 * rgb,
-        muladd(1.055f0, fastPow(rgb, (1 / 2.4f0)), -0.055f0),
+        muladd(1.055f0, fastPow(rgb, (1.0f0 / 2.4f0)), -0.055f0),
         #(1 + 0.055f0) * fastPow(rgb, (1 / 2.4f0)) - 0.055f0,
     )
 end
