@@ -38,7 +38,7 @@ function trace(;
     multithreaded::Bool = true,
     quiet::Bool = false,
     maxBounces::Int64 = 128,
-)
+)::Nothing
     if !quiet
         println(
             "~~~~~ SHADER $shader, WIDTH $width, SAMPLES $samples, ",
@@ -76,7 +76,7 @@ function trace(;
     else
         error("No shader named $shader")
     end
-    # shader = shaderMaterial
+    # shaderFunc::Function = shadeMaterial
 
     # call the function to trace samples
 
@@ -104,6 +104,8 @@ function trace(;
     if !quiet
         displayStat("Image saved at $outputPath", t)
     end
+
+    nothing
 end
 
 function saveImage(

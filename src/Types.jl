@@ -49,16 +49,15 @@ struct Ray
     tmax::Float32
     # precomputed for faster intersection, 2 seconds faster! It seems violate the power 2 aligment rule
     # also if this struct is not more aligned the performance seems the same
-    invDirection::SVec3f
+    #invDirection::SVec3f
 
-    Ray(origin, direction, tmin, tmax) =
-        new(origin, direction, tmin, tmax, @fastmath 1.0f0 ./ direction)
+    Ray(origin, direction, tmin, tmax) = new(origin, direction, tmin, tmax)#@fastmath 1.0f0 ./ direction)
     Ray(origin, direction) = new(
         origin,
         direction,
         0.0001f0,
         typemax(Float32),
-        @fastmath 1.0f0 ./ direction
+        #@fastmath 1.0f0 ./ direction
     )
 end
 

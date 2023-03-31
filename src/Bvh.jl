@@ -17,6 +17,16 @@ struct Bbox3f
     Bbox3f(min, max) = new(min, max)
 end
 
+function Base.getindex(box::Bbox3f, i::Integer)::SVec3f
+    if i == 0
+        return box.min
+    elseif i == 1
+        return box.max
+    else
+        throw(ArgumentError("Invalid index $i"))
+    end
+end
+
 # PROF: let's try to make this bvh node lighter
 # 16 GB of allocations previosly (all Int64)
 # It looks a bit faster: 4.11 -> 4.05 seconds, kinda worth
@@ -123,7 +133,7 @@ function makeShapeBvh(shape::Shape)::ShapeBvh
                 shape.radius[l.y],
             )
         end
-    elseif !isemtpy(shape.points)
+    elseif !isempty(shape.points)
         bboxes = Vector{Bbox3f}(undef, size(shape.points, 1))
         for (i, p) in enumerate(shape.points)
             @inbounds bboxes[i] =

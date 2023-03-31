@@ -217,7 +217,7 @@ end
 
     # point on the lens
     pointOnLens =
-        SVec3f(uLens * camera.aperture / 2.0, vLens * camera.aperture / 2.0, 0)
+        SVec3f(uLens * camera.aperture / 2.0f0, vLens * camera.aperture / 2.0f0, 0)
 
     # point on the focus plane
     pointOnFocusPlane = dc * camera.focus / abs(dc[3])
@@ -225,10 +225,10 @@ end
     # correct ray direction to account for camera focusing
     direction = Algebra.norm(pointOnFocusPlane - pointOnLens)
 
-    ray_origin = transformPoint(camera.frame, pointOnLens)
-    ray_direction = transformDirection(camera.frame, direction)
+    rayOrigin = transformPoint(camera.frame, pointOnLens)
+    rayDirection = transformDirection(camera.frame, direction)
 
-    return Ray(ray_origin, ray_direction)
+    return Ray(rayOrigin, rayDirection)
 end
 
 struct MaterialPoint

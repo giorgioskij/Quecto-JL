@@ -7,6 +7,7 @@ using ..Bvh
 using ..Algebra
 using ..World
 import ..Jtrace
+using LoopVectorization
 
 export Intersection, ShapeIntersection, PrimitiveIntersection, intersectScene
 
@@ -93,8 +94,8 @@ function intersectScene(
     # init intersection
     intersection::Intersection = Intersection(false)
 
-    #@fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
-    @fastmath rayDSign::SVec3i = ray.invDirection .< 0 #rayDInv .< 0
+    @fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    @fastmath rayDSign::SVec3i = rayDInv .< 0 #rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -103,7 +104,7 @@ function intersectScene(
         node = masterBvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
-        if !intersectBbox(ray, node.bbox) #rayDInv, node.bbox)
+        if !intersectBbox(ray, rayDInv, node.bbox, rayDSign) #rayDInv, node.bbox)
             continue
         end
 
@@ -124,11 +125,11 @@ function intersectScene(
                 nodeCur += 1
             end
         else
-            @inbounds for idx = node.start:node.start+node.num-1
+            @inbounds @simd for idx = node.start:node.start+node.num-1
                 instance = scene.instances[masterBvh.primitives[idx]]
                 invRay = transformRay(inverse(instance.frame, true), ray)
 
-                sIntersection = intersectShapeBvh!(
+                @inbounds sIntersection = intersectShapeBvh!(
                     sceneBvh.shapes[instance.shapeIndex],
                     scene.shapes[instance.shapeIndex],
                     invRay,
@@ -136,24 +137,26 @@ function intersectScene(
                     threadid,
                     # preallocatedNodeStackForMySon,
                 )
-                if (!sIntersection.hit)
-                    continue
+                # if (!sIntersection.hit)
+                #     continue
+                # end
+                if sIntersection.hit
+                    intersection = Intersection(
+                        true,
+                        masterBvh.primitives[idx],
+                        sIntersection.elementIndex,
+                        sIntersection.u,
+                        sIntersection.v,
+                        sIntersection.distance,
+                    )
+                    # change ray tmax
+                    ray = Ray(
+                        ray.origin,
+                        ray.direction,
+                        ray.tmin,
+                        sIntersection.distance,
+                    )
                 end
-                intersection = Intersection(
-                    true,
-                    masterBvh.primitives[idx],
-                    sIntersection.elementIndex,
-                    sIntersection.u,
-                    sIntersection.v,
-                    sIntersection.distance,
-                )
-                # change ray tmax
-                ray = Ray(
-                    ray.origin,
-                    ray.direction,
-                    ray.tmin,
-                    sIntersection.distance,
-                )
             end
         end
         if (findAny && intersection.hit)
@@ -193,8 +196,8 @@ function intersectShapeBvh!(
 
     intersection::ShapeIntersection = ShapeIntersection(false)
 
-    #@fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
-    @fastmath rayDSign::SVec3i = ray.invDirection .< 0 #rayDInv .< 0
+    @fastmath rayDInv::SVec3f = 1.0f0 ./ ray.direction
+    @fastmath rayDSign::SVec3i = rayDInv .< 0 #rayDInv .< 0
 
     # walking stack
     while (nodeCur != 1)
@@ -204,7 +207,7 @@ function intersectShapeBvh!(
         node = bvh.nodes[nodeStack[nodeCur]]
 
         # intersect bbox
-        if !intersectBbox(ray, node.bbox) #rayDInv, node.bbox)
+        if !intersectBbox(ray, rayDInv, node.bbox, rayDSign) #rayDInv, node.bbox)
             continue
         end
 
@@ -226,7 +229,7 @@ function intersectShapeBvh!(
             end
         elseif !isempty(shape.triangles)
             # intersect triangles
-            @inbounds for idx = node.start:node.start+node.num-1
+            @inbounds @simd for idx = node.start:node.start+node.num-1
                 t = shape.triangles[bvh.primitives[idx]]
                 pIntersection = intersectPrimitiveTriangle(
                     ray,
@@ -235,27 +238,28 @@ function intersectShapeBvh!(
                     shape.positions[t.z],
                 )
 
-                if !pIntersection.hit
-                    continue
+                # if !pIntersection.hit
+                #     continue
+                # end
+                if pIntersection.hit
+                    intersection = ShapeIntersection(
+                        true,
+                        bvh.primitives[idx],
+                        pIntersection.u,
+                        pIntersection.v,
+                        pIntersection.distance,
+                    )
+                    ray = Ray(
+                        ray.origin,
+                        ray.direction,
+                        ray.tmin,
+                        pIntersection.distance,
+                    )
                 end
-                intersection = ShapeIntersection(
-                    true,
-                    bvh.primitives[idx],
-                    pIntersection.u,
-                    pIntersection.v,
-                    pIntersection.distance,
-                )
-                ray = Ray(
-                    ray.origin,
-                    ray.direction,
-                    ray.tmin,
-                    pIntersection.distance,
-                )
             end
-
         elseif !isempty(shape.quads)
             # intersect quads
-            @inbounds for idx = node.start:node.start+node.num-1
+            @inbounds @simd for idx = node.start:node.start+node.num-1
                 q = shape.quads[bvh.primitives[idx]]
                 pIntersection = intersectPrimitiveQuad(
                     ray,
@@ -265,22 +269,24 @@ function intersectShapeBvh!(
                     shape.positions[q.w],
                 )
 
-                if !pIntersection.hit
-                    continue
+                # if !pIntersection.hit
+                #     continue
+                # end
+                if pIntersection.hit
+                    intersection = ShapeIntersection(
+                        true,
+                        bvh.primitives[idx],
+                        pIntersection.u,
+                        pIntersection.v,
+                        pIntersection.distance,
+                    )
+                    ray = Ray(
+                        ray.origin,
+                        ray.direction,
+                        ray.tmin,
+                        pIntersection.distance,
+                    )
                 end
-                intersection = ShapeIntersection(
-                    true,
-                    bvh.primitives[idx],
-                    pIntersection.u,
-                    pIntersection.v,
-                    pIntersection.distance,
-                )
-                ray = Ray(
-                    ray.origin,
-                    ray.direction,
-                    ray.tmin,
-                    pIntersection.distance,
-                )
             end
         elseif !isempty(shape.lines)
             # intersect lines
@@ -349,11 +355,45 @@ end
 # Intersect a ray with a axis-aligned bounding box
 @inline @fastmath function intersectBbox(
     ray::Ray,
-    #rayDInv::SVec3f,
+    rayDInv::SVec3f,
     bbox::Bbox3f,
+    rayDSign::SVec3i,
 )::Bool
-    itMin::SVec3f = (bbox.min - ray.origin) * ray.invDirection #rayDInv
-    itMax::SVec3f = (bbox.max - ray.origin) * ray.invDirection #rayDInv
+    tMin::Float32 = @inbounds (bbox[rayDSign[1]][1] - ray.origin.x) * rayDInv.x #ray.invDirection.x
+    tMax::Float32 =
+        @inbounds (bbox[1-rayDSign[1]][1] - ray.origin.x) * rayDInv.x #ray.invDirection.x
+    tyMin::Float32 = @inbounds (bbox[rayDSign[2]][2] - ray.origin.y) * rayDInv.y # ray.invDirection.y
+    tyMax::Float32 =
+        @inbounds (bbox[1-rayDSign[2]][2] - ray.origin.y) * rayDInv.y #ray.invDirection.y
+
+    if (tMin > tyMax || tyMin > tMax)
+        return false
+    end
+    if (tyMin > tMin)
+        tMin = tyMin
+    end
+    if (tyMax < tMax)
+        tMax = tyMax
+    end
+
+    tzMin::Float32 = @inbounds (bbox[rayDSign[3]][3] - ray.origin.z) * rayDInv.z #ray.invDirection.z
+    tzMax::Float32 =
+        @inbounds (bbox[1-rayDSign[3]][3] - ray.origin.z) * rayDInv.z # ray.invDirection.z
+    if (tMin > tzMax || tzMin > tMax)
+        return false
+    end
+    if (tzMin > tMin)
+        tMin = tzMin
+    end
+    if (tzMax < tMax)
+        tMax = tzMax
+    end
+
+    return (tMax > 0) && (tMin < ray.tmax)
+
+    #itMin::SVec3f = (bbox.min - ray.origin) * ray.invDirection #rayDInv
+    #itMax::SVec3f = (bbox.max - ray.origin) * ray.invDirection #rayDInv
+
     # broadcast for min and max are faster than map look here: https://github.com/JuliaLang/julia/pull/45532 
     # in less word they allow simd execution
     # maxTmin::Float32 = fastMaximum(broadcast(fastMin, itMin, itMax))
@@ -363,10 +403,10 @@ end
 
     # TODO: try if it is fast to construct a SVec4f and then do the min and max
     # seems a little faster than the previous one
-    @inbounds maxTmin::SVec4f = SVec4f(fastMin.(itMin, itMax)..., ray.tmin)
-    @inbounds minTmax::SVec4f = SVec4f(fastMax.(itMin, itMax)..., ray.tmax)
-    t0::Float32 = fastMaximumComponent(maxTmin)
-    t1::Float32 = fastMinimumComponent(minTmax)
+    #@inbounds maxTmin::SVec4f = SVec4f(fastMin.(itMin, itMax)..., ray.tmin)
+    #@inbounds minTmax::SVec4f = SVec4f(fastMax.(itMin, itMax)..., ray.tmax)
+    #t0::Float32 = fastMaximumComponent(maxTmin)
+    #t1::Float32 = fastMinimumComponent(minTmax)
 
     # make a 1 pass minmax to halve the number of operations
     # shit this is slower (or same speed) than previous one! maybe for allocation of objects
@@ -384,7 +424,7 @@ end
     # t1::Float32 = fastMinimumComponent(minTmax)
 
     #t1 *= 1.00000024f0 # for double: 1.0000000000000004 # I think this is only for C code
-    return t0 <= t1
+    #return t0 <= t1
 end
 
 # @inline function fastMinMax(a::Float32, b::Float32)::Tuple{Float32,Float32}
