@@ -15,4 +15,4 @@ scenePath = "materials1/materials1.json"
 # scenePath = "materials4/materials4.json"
 # scenePath = "features2/features2.json"
 
-trace(scenePath = scenePath, shader = "material", width = 1280, samples = 128)
+trace(scenePath = scenePath, shader = "pathtrace", width = 1280, samples = 128)

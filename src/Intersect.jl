@@ -9,7 +9,12 @@ using ..World
 import ..Jtrace
 using LoopVectorization
 
-export Intersection, ShapeIntersection, PrimitiveIntersection, intersectScene
+export Intersection,
+    ShapeIntersection,
+    SceneIntersection,
+    PrimitiveIntersection,
+    intersectScene,
+    intersectInstance
 
 # TODO: I think maga mago' hack is doing/can do some "false sharing" and if we make this really 
 # big we can avoid the false sharing because this thing never go in a coerent cache of a CPU,
@@ -36,6 +41,19 @@ struct ShapeIntersection
     ShapeIntersection(hit::Bool) = new(hit, -1, 0, 0, 0)
     ShapeIntersection(hit, elementIndex, u, v, distance) =
         new(hit, elementIndex, u, v, distance)
+end
+
+struct SceneIntersection
+    hit::Bool
+    instanceIndex::Int32
+    elementIndex::Int32
+    u::Float32
+    v::Float32
+    distance::Float32
+
+    SceneIntersection(hit::Bool) = new(hit, -1, -1, 0, 0, 0)
+    SceneIntersection(hit, instanceIndex, elementIndex, u, v, distance) =
+        new(hit, instanceIndex, elementIndex, u, v, distance)
 end
 
 # intersection of a ray with a primitive element
@@ -703,6 +721,36 @@ end
         return isec1
         # this is equal to PrimitiveIntersection(false) but faster
     end
+end
+
+function intersectInstance(
+    sbvh::SceneBvh,
+    scene::Scene,
+    instanceIndex::Int32,
+    ray::Ray,
+    findAny::Bool,
+    treadid::UInt8,
+)::SceneIntersection
+    instance = scene.instances[instanceIndex]
+    invRay = transformRay(inverse(instance.frame, true), ray)
+    intersection = intersectShapeBvh!(
+        sbvh.shapes[instance.shapeIndex],
+        scene.shapes[instance.shapeIndex],
+        invRay,
+        findAny,
+        treadid,
+    )
+    if !intersection.hit
+        return SceneIntersection(false)
+    end
+    return SceneIntersection(
+        true,
+        instanceIndex,
+        intersection.elementIndex,
+        intersection.u,
+        intersection.v,
+        intersection.distance,
+    )
 end
 
 # ---------------------- END OF BVH RELATED STUFF ----------------------

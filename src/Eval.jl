@@ -11,7 +11,9 @@ export evalNormal,
     evalTexcoord,
     evalShadingPosition,
     evalPosition,
-    evalMaterial
+    evalMaterial,
+    lookupTexture,
+    evalElementNormal
 #evalShadingNormal
 
 # function evalShadingNormal(
@@ -746,7 +748,7 @@ function evalPosition(
             interpolateLine(shape.positions[l.x], shape.positions[l.y], u),
         )
     else
-        error("No triangles or quads in this shape")
+        error("No triangles or quads or lines in this shape")
     end
 end
 
@@ -800,6 +802,27 @@ function evalMaterial(
         roughness,
         material.ior,
     )
+end
+
+function evalElementNormal(
+    scene::Scene,
+    instance::Instance,
+    elementIndex::Int32,
+)::SVec3f
+    shape = scene.shapes[instance.shapeIndex]
+    if !isempty(shape.triangles)
+        @inbounds t = shape.triangles[elementIndex]
+        return transformNormal(
+            instance.frame,
+            computeTriangleNormal(
+                shape.positions[t.x],
+                shape.positions[t.y],
+                shape.positions[t.z],
+            ),
+        )
+    else
+        return zeroSV3f
+    end
 end
 
 end

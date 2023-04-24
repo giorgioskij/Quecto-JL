@@ -11,6 +11,7 @@ include("MaterialsFunctions.jl")
 include("Pdfs.jl")
 include("Bsdf.jl")
 include("Eval.jl")
+include("Lights.jl")
 include("Shading.jl")
 include("Loader.jl")
 
@@ -26,6 +27,7 @@ using .Algebra
 using .Bvh
 using .World
 using .Shading
+using .Lights
 
 export trace
 
@@ -61,6 +63,11 @@ function trace(;
     # generate empty starting image
     image = zeros(SVec4f, height, width)
 
+    t = @elapsed lights = makeTraceLights(scene)
+    if !quiet
+        displayStat("Lights built", t)
+    end
+
     shaderFunc::Function = if lowercase(shader) == "eyelight"
         shadeEyelight
     elseif lowercase(shader) == "normal"
@@ -73,6 +80,8 @@ function trace(;
         shadeMaterial
     elseif lowercase(shader) == "path"
         shadePath
+    elseif lowercase(shader) == "pathtrace"
+        shadePathtrace
     else
         error("No shader named $shader")
     end
@@ -92,6 +101,7 @@ function trace(;
         camera,
         multithreaded,
         maxBounces,
+        lights,
     )
     # GC.enable(true)
 
@@ -149,6 +159,7 @@ function traceSamples!(
     camera::Camera,
     multithreaded::Bool,
     maxBounces::Int64,
+    lights::Vector{Light},
 )::Nothing
     for s = 1:samples
         weight::Float32 = 1.0f0 / s
@@ -170,6 +181,7 @@ function traceSamples!(
                             imheight,
                             bvh,
                             maxBounces,
+                            lights,
                         )
 
                         @inbounds image[j, i] = linInterp(
@@ -192,6 +204,7 @@ function traceSamples!(
                             imheight,
                             bvh,
                             maxBounces,
+                            lights,
                         )
 
                         @inbounds image[j, i] = linInterp(
@@ -219,6 +232,7 @@ end
     imheight::Int,
     bvh::SceneBvh,
     maxBounces::Int64,
+    lights::Vector{Light},
 )::SVec3f
 
     # send a ray
@@ -226,7 +240,7 @@ end
     ray::Ray = sampleCamera(camera, i - 1, j - 1, imwidth, imheight)
 
     # call the shader
-    radiance::SVec3f = shader(scene, ray, bvh, maxBounces)
+    radiance::SVec3f = shader(scene, ray, bvh, maxBounces, lights)
 
     return radiance
 end
