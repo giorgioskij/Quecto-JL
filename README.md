@@ -40,9 +40,9 @@ Spheres = {Int, Float}
 - [x] Environment maps
 - [x] Hit other stuff with rays
 - [ ] Solve HDR loading problem
-- [ ] Separate shaders 
-- [ ] Fix the 1 pixel shift between yocto and us
-- [ ] Bounces in input 
+- [x] Separate shaders 
+- [x] Fix the 1 pixel shift between yocto and us
+- [x] Bounces in input 
 
 
 ## Shaders

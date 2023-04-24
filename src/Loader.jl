@@ -222,7 +222,9 @@ function loadJsonScene(scenePath::String)::Scene
 
     # load shapes
     shapes = Vector{Shape}(undef, size(shapeFilenames, 1))
-    for (i, filename) in enumerate(shapeFilenames)
+    # no speedup with threading and collect for now, to try also with large scenes
+    @inbounds Threads.@threads for (i, filename) in
+                                   collect(enumerate(shapeFilenames))
         path = (dirname(scenePath), filename) |> joinpath
         shape = loadShape(path)
         shapes[i] = shape
@@ -236,7 +238,9 @@ function loadJsonScene(scenePath::String)::Scene
     # load textures
     # understand which textures are used as normal textures
     normalTexturesIndices = Set(map(m -> m.normalTex, materials))
-    for (i, filename) in enumerate(textureFilenames)
+    # no speedup with threading and collect for now, to try also with large scenes
+    @inbounds Threads.@threads for (i, filename) in
+                                   collect(enumerate(textureFilenames))
         if i in normalTexturesIndices
             convertToRgb = false
         else
@@ -344,10 +348,18 @@ function loadShape(filename::String)::Shape
     if "u" in vertexProperties && "v" in vertexProperties
         u = ply["vertex"]["u"]
         v = ply["vertex"]["v"]
+        # putting below lines make floor line disappear
+        # elseif "s" in vertexProperties && "t" in vertexProperties
+        #     u = ply["vertex"]["s"]
+        #     v = ply["vertex"]["t"]
+
+        # ignoring filpv value for now
 
         @inbounds textureCoords =
             map((x) -> SVec2f(x[1], 1 - x[2]), collect(zip(u, v)))
     end
+
+    # ignoring load colors for now
 
     # load radius
     radius::Vector{Float32} = Vector{Float32}[]
@@ -370,7 +382,7 @@ function loadShape(filename::String)::Shape
         @inbounds quadCount =
             count(elem -> (size(elem[1])[end] == 4), eachrow(faces))
         if triCount + quadCount != size(faces)[1]
-            error("Only implemented triangles and quads")
+            error("Only implemented triangles and quads as faces")
         end
 
         # load triangles and quads
@@ -397,6 +409,15 @@ function loadShape(filename::String)::Shape
     elseif "point" in plyname.(ply.elements)
         error("not sure how to load points")
         # points = map(x -> x[0] + 1, eachrow(ply["point"]["vertex_indices"]))
+    end
+
+    if (
+        isempty(points) &&
+        isempty(lines) &&
+        isempty(triangles) &&
+        isempty(quads)
+    )
+        error("No faces, lines, or points found")
     end
 
     # create shape
