@@ -333,46 +333,46 @@ function evalNormal(
     error("🤷‍♂️")
 end
 
-# function evalElementNormal(
-#     scene::Scene,
-#     instance::Instance,
-#     elementIndex::Integer,
-# )::SVec3f
-#     shape = scene.shapes[instance.shapeIndex]
-#     frame = instance.frame
-#     if !isempty(shape.triangles)
-#         @inbounds t = shape.triangles[elementIndex]
-#         @inbounds return transformNormal(
-#             frame,
-#             computeTriangleNormal(
-#                 shape.positions[t.x],
-#                 shape.positions[t.y],
-#                 shape.positions[t.z],
-#             ),
-#         )
-#     elseif !isempty(shape.quads)
-#         @inbounds q = shape.quads[elementIndex]
-#         @inbounds return transformNormal(
-#             frame,
-#             computeQuadNormal(
-#                 shape.positions[q.x],
-#                 shape.positions[q.y],
-#                 shape.positions[q.z],
-#                 shape.positions[q.w],
-#             ),
-#         )
-#     elseif !isempty(shape.lines)
-#         @inbounds l = shape.lines[elementIndex]
-#         @inbounds return transformNormal(
-#             frame,
-#             lineTangent(shape.positions[l.x], shape.positions[l.y]),
-#         )
-#     elseif !isempty(shape.points)
-#         return SVec3f(0, 0, 1)
-#     else
-#         error("🤷‍♂️")
-#     end
-# end
+function evalElementNormal(
+    scene::Scene,
+    instance::Instance,
+    elementIndex::Integer,
+)::SVec3f
+    shape = scene.shapes[instance.shapeIndex]
+    frame = instance.frame
+    if !isempty(shape.triangles)
+        @inbounds t = shape.triangles[elementIndex]
+        @inbounds return transformNormal(
+            frame,
+            computeTriangleNormal(
+                shape.positions[t.x],
+                shape.positions[t.y],
+                shape.positions[t.z],
+            ),
+        )
+    elseif !isempty(shape.quads)
+        @inbounds q = shape.quads[elementIndex]
+        @inbounds return transformNormal(
+            frame,
+            computeQuadNormal(
+                shape.positions[q.x],
+                shape.positions[q.y],
+                shape.positions[q.z],
+                shape.positions[q.w],
+            ),
+        )
+    elseif !isempty(shape.lines)
+        @inbounds l = shape.lines[elementIndex]
+        @inbounds return transformNormal(
+            frame,
+            lineTangent(shape.positions[l.x], shape.positions[l.y]),
+        )
+    elseif !isempty(shape.points)
+        return SVec3f(0, 0, 1)
+    else
+        error("🤷‍♂️")
+    end
+end
 
 function computeNormal(shape::Shape, elementIndex::Int32, frame::Frame)
     if !isempty(shape.triangles)
@@ -802,27 +802,6 @@ function evalMaterial(
         roughness,
         material.ior,
     )
-end
-
-function evalElementNormal(
-    scene::Scene,
-    instance::Instance,
-    elementIndex::Int32,
-)::SVec3f
-    shape = scene.shapes[instance.shapeIndex]
-    if !isempty(shape.triangles)
-        @inbounds t = shape.triangles[elementIndex]
-        return transformNormal(
-            instance.frame,
-            computeTriangleNormal(
-                shape.positions[t.x],
-                shape.positions[t.y],
-                shape.positions[t.z],
-            ),
-        )
-    else
-        return zeroSV3f
-    end
 end
 
 end

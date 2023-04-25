@@ -11,7 +11,7 @@ using ..Lights
 
 using StaticArrays: dot, cross
 
-export shadeMaterial, shadePathtrace
+export shadeMaterial, shadePath
 
 function shadeMaterial(
     scene::Scene,
@@ -93,14 +93,12 @@ function shadeMaterial(
         end
 
         # accumulate emission
-        # radiance +=
-        #     weight * (
-        #         dot(normal, outgoing) >= 0 ? materialPoint.emission :
-        #         zeroSV3f
-        #     )
-        emission =
-            dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f
-        radiance = muladd.(weight, emission, radiance)
+        radiance +=
+            weight *
+            (dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f)
+        # emission =
+        #     dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f
+        # radiance = muladd.(weight, emission, radiance)
 
         incoming = zeroSV3f
 
@@ -144,7 +142,7 @@ function shadeMaterial(
     return radiance
 end
 
-function shadePathtrace(
+function shadePath(
     scene::Scene,
     ray::Ray,
     bvh::SceneBvh,
@@ -160,12 +158,13 @@ function shadePathtrace(
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
-            radiance =
-                muladd.(
-                    weight,
-                    evalEnvironment(scene, newRay.direction),
-                    radiance,
-                )
+            # radiance =
+            # muladd.(
+            #     weight,
+            #     evalEnvironment(scene, newRay.direction),
+            #     radiance,
+            # )
+            radiance += weight * evalEnvironment(scene, newRay.direction)
             break
         end
 
@@ -224,14 +223,12 @@ function shadePathtrace(
         end
 
         # accumulate emission
-        # radiance +=
-        #     weight * (
-        #         dot(normal, outgoing) >= 0 ? materialPoint.emission :
-        #         zeroSV3f
-        #     )
-        emission =
-            dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f
-        radiance = muladd.(weight, emission, radiance)
+        radiance +=
+            weight *
+            (dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f)
+        # emission =
+        #     dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f
+        # radiance = muladd.(weight, emission, radiance)
 
         incoming = zeroSV3f
 

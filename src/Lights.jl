@@ -77,8 +77,9 @@ function makeTraceLights(scene::Scene)::Vector{Light}
             textureWidth, textureHeight = size(texture.image)
             elementsCdf = Vector{Float32}(undef, textureWidth * textureHeight)
             for idx in eachindex(elementsCdf)
-                i = floor(Int, idx % textureWidth)
-                j = floor(Int, idx / textureWidth)
+                zidx = idx - 1
+                i = floor(Int, zidx % textureWidth)
+                j = floor(Int, zidx / textureWidth)
                 th = (j + 0.5f0) * pi / textureHeight
                 value = lookupTexture(texture, i, j)
                 elementsCdf[idx] = maximum(value) * sin(th)
@@ -102,13 +103,14 @@ function quadArea(p0::SVec3f, p1::SVec3f, p2::SVec3f, p3::SVec3f)::Float32
 end
 
 @inline function sampleUniform(size::Int)::Int32
-    return clamp(floor(Int32, (rand(Float32) * size)), 1, size)
+    return floor(Int32, (rand(Float32) * size)) + 1
 end
 
 @inline function sampleDiscrete(cdf::Vector{Float32})::Int32
     r = clamp(rand(Float32) * cdf[end], 0.0f0, cdf[end] - 0.00001f0)
-    idx = searchsortedfirst(cdf, r) # r is surely < cdf[end] so lastindex(cdf) + 1 is never returned 
-    return idx #clamp(idx, 0, size(cdf, 1) - 1)
+    idx = searchsortedlast(cdf, r) + 1 # r is surely < cdf[end] so lastindex(cdf) + 1 is never returned 
+    # return idx #clamp(idx, 0, size(cdf, 1) - 1)
+    return clamp(idx, 1, size(cdf, 1))
 end
 
 # Sample a point uniformly on a triangle returning the baricentric coordinates.
@@ -123,7 +125,7 @@ end
 @inline function sampleSphere()::SVec3f
     z = 2.0f0 * rand(Float32) - 1.0f0
     r = sqrt(clamp(1.0f0 - z * z, 0.0f0, 1.0f0))
-    phi = 2.0f0 * pif * rand(Float32)
+    phi = 2.0f0 * pi * rand(Float32)
     return SVec3f(r * cos(phi), r * sin(phi), z)
 end
 
@@ -148,10 +150,14 @@ function sampleLights(
         environment = scene.environments[light.environment]
         if environment.emissionTex > 0
             emissionTex = scene.textures[environment.emissionTex]
-            emissionTexWidth, emissionTexHeight = size(emissionTex.image)
+            # emissionTexWidth, emissionTexHeight = size(emissionTex.image)
+            emissionTexHeight, emissionTexWidth = size(emissionTex.image)
             idx = sampleDiscrete(light.elementsCdf)
-            u, v = ((idx % emission_tex.width) + 0.5f) / emissionTexWidth,
-            ((idx / emissionTexWidth) + 0.5f) / emissionTexHeight
+            u, v = ((idx % emissionTexWidth) + 0.5f0) / emissionTexWidth,
+            ((idx / emissionTexWidth) + 0.5f0) / emissionTexHeight
+            # cidx = CartesianIndices((emissionTexHeight, emissionTexWidth))[idx]
+            # u = (cidx[2] + 0.5f0) / emissionTexWidth
+            # v = (cidx[1] + 0.5f0) / emissionTexHeight
             return transformDirection(
                 environment.frame,
                 SVec3f(
@@ -161,7 +167,7 @@ function sampleLights(
                 ),
             )
         else
-            return sampleSphere()
+            return sampleSphere() # never done
         end
     else
         return zeroSV3f
@@ -223,10 +229,11 @@ function pdfLights(
             environment = scene.environments[light.environment]
             if environment.emissionTex > 0
                 emissionTex = scene.textures[environment.emissionTex]
-                emissionTexWidth, emissionTexHeight = size(emissionTex.image)
+                #emissionTexWidth, emissionTexHeight = size(emissionTex.image)
+                emissionTexHeight, emissionTexWidth = size(emissionTex.image)
                 wl = transformDirection(inverse(environment.frame), direction)
-                u = atan(wl[3], wl[1]) / (2 * pi)
-                v = acos(clamp(wl[2], -1.0f0, 1.0f0) / pi)
+                u = atan(wl[3], wl[1]) / (2.0f0 * pi)
+                v = acos(clamp(wl[2], -1.0f0, 1.0f0)) / pi
                 if u < 0
                     u += 1.0f0
                 end

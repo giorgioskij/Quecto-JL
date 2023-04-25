@@ -9,14 +9,14 @@ using ..Algebra
 
 using StaticArrays: dot, cross
 
-export shadePath, shadeMaterial, shadeEyelight, shadeNormal, shadeColor
+export shadePathMatte, shadeMaterial, shadeEyelight, shadeNormal, shadeColor
 
 include("Baseshaders.jl")
 include("Pathtrace.jl")
 include("Raytrace.jl")
 
 # this is meant to be a copy of trace_naive but with only matte
-function shadePath(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
+function shadePathMatte(scene::Scene, ray::Ray, bvh::SceneBvh)::SVec3f
     radiance::SVec3f = zeroSV3f
     weight::SVec3f = SVec3f(1, 1, 1)
     hit::Bool = false

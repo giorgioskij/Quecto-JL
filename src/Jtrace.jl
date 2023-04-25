@@ -40,7 +40,7 @@ function trace(;
     multithreaded::Bool = true,
     quiet::Bool = false,
     maxBounces::Int64 = 128,
-)::Nothing
+)
     if !quiet
         println(
             "~~~~~ SHADER $shader, WIDTH $width, SAMPLES $samples, ",
@@ -64,6 +64,10 @@ function trace(;
     image = zeros(SVec4f, height, width)
 
     t = @elapsed lights = makeTraceLights(scene)
+
+    # @show lights
+    # return lights
+
     if !quiet
         displayStat("Lights built", t)
     end
@@ -80,8 +84,8 @@ function trace(;
         shadeMaterial
     elseif lowercase(shader) == "path"
         shadePath
-    elseif lowercase(shader) == "pathtrace"
-        shadePathtrace
+        # elseif lowercase(shader) == "pathtrace"
+        #     shadePathtrace
     else
         error("No shader named $shader")
     end
