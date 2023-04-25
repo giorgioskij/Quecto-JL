@@ -22,6 +22,7 @@ end
 # try to think if we know it in advance
 function makeTraceLights(scene::Scene)::Vector{Light}
     lights = Vector{Light}()
+    # instance lights
     for (i, instance) in enumerate(scene.instances)
         material = scene.materials[instance.materialIndex]
         if material.emission == zeroSV3f
@@ -64,13 +65,14 @@ function makeTraceLights(scene::Scene)::Vector{Light}
         push!(lights, Light(i, 0, elementsCdf))
     end
 
-    for (i, environment) in enumerate(scene.environments)
+    # environment lights
+    for (k, environment) in enumerate(scene.environments)
         if environment.emission == zeroSV3f
             continue
         end
 
         elementsCdf = Vector{Float32}(undef, 0)
-        if environment.emissionTex != -1
+        if environment.emissionTex > 0 # != -1
             texture = scene.textures[environment.emissionTex]
             textureWidth, textureHeight = size(texture.image)
             elementsCdf = Vector{Float32}(undef, textureWidth * textureHeight)
@@ -85,7 +87,7 @@ function makeTraceLights(scene::Scene)::Vector{Light}
                 end
             end
         end
-        push!(lights, Light(0, i, elementsCdf))
+        push!(lights, Light(0, k, elementsCdf))
     end
 
     return lights
@@ -110,9 +112,12 @@ end
 end
 
 # Sample a point uniformly on a triangle returning the baricentric coordinates.
-@inline function sampleTriangle()::Tuple{Float32,Float32}
-    sqrtruvx = sqrt(rand(Float32))
-    return 1.0f0 - sqrtruvx, rand(Float32) * sqrtruvx
+@inline function sampleTriangle(
+    ru::Float32,
+    rv::Float32,
+)::Tuple{Float32,Float32}
+    sqrtru = sqrt(ru)
+    return 1.0f0 - sqrtru, rv * sqrtru
 end
 
 @inline function sampleSphere()::SVec3f
@@ -135,7 +140,7 @@ function sampleLights(
         element = sampleDiscrete(light.elementsCdf)
         u, v = rand(Float32), rand(Float32)
         if !isempty(shape.triangles)
-            u, v = sampleTriangle()
+            u, v = sampleTriangle(u, v)
         end
         lightPosition = evalPosition(scene, instance, element, u, v)
         return norm(lightPosition - position)
@@ -143,8 +148,7 @@ function sampleLights(
         environment = scene.environments[light.environment]
         if environment.emissionTex > 0
             emissionTex = scene.textures[environment.emissionTex]
-            emissionTexWidth = size(emissionTex, 1)
-            emissionTexHeight = size(emissionTex, 2)
+            emissionTexWidth, emissionTexHeight = size(emissionTex.image)
             idx = sampleDiscrete(light.elementsCdf)
             u, v = ((idx % emission_tex.width) + 0.5f) / emissionTexWidth,
             ((idx / emissionTexWidth) + 0.5f) / emissionTexHeight
@@ -219,8 +223,7 @@ function pdfLights(
             environment = scene.environments[light.environment]
             if environment.emissionTex > 0
                 emissionTex = scene.textures[environment.emissionTex]
-                emissionTexWidth = size(emissionTex, 1)
-                emissionTexHeight = size(emissionTex, 2)
+                emissionTexWidth, emissionTexHeight = size(emissionTex.image)
                 wl = transformDirection(inverse(environment.frame), direction)
                 u = atan(wl[3], wl[1]) / (2 * pi)
                 v = acos(clamp(wl[2], -1.0f0, 1.0f0) / pi)
@@ -241,7 +244,7 @@ function pdfLights(
                     sampleDiscretePdf(
                         light.elementsCdf,
                         j * emissionTexWidth + i,
-                    ) / light.elements_cdf[end]
+                    ) / light.elementsCdf[end]
                 angle =
                     (2.0f0 * pi / emissionTexWidth) *
                     (pi / emissionTexHeight) *
