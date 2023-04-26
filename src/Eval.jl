@@ -752,6 +752,46 @@ function evalPosition(
     end
 end
 
+function evalColor(
+    scene::Scene,
+    instance::Instance,
+    elementIndex::Int32,
+    textureX::Float32,
+    textureY::Float32,
+)::SVec4f
+    shape = scene.shapes[instance.shapeIndex]
+    if (isempty(shape.colors))
+        return SVec4f(1, 1, 1, 1)
+    end
+    if (!isempty(shape.triangles))
+        t = shape.triangles[elementIndex]
+        return interpolateTriangle(
+            shape.colors[t.x],
+            shape.colors[t.y],
+            shape.colors[t.z],
+            textureX,
+            textureY,
+        )
+    elseif !isempty(shape.quads)
+        q = shape.quads[elementIndex]
+        return interpolateQuad(
+            shape.colors[q.x],
+            shape.colors[q.y],
+            shape.colors[q.z],
+            shape.colors[q.w],
+            textureX,
+            textureY,
+        )
+    elseif !isempty(shape.lines)
+        l = shape.lines[elementIndex]
+        return interpolateLine(shape.colors[l.x], shape.colors[l.y], textureX)
+    elseif !isempty(shape.points)
+        return shape.colors[shape.points[elementIndex]]
+    else
+        return SVec4f(0, 0, 0, 0)
+    end
+end
+
 function evalMaterial(
     scene::Scene,
     instance::Instance,
@@ -772,27 +812,49 @@ function evalMaterial(
     # eval material textures
     materialEmissionTex::SVec4f =
         evalTexture(scene, material.emissionTex, textureX, textureY)
+    colorShape = evalColor(
+        scene,
+        instance,
+        intersection.elementIndex,
+        textureX,
+        textureY,
+    )
     materialColorTex::SVec4f =
         evalTexture(scene, material.colorTex, textureX, textureY)
     # ignore roughness and scattering textures
+    roughnessTex::SVec4f =
+        evalTexture(scene, material.roughnessTex, textureX, textureY)
+    scatteringTex::SVec4f =
+        evalTexture(scene, material.scatteringTex, textureX, textureY)
 
     # eval material properties
     emission::SVec3f = material.emission * xyz(materialEmissionTex)
     color::SVec3f = material.color * xyz(materialColorTex)
-    roughness::Float32 = material.roughness
+    opacity::Float32 = material.opacity * materialColorTex[4]
+    metallic::Float32 = material.metallic * roughnessTex[3]
+    roughness::Float32 = material.roughness * roughnessTex[2]
     # FIX: roughness needs to be squared for some reason
     roughness = roughness * roughness
+    scattering = material.scattering * xyz(scatteringTex)
 
-    # fix roughness
-    if material.type == "matte" ||
-       #material.type == "gltfpbr" ||
-       material.type == "glossy"
-        roughness = clamp(roughness, minRoughness, 1.0f0)
-    elseif roughness < minRoughness
-        roughness = 0.0f0
+    # volume density
+    density::SVec3f = zeroSV3f
+    if (
+        material.type == "refractive" ||
+        material.type == "volume" ||
+        material.type == "subsurface"
+    )
+        density = -log.(clamp.(color, 0.0001f0, 1.0f0)) / material.trdepth
     end
 
-    opacity::Float32 = material.opacity * materialColorTex[4]
+    # fix roughness
+    if (material.type == "matte" ||
+        # material.type == "gltfpbr" ||
+        material.type == "glossy")
+        roughness = clamp(roughness, minRoughness, 1.0f0)
+    elseif material.type == "volume" || roughness < minRoughness
+        roughness = 0.0f0
+    end
 
     return MaterialPoint(
         material.type,
@@ -800,7 +862,12 @@ function evalMaterial(
         color,
         opacity,
         roughness,
+        metallic,
         material.ior,
+        density,
+        scattering,
+        material.scanisotropy,
+        material.trdepth,
     )
 end
 

@@ -28,7 +28,8 @@ export pdfBSDF, pdfDelta
         return pdfDeltaTransparent(material.ior, normal, outgoing, incoming)
     elseif material.type == "refractive"
         return pdfDeltaRefractive(material.ior, normal, outgoing, incoming)
-        # elseif material.type == "volumetric" # not implemented for now
+    elseif material.type == "volume"
+        return pdfPassthrough(material.color, normal, outgoing, incoming)
     else
         error("unknown material type")
     end
@@ -76,6 +77,18 @@ end
     else
         return 1.0f0 - fresnelDielectric(relIor, upNormal, outgoing)
     end
+end
+
+@inline function pdfPassthrough(
+    color::SVec3f,
+    normal::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+)::Float32
+    if dot(normal, incoming) * dot(normal, outgoing) >= 0
+        return 0.0f0
+    end
+    return 1.0f0
 end
 
 ################################################

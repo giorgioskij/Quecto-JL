@@ -61,6 +61,7 @@ struct Shape
     normals::Vector{SVec3f}
     textureCoords::Vector{SVec2f}
     radius::Vector{Float32}
+    colors::Vector{SVec4f}
 end
 
 struct Environment
@@ -216,8 +217,11 @@ end
     uLens, vLens = sampleDisk(uLens, vLens)
 
     # point on the lens
-    pointOnLens =
-        SVec3f(uLens * camera.aperture / 2.0f0, vLens * camera.aperture / 2.0f0, 0)
+    pointOnLens = SVec3f(
+        uLens * camera.aperture / 2.0f0,
+        vLens * camera.aperture / 2.0f0,
+        0,
+    )
 
     # point on the focus plane
     pointOnFocusPlane = dc * camera.focus / abs(dc[3])
@@ -237,7 +241,12 @@ struct MaterialPoint
     color::SVec3f
     opacity::Float32
     roughness::Float32
+    metallic::Float32
     ior::Float32
+    density::SVec3f
+    scattering::SVec3f
+    scanisotropy::Float32
+    trdepth::Float32
 
     MaterialPoint(
         type = "matte",
@@ -245,8 +254,25 @@ struct MaterialPoint
         color = zeroSV3f,
         opacity = 1,
         roughness = 0,
+        metallic = 0,
         ior = 1,
-    ) = new(type, emission, color, opacity, roughness, ior)
+        density = zeroSV3f,
+        scattering = zeroSV3f,
+        scanisotropy = 0,
+        trdepth = 0.01f0,
+    ) = new(
+        type,
+        emission,
+        color,
+        opacity,
+        roughness,
+        metallic,
+        ior,
+        density,
+        scattering,
+        scanisotropy,
+        trdepth,
+    )
 end
 
 struct Subdiv

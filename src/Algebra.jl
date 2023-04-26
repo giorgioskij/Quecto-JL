@@ -83,6 +83,17 @@ end
     #return p0 * (1 - u - v) .+ p1 * u + p2 * v
 end
 
+@inline @fastmath function interpolateTriangle(
+    p0::SVec4f,
+    p1::SVec4f,
+    p2::SVec4f,
+    u::Float42,
+    v::Float32,
+)::SVec4f
+    # return muladd.(p0, (1.0f0 - u - v), muladd.(p1, u, p2 * v))
+    return p0 * (1 - u - v) .+ p1 * u + p2 * v
+end
+
 @inline @fastmath function interpolateQuad(
     p0::SVec2f,
     p1::SVec2f,
@@ -106,6 +117,21 @@ end
     u::Float32,
     v::Float32,
 )::SVec3f
+    if (u + v <= 1)
+        return interpolateTriangle(p0, p1, p3, u, v)
+    else
+        return interpolateTriangle(p2, p3, p1, 1.0f0 - u, 1.0f0 - v)
+    end
+end
+
+@inline @fastmath function interpolateQuad(
+    p0::SVec4f,
+    p1::SVec4f,
+    p2::SVec4f,
+    p3::SVec4f,
+    u::Float32,
+    v::Float32,
+)::SVec4f
     if (u + v <= 1)
         return interpolateTriangle(p0, p1, p3, u, v)
     else

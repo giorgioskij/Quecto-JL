@@ -394,7 +394,8 @@ end
         return sampleDeltaTransparent(material.ior, normal, outgoing)
     elseif material.type == "refractive"
         return sampleDeltaRefractive(material.ior, normal, outgoing)
-        # elseif material.type == "volumetric" # not implemented for now
+    elseif material.type == "volume" # not implemented for now
+        sampleDeltaPassthrough(material.color, normal, outgoing)
     else
         error("unknown material type")
     end
@@ -438,6 +439,14 @@ end
     end
 end
 
+@inline function sampleDeltaPassthrough(
+    color::SVec3f,
+    normal::SVec3f,
+    outgoing::SVec3f,
+)::SVec3f
+    return -outgoing
+end
+
 #####################################
 # Eval Delta
 #####################################
@@ -464,7 +473,8 @@ end
         )
     elseif material.type == "refractive"
         return evalDeltaRefractive(material.ior, normal, outgoing, incoming)
-        # elseif material.type == "volumetric" # not implemented for now
+    elseif material.type == "volume"
+        return evalPassthrough(material.color, normal, outgoing, incoming)
     else
         error("unknown material type")
     end
@@ -521,6 +531,19 @@ end
         return SVec3f(1, 1, 1) *
                (1.0f0 / (relIor * relIor)) *
                (1.0f0 - fresnelDielectric(relIor, upNormal, outgoing))
+    end
+end
+
+@inline function evalPassthrough(
+    color::SVec3f,
+    normal::SVec3f,
+    outgoing::SVec3f,
+    incoming::SVec3f,
+)
+    if dot(normal, incoming) * dot(normal, outgoing) >= 0
+        return zeroSV3f
+    else
+        return SVec3f(1, 1, 1)
     end
 end
 

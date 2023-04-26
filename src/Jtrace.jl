@@ -86,6 +86,8 @@ function trace(;
         shadePath
         # elseif lowercase(shader) == "pathtrace"
         #     shadePathtrace
+    elseif lowercase(shader) == "volumetric"
+        shadeVolumetric
     else
         error("No shader named $shader")
     end
