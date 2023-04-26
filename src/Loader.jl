@@ -407,8 +407,8 @@ function loadShape(filename::String)::Shape
             eachrow(ply["line"]["vertex_indices"]),
         )
     elseif "point" in plyname.(ply.elements)
-        error("not sure how to load points")
-        # points = map(x -> x[0] + 1, eachrow(ply["point"]["vertex_indices"]))
+        # error("not sure how to load points")
+        points = map(x -> x[1] + 1, eachrow(ply["point"]["vertex_indices"]))
     end
 
     if (
