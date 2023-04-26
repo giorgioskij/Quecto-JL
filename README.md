@@ -43,7 +43,9 @@ Spheres = {Int, Float}
 - [x] Separate shaders 
 - [x] Fix the 1 pixel shift between yocto and us
 - [x] Bounces in input 
-
+- [x] Light sampling
+- [ ] Check that points are properly working
+- [ ] Add volumetric support
 
 ## Shaders
 Here we define the shaders implemented and their main characteristics
