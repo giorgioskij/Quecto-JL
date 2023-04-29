@@ -846,7 +846,7 @@ function evalMaterial(
         material.type == "volume" ||
         material.type == "subsurface"
     )
-        density = -log.(clamp.(color, 0.0001f0, 1.0f0)) / material.trdepth
+        density = -log.(clamp.(color, 0.0001f0, 1.0f0)) / trdepth
     end
 
     # fix roughness
