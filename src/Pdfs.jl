@@ -29,7 +29,7 @@ export pdfBSDF, pdfDelta
     elseif material.type == "refractive"
         return pdfDeltaRefractive(material.ior, normal, outgoing, incoming)
     elseif material.type == "volume"
-        return pdfPassthrough(material.color, normal, outgoing, incoming)
+        return pdfPassthrough(normal, outgoing, incoming)
     else
         error("unknown material type")
     end
@@ -80,7 +80,6 @@ end
 end
 
 @inline function pdfPassthrough(
-    color::SVec3f,
     normal::SVec3f,
     outgoing::SVec3f,
     incoming::SVec3f,

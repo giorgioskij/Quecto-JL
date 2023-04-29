@@ -23,7 +23,7 @@ end
 function makeTraceLights(scene::Scene)::Vector{Light}
     lights = Vector{Light}()
     # instance lights
-    for (i, instance) in enumerate(scene.instances)
+    @inbounds for (i, instance) in enumerate(scene.instances)
         material = scene.materials[instance.materialIndex]
         if material.emission == zeroSV3f
             continue
@@ -49,7 +49,7 @@ function makeTraceLights(scene::Scene)::Vector{Light}
         end
         if !isempty(shape.quads)
             elementsCdf = Vector{Float32}(undef, size(shape.quads, 1))
-            for idx in eachindex(elementsCdf)
+            @inbounds for idx in eachindex(elementsCdf)
                 q = shape.quads[idx]
                 elementsCdf[idx] = quadArea(
                     shape.positions[q.x],
@@ -76,7 +76,7 @@ function makeTraceLights(scene::Scene)::Vector{Light}
             texture = scene.textures[environment.emissionTex]
             textureWidth, textureHeight = size(texture.image)
             elementsCdf = Vector{Float32}(undef, textureWidth * textureHeight)
-            for idx in eachindex(elementsCdf)
+            @inbounds for idx in eachindex(elementsCdf)
                 zidx = idx - 1
                 i = floor(Int, zidx % textureWidth)
                 j = floor(Int, zidx / textureWidth)
@@ -94,19 +94,28 @@ function makeTraceLights(scene::Scene)::Vector{Light}
     return lights
 end
 
-function triangleArea(p0::SVec3f, p1::SVec3f, p2::SVec3f)::Float32
+@inline @fastmath function triangleArea(
+    p0::SVec3f,
+    p1::SVec3f,
+    p2::SVec3f,
+)::Float32
     return Algebra.length(cross(p1 - p0, p2 - p0)) / 2.0f0
 end
 
-function quadArea(p0::SVec3f, p1::SVec3f, p2::SVec3f, p3::SVec3f)::Float32
+@inline @fastmath function quadArea(
+    p0::SVec3f,
+    p1::SVec3f,
+    p2::SVec3f,
+    p3::SVec3f,
+)::Float32
     return triangleArea(p0, p1, p3) + triangleArea(p2, p3, p1)
 end
 
-@inline function sampleUniform(size::Int)::Int32
+@inline @fastmath function sampleUniform(size::Int)::Int32
     return floor(Int32, (rand(Float32) * size)) + 1
 end
 
-@inline function sampleDiscrete(cdf::Vector{Float32})::Int32
+@inline @fastmath function sampleDiscrete(cdf::Vector{Float32})::Int32
     r = clamp(rand(Float32) * cdf[end], 0.0f0, cdf[end] - 0.00001f0)
     idx = searchsortedlast(cdf, r) + 1 # r is surely < cdf[end] so lastindex(cdf) + 1 is never returned 
     # return idx #clamp(idx, 0, size(cdf, 1) - 1)
@@ -114,7 +123,7 @@ end
 end
 
 # Sample a point uniformly on a triangle returning the baricentric coordinates.
-@inline function sampleTriangle(
+@inline @fastmath function sampleTriangle(
     ru::Float32,
     rv::Float32,
 )::Tuple{Float32,Float32}
@@ -122,7 +131,7 @@ end
     return 1.0f0 - sqrtru, rv * sqrtru
 end
 
-@inline function sampleSphere()::SVec3f
+@inline @fastmath function sampleSphere()::SVec3f
     z = 2.0f0 * rand(Float32) - 1.0f0
     r = sqrt(clamp(1.0f0 - z * z, 0.0f0, 1.0f0))
     phi = 2.0f0 * pi * rand(Float32)
@@ -175,7 +184,7 @@ function sampleLights(
 end
 
 # TODO: add to Algebra
-@inline function distanceSquared(a::SVec3f, b::SVec3f)::Float32
+@inline @fastmath function distanceSquared(a::SVec3f, b::SVec3f)::Float32
     return dot(a - b, a - b)
 end
 
@@ -187,13 +196,13 @@ function pdfLights(
     direction::SVec3f,
 )
     pdf = 0.0f0
-    for light in lights
+    @inbounds for light in lights
         if light.instance > 0
             instance = scene.instances[light.instance]
             #check all intersection
             lpdf = 0.0f0
             nextPosition = position
-            for bounce = 1:100
+            @inbounds for bounce = 1:100
                 intersection = intersectInstance(
                     bvh,
                     scene,
@@ -266,11 +275,14 @@ function pdfLights(
     return pdf
 end
 
-@inline function sampleUniformPdf(size::Int)::Float32
+@inline @fastmath function sampleUniformPdf(size::Int)::Float32
     return 1.0f0 / convert(Float32, size)
 end
 
-@inline function sampleDiscretePdf(cdf::Vector{Float32}, idx::Int)::Float32
+@inline @fastmath function sampleDiscretePdf(
+    cdf::Vector{Float32},
+    idx::Int,
+)::Float32
     if idx == 0
         return cdf[1]
     end

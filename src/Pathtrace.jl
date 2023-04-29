@@ -520,12 +520,9 @@ function shadeVolumetric(
                 end
             end
 
-            # setup next iteration
-            newRay = Ray(position, incoming)
-
         else
             outgoing = -newRay.direction
-            position = ray.origin + ray.direction * intersection.distance
+            position = newRay.origin + newRay.direction * intersection.distance
             vsdf = volumeStack[end]
 
             incoming = zeroSV3f
@@ -544,9 +541,6 @@ function shadeVolumetric(
                     0.5f0 * sampleScatteringPdf(vsdf, outgoing, incoming) +
                     0.5f0 * pdfLights(scene, bvh, lights, position, incoming)
                 )
-
-            # setup next iteration
-            newRay = Ray(position, incoming)
         end
 
         # check weight
@@ -562,6 +556,9 @@ function shadeVolumetric(
             end
             weight *= (1 / rrProb)
         end
+
+        # setup next iteration
+        newRay = Ray(position, incoming)
     end
     return radiance
 end
