@@ -10,14 +10,14 @@ using Jtrace
 #scenePath = "02_matte/bunny.json"
 # scenePath = "04_envlight/envlight.json"
 # scenePath = "12_ecosys/ecosys.json"
-scenePath = "materials1/materials1.json"
+# scenePath = "materials1/materials1.json"
 # scenePath = "materials2/materials2.json"
-# scenePath = "materials4/materials4.json"
-# # scenePath = "features2/features2.json"
+scenePath = "materials4/materials4.json"
+# scenePath = "features2/features2.json"
 
 scene = trace(
     scenePath = scenePath,
     shader = "volumetric",
-    width = 720,
+    width = 1280,
     samples = 128,
 )

@@ -812,16 +812,16 @@ function evalMaterial(
     # eval material textures
     materialEmissionTex::SVec4f =
         evalTexture(scene, material.emissionTex, textureX, textureY)
-    colorShape = evalColor(
-        scene,
-        instance,
-        intersection.elementIndex,
-        textureX,
-        textureY,
-    )
+    # colorShape = evalColor(
+    #     scene,
+    #     instance,
+    #     intersection.elementIndex,
+    #     textureX,
+    #     textureY,
+    # )
     materialColorTex::SVec4f =
         evalTexture(scene, material.colorTex, textureX, textureY)
-    # ignore roughness and scattering textures
+    # TODO: roughnessTex has lds_as_linear = false
     roughnessTex::SVec4f =
         evalTexture(scene, material.roughnessTex, textureX, textureY)
     scatteringTex::SVec4f =
@@ -833,9 +833,11 @@ function evalMaterial(
     opacity::Float32 = material.opacity * materialColorTex[4]
     metallic::Float32 = material.metallic * roughnessTex[3]
     roughness::Float32 = material.roughness * roughnessTex[2]
-    # FIX: roughness needs to be squared for some reason
     roughness = roughness * roughness
+    ior = material.ior
     scattering = material.scattering * xyz(scatteringTex)
+    scanisotropy = material.scanisotropy
+    trdepth = material.trdepth
 
     # volume density
     density::SVec3f = zeroSV3f
@@ -852,8 +854,12 @@ function evalMaterial(
         # material.type == "gltfpbr" ||
         material.type == "glossy")
         roughness = clamp(roughness, minRoughness, 1.0f0)
-    elseif material.type == "volume" || roughness < minRoughness
+    elseif material.type == "volume"
         roughness = 0.0f0
+    else
+        if roughness < minRoughness
+            roughness = 0.0f0
+        end
     end
 
     return MaterialPoint(
@@ -863,11 +869,11 @@ function evalMaterial(
         opacity,
         roughness,
         metallic,
-        material.ior,
+        ior,
         density,
         scattering,
-        material.scanisotropy,
-        material.trdepth,
+        scanisotropy,
+        trdepth,
     )
 end
 

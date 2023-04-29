@@ -61,7 +61,7 @@ struct Shape
     normals::Vector{SVec3f}
     textureCoords::Vector{SVec2f}
     radius::Vector{Float32}
-    colors::Vector{SVec4f}
+    #colors::Vector{SVec4f}
 end
 
 struct Environment

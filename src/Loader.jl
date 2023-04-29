@@ -84,7 +84,7 @@ function loadJsonScene(scenePath::String)::Scene
             end
 
             scatteringTex =
-                get(element, "scatterin_tex", defaultMaterial.scatteringTex)
+                get(element, "scattering_tex", defaultMaterial.scatteringTex)
             if scatteringTex != -1
                 scatteringTex += 1
             end
@@ -238,10 +238,11 @@ function loadJsonScene(scenePath::String)::Scene
     # load textures
     # understand which textures are used as normal textures
     normalTexturesIndices = Set(map(m -> m.normalTex, materials))
+    roughnessTexturesIndices = Set(map(m -> m.roughnessTex, materials))
     # no speedup with threading and collect for now, to try also with large scenes
     @inbounds Threads.@threads for (i, filename) in
                                    collect(enumerate(textureFilenames))
-        if i in normalTexturesIndices
+        if i in normalTexturesIndices || i in roughnessTexturesIndices
             convertToRgb = false
         else
             convertToRgb = true

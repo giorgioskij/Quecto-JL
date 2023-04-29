@@ -87,7 +87,7 @@ end
     p0::SVec4f,
     p1::SVec4f,
     p2::SVec4f,
-    u::Float42,
+    u::Float32,
     v::Float32,
 )::SVec4f
     # return muladd.(p0, (1.0f0 - u - v), muladd.(p1, u, p2 * v))

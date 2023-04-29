@@ -281,11 +281,15 @@ function shadePath(
     return radiance
 end
 
-@inline function sampleTransmittance(density::SVec3f, maxDistance::Float32)
+@inline function sampleTransmittance(
+    density::SVec3f,
+    maxDistance::Float32,
+)::Float32
     channel = clamp(floor(Int32, rand(Float32) * 3), 0, 2) + 1
-    distance =
+    distance = (
         density[channel] == 0 ? Base.max_values(Float32) :
         -log(1 - rand(Float32) / density[channel])
+    )
     return min(distance, maxDistance)
 end
 
@@ -293,7 +297,7 @@ end
     density::SVec3f,
     distance::Float32,
     maxDistance::Float32,
-)
+)::Float32
     if (distance < maxDistance)
         return sum(density * exp.(-density * distance)) / 3
     else
@@ -437,6 +441,8 @@ function shadeVolumetric(
                 outgoing,
             )
 
+            # ignoring nocaustics for now
+
             # handle opacity
             # if !isapprox(materialPoint.opacity, 1) &&
             if materialPoint.opacity < 1 &&
@@ -457,15 +463,20 @@ function shadeVolumetric(
                 continue
             end
 
+            # set hit variables
+            # if (bounce == 0)
+            #     hit = true
+            # end
+
             # accumulate emission
             radiance +=
                 weight *
                 (dot(normal, outgoing) >= 0 ? materialPoint.emission : zeroSV3f)
 
-            incoming = zeroSV3f
-
             # next direction
-            if materialPoint.roughness != 0
+            incoming = zeroSV3f
+            # if materialPoint.roughness != 0
+            if !isDelta(materialPoint)
                 # BSDF materials
                 if rand(Float32) < 0.5f0
                     incoming = sampleBSDF(materialPoint, normal, outgoing)
@@ -476,8 +487,8 @@ function shadeVolumetric(
                 if incoming == zeroSV3f
                     break
                 end
-                weight =
-                    weight .*
+                # weight .*
+                weight *=
                     evalBSDF(materialPoint, normal, outgoing, incoming) / (
                         0.5f0 *
                         pdfBSDF(materialPoint, normal, outgoing, incoming) +
@@ -488,11 +499,10 @@ function shadeVolumetric(
                 # Delta materials
                 incoming = sampleDelta(materialPoint, normal, outgoing)
                 # TODO: understand if this if is needed
-                if incoming == zeroSV3f
-                    break
-                end
-                weight =
-                    weight .*
+                # if incoming == zeroSV3f
+                #     break
+                # end
+                weight *=
                     evalDelta(materialPoint, normal, outgoing, incoming) /
                     pdfDelta(materialPoint, normal, outgoing, incoming)
             end
@@ -500,7 +510,7 @@ function shadeVolumetric(
             # update volume stack
             if (
                 isVolumetric(materialPoint) &&
-                dot(normal, outgoing) * dot(normal, incoming) < 0
+                (dot(normal, outgoing) * dot(normal, incoming)) < 0
             )
                 if (isempty(volumeStack))
                     materialPoint = evalMaterial(scene, instance, intersection)
@@ -510,10 +520,13 @@ function shadeVolumetric(
                 end
             end
 
+            # setup next iteration
+            newRay = Ray(position, incoming)
+
         else
             outgoing = -newRay.direction
             position = ray.origin + ray.direction * intersection.distance
-            vsdf::MaterialPoint = volumeStack[end]
+            vsdf = volumeStack[end]
 
             incoming = zeroSV3f
             if rand(Float32) < 0.5f0
@@ -531,6 +544,9 @@ function shadeVolumetric(
                     0.5f0 * sampleScatteringPdf(vsdf, outgoing, incoming) +
                     0.5f0 * pdfLights(scene, bvh, lights, position, incoming)
                 )
+
+            # setup next iteration
+            newRay = Ray(position, incoming)
         end
 
         # check weight
@@ -546,9 +562,6 @@ function shadeVolumetric(
             end
             weight *= (1 / rrProb)
         end
-
-        # setup next iteration
-        newRay = Ray(position, incoming)
     end
     return radiance
 end
@@ -557,4 +570,11 @@ end
     return material.type == "refractive" ||
            material.type == "volume" ||
            material.type == "subsurface"
+end
+
+@inline function isDelta(material::MaterialPoint)
+    return (material.type == "reflective" && material.roughness == 0) ||
+           (material.type == "refractive" && material.roughness == 0) ||
+           (material.type == "transparent" && material.roughness == 0) ||
+           (material.type == "volume")
 end
