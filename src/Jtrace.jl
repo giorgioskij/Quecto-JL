@@ -37,6 +37,7 @@ function trace(;
     shader::String = "eyelight",
     width = 1920,
     samples = 2,
+    filename = "jtrace.png",
     multithreaded::Bool = true,
     quiet::Bool = false,
     maxBounces::Int64 = 128,
@@ -115,7 +116,7 @@ function trace(;
         displayStat("Image rendered", t)
     end
 
-    outputPath = "out/jtrace.png"
+    outputPath = "out/" * filename
     t = @elapsed saveImage(outputPath, image, multithreaded)
     if !quiet
         displayStat("Image saved at $outputPath", t)

@@ -23,7 +23,7 @@ export Intersection,
 # by different threads and use a real method to avoid the possibility of false sharing.
 # https://en.wikipedia.org/wiki/False_sharing
 
-const global shapeBvhDepth = 32 # I have aligned to power 2
+const global shapeBvhDepth = 64 # I have aligned to power 2
 const global masterBvhDepth = 32 # I have aligned to power 2
 const global maxnthreads = 128
 const global masterNodeStack =

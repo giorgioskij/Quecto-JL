@@ -1,0 +1,514 @@
+{
+  "asset": {
+    "copyright": "Model by NewSee2l035 from benedikt-bitterli.me/resources",
+    "generator": "Yocto/GL - https://github.com/xelatihy/yocto-gl",
+    "version": "4.2"
+  },
+  "cameras": [
+    {
+      "aspect": 1.0,
+      "focus": 10.0,
+      "frame": [
+        0.43552300333976746,
+        -0.0,
+        -0.900177001953125,
+        -4.214739846020166e-08,
+        1.0,
+        -2.039170077239305e-08,
+        0.900177001953125,
+        4.6821199362057087e-08,
+        0.43552398681640625,
+        6.911816120147705,
+        1.6516304016113281,
+        2.554141044616699
+      ],
+      "lens": 0.025706661865115166
+    }
+  ],
+  "textures": [
+    {
+      "uri": "textures/texture1.png"
+    },
+    {
+      "uri": "textures/texture3.png"
+    },
+    {
+      "uri": "textures/texture2.png"
+    }
+  ],
+  "materials": [
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "type": "matte"
+    },
+    {
+      "color": [
+        0.8932890295982361,
+        0.8932890295982361,
+        0.8932890295982361
+      ],
+      "type": "matte"
+    },
+    {
+      "color": [
+        0.6875475645065308,
+        0.6490657925605774,
+        0.6870107650756836
+      ],
+      "roughness": 0.3162277638912201,
+      "type": "reflective"
+    },
+    {
+      "color": [
+        0.9280474185943604,
+        0.9178045988082886,
+        0.9189086556434631
+      ],
+      "roughness": 0.3162277638912201,
+      "type": "reflective"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color_tex": 0,
+      "roughness": 0.3162277638912201,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color_tex": 1,
+      "type": "matte"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color_tex": 2,
+      "roughness": 0.10000000149011612,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "type": "refractive"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5,
+        1.5,
+        1.5
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        1.5989129543304443,
+        1.5989129543304443,
+        1.5989129543304443
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        4.575005054473877,
+        3.5907580852508545,
+        1.5497709512710571
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        4.575005054473877,
+        3.5907580852508545,
+        1.5497709512710571
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        3.265813112258911,
+        3.265813112258911,
+        3.265813112258911
+      ],
+      "type": "matte"
+    }
+  ],
+  "shapes": [
+    {
+      "uri": "shapes/shape01.ply"
+    },
+    {
+      "uri": "shapes/shape02.ply"
+    },
+    {
+      "uri": "shapes/shape03.ply"
+    },
+    {
+      "uri": "shapes/shape04.ply"
+    },
+    {
+      "uri": "shapes/shape05.ply"
+    },
+    {
+      "uri": "shapes/shape06.ply"
+    },
+    {
+      "uri": "shapes/shape07.ply"
+    },
+    {
+      "uri": "shapes/shape08.ply"
+    },
+    {
+      "uri": "shapes/shape09.ply"
+    },
+    {
+      "uri": "shapes/shape10.ply"
+    },
+    {
+      "uri": "shapes/shape11.ply"
+    },
+    {
+      "uri": "shapes/shape12.ply"
+    },
+    {
+      "uri": "shapes/shape13.ply"
+    },
+    {
+      "uri": "shapes/shape14.ply"
+    },
+    {
+      "uri": "shapes/shape15.ply"
+    },
+    {
+      "uri": "shapes/shape16.ply"
+    },
+    {
+      "uri": "shapes/shape17.ply"
+    },
+    {
+      "uri": "shapes/shape18.ply"
+    },
+    {
+      "uri": "shapes/shape19.ply"
+    },
+    {
+      "uri": "shapes/shape20.ply"
+    },
+    {
+      "uri": "shapes/shape21.ply"
+    },
+    {
+      "uri": "shapes/shape22.ply"
+    },
+    {
+      "uri": "shapes/shape23.ply"
+    },
+    {
+      "uri": "shapes/shape24.ply"
+    },
+    {
+      "uri": "shapes/shape25.ply"
+    },
+    {
+      "uri": "shapes/shape26.ply"
+    },
+    {
+      "uri": "shapes/shape27.ply"
+    },
+    {
+      "uri": "shapes/shape28.ply"
+    },
+    {
+      "uri": "shapes/shape29.ply"
+    },
+    {
+      "uri": "shapes/shape30.ply"
+    },
+    {
+      "uri": "shapes/shape31.ply"
+    },
+    {
+      "uri": "shapes/shape32.ply"
+    }
+  ],
+  "instances": [
+    {
+      "material": 0,
+      "shape": 0
+    },
+    {
+      "material": 0,
+      "shape": 1
+    },
+    {
+      "material": 0,
+      "shape": 2
+    },
+    {
+      "material": 0,
+      "shape": 3
+    },
+    {
+      "material": 1,
+      "shape": 4
+    },
+    {
+      "material": 0,
+      "shape": 5
+    },
+    {
+      "material": 2,
+      "shape": 6
+    },
+    {
+      "material": 2,
+      "shape": 7
+    },
+    {
+      "material": 2,
+      "shape": 8
+    },
+    {
+      "material": 2,
+      "shape": 9
+    },
+    {
+      "material": 3,
+      "shape": 10
+    },
+    {
+      "material": 4,
+      "shape": 11
+    },
+    {
+      "material": 4,
+      "shape": 12
+    },
+    {
+      "material": 5,
+      "shape": 13
+    },
+    {
+      "material": 6,
+      "shape": 14
+    },
+    {
+      "material": 7,
+      "shape": 15
+    },
+    {
+      "material": 4,
+      "shape": 16
+    },
+    {
+      "material": 1,
+      "shape": 17
+    },
+    {
+      "material": 1,
+      "shape": 18
+    },
+    {
+      "frame": [
+        1.0,
+        -1.5099600148005266e-07,
+        -1.5099600148005266e-07,
+        1.5099600148005266e-07,
+        1.0,
+        8.742269841377492e-08,
+        1.5099600148005266e-07,
+        -8.742279788975793e-08,
+        1.0,
+        1.8070299625396729,
+        5.610290050506592,
+        1.4980000257492065
+      ],
+      "material": 8,
+      "shape": 19
+    },
+    {
+      "frame": [
+        1.0,
+        -1.5099600148005266e-07,
+        -1.5099600148005266e-07,
+        1.5099600148005266e-07,
+        1.0,
+        8.742279788975793e-08,
+        1.5099600148005266e-07,
+        -8.742279788975793e-08,
+        1.0,
+        -1.510599970817566,
+        5.610290050506592,
+        1.4980000257492065
+      ],
+      "material": 9,
+      "shape": 20
+    },
+    {
+      "frame": [
+        1.0,
+        -1.5099600148005266e-07,
+        -1.5099600148005266e-07,
+        1.5099600148005266e-07,
+        1.0,
+        8.742279788975793e-08,
+        1.5099600148005266e-07,
+        -8.742279788975793e-08,
+        1.0,
+        -4.828239917755127,
+        5.610290050506592,
+        1.4980000257492065
+      ],
+      "material": 10,
+      "shape": 21
+    },
+    {
+      "frame": [
+        1.0,
+        -1.5099600148005266e-07,
+        -1.5099600148005266e-07,
+        1.5099600148005266e-07,
+        1.0,
+        8.742269841377492e-08,
+        1.5099600148005266e-07,
+        -8.742279788975793e-08,
+        1.0,
+        -8.145879745483398,
+        5.610290050506592,
+        1.4980000257492065
+      ],
+      "material": 11,
+      "shape": 22
+    },
+    {
+      "frame": [
+        1.0,
+        -1.5099600148005266e-07,
+        -1.5099600148005266e-07,
+        1.5099600148005266e-07,
+        1.0,
+        8.742269841377492e-08,
+        1.5099600148005266e-07,
+        -8.742279788975793e-08,
+        1.0,
+        -11.463500022888184,
+        5.610290050506592,
+        1.4980000257492065
+      ],
+      "material": 12,
+      "shape": 23
+    },
+    {
+      "material": 13,
+      "shape": 24
+    },
+    {
+      "material": 14,
+      "shape": 25
+    },
+    {
+      "material": 15,
+      "shape": 26
+    },
+    {
+      "material": 16,
+      "shape": 27
+    },
+    {
+      "material": 17,
+      "shape": 28
+    },
+    {
+      "material": 18,
+      "shape": 29
+    },
+    {
+      "material": 19,
+      "shape": 30
+    },
+    {
+      "material": 20,
+      "shape": 31
+    }
+  ]
+}

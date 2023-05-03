@@ -29,12 +29,13 @@ function shadeMaterial(
         intersection::Intersection = intersectScene(newRay, scene, bvh, false)
 
         if !intersection.hit
-            radiance =
-                muladd.(
-                    weight,
-                    evalEnvironment(scene, newRay.direction),
-                    radiance,
-                )
+            # radiance =
+            #     muladd.(
+            #         weight,
+            #         evalEnvironment(scene, newRay.direction),
+            #         radiance,
+            #     )
+            radiance += weight * evalEnvironment(scene, newRay.direction)
             break
         end
 
