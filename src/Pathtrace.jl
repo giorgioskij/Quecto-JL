@@ -287,7 +287,7 @@ end
 )::Float32
     channel = clamp(floor(Int32, rand(Float32) * 3), 0, 2) + 1
     distance = (
-        density[channel] == 0 ? Base.max_values(Float32) :
+        density[channel] == 0 ? typemax(Float32) :
         -log(1 - rand(Float32) / density[channel])
     )
     return min(distance, maxDistance)
