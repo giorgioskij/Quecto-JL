@@ -1,0 +1,262 @@
+{
+  "asset": {
+    "copyright": "Model by Cekuhnen from benedikt-bitterli.me/resources",
+    "generator": "Yocto/GL - https://github.com/xelatihy/yocto-gl",
+    "version": "4.2"
+  },
+  "cameras": [
+    {
+      "aspect": 0.800000011920929,
+      "focus": 10.0,
+      "frame": [
+        0.9999740123748779,
+        -0.0,
+        0.00727113988250494,
+        0.00028589199064299464,
+        0.999226987361908,
+        -0.03931770101189613,
+        -0.007265519816428423,
+        0.03931869938969612,
+        0.9991999864578247,
+        -0.002960039069876075,
+        0.1983031928539276,
+        0.8281505107879639
+      ],
+      "lens": 0.06495420634746552
+    }
+  ],
+  "materials": [
+    {
+      "color": [
+        0.006310000084340572,
+        0.006310000084340572,
+        0.006310000084340572
+      ],
+      "roughness": 0.3162277638912201,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "type": "refractive"
+    },
+    {
+      "color": [
+        1.0,
+        0.37867599725723267,
+        0.01347300037741661
+      ],
+      "roughness": 0.03162277862429619,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        0.8999999761581421,
+        0.8999999761581421,
+        0.8999999761581421
+      ],
+      "type": "reflective"
+    },
+    {
+      "color": [
+        0.5785959959030151,
+        0.5785959959030151,
+        0.5785959959030151
+      ],
+      "roughness": 0.03162277862429619,
+      "type": "glossy"
+    },
+    {
+      "emission": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        2.0,
+        2.0,
+        2.0
+      ],
+      "type": "matte"
+    }
+  ],
+  "shapes": [
+    {
+      "uri": "shapes/shape01.ply"
+    },
+    {
+      "uri": "shapes/shape02.ply"
+    },
+    {
+      "uri": "shapes/shape03.ply"
+    },
+    {
+      "uri": "shapes/shape04.ply"
+    },
+    {
+      "uri": "shapes/shape05.ply"
+    },
+    {
+      "uri": "shapes/shape06.ply"
+    },
+    {
+      "uri": "shapes/shape07.ply"
+    },
+    {
+      "uri": "shapes/shape08.ply"
+    },
+    {
+      "uri": "shapes/shape09.ply"
+    },
+    {
+      "uri": "shapes/shape10.ply"
+    },
+    {
+      "uri": "shapes/shape11.ply"
+    },
+    {
+      "uri": "shapes/shape12.ply"
+    },
+    {
+      "uri": "shapes/shape13.ply"
+    },
+    {
+      "uri": "shapes/shape14.ply"
+    },
+    {
+      "uri": "shapes/shape15.ply"
+    },
+    {
+      "uri": "shapes/shape16.ply"
+    },
+    {
+      "uri": "shapes/shape17.ply"
+    },
+    {
+      "uri": "shapes/shape18.ply"
+    },
+    {
+      "uri": "shapes/shape19.ply"
+    },
+    {
+      "uri": "shapes/shape20.ply"
+    },
+    {
+      "uri": "shapes/shape21.ply"
+    },
+    {
+      "uri": "shapes/shape22.ply"
+    },
+    {
+      "uri": "shapes/shape23.ply"
+    }
+  ],
+  "instances": [
+    {
+      "material": 0,
+      "shape": 0
+    },
+    {
+      "material": 0,
+      "shape": 1
+    },
+    {
+      "material": 1,
+      "shape": 2
+    },
+    {
+      "material": 2,
+      "shape": 3
+    },
+    {
+      "material": 3,
+      "shape": 4
+    },
+    {
+      "material": 2,
+      "shape": 5
+    },
+    {
+      "material": 2,
+      "shape": 6
+    },
+    {
+      "material": 0,
+      "shape": 7
+    },
+    {
+      "material": 0,
+      "shape": 8
+    },
+    {
+      "material": 0,
+      "shape": 9
+    },
+    {
+      "material": 0,
+      "shape": 10
+    },
+    {
+      "material": 2,
+      "shape": 11
+    },
+    {
+      "material": 0,
+      "shape": 12
+    },
+    {
+      "material": 0,
+      "shape": 13
+    },
+    {
+      "material": 3,
+      "shape": 14
+    },
+    {
+      "material": 2,
+      "shape": 15
+    },
+    {
+      "material": 0,
+      "shape": 16
+    },
+    {
+      "material": 2,
+      "shape": 17
+    },
+    {
+      "material": 0,
+      "shape": 18
+    },
+    {
+      "material": 4,
+      "shape": 19
+    },
+    {
+      "material": 5,
+      "shape": 20
+    },
+    {
+      "material": 6,
+      "shape": 21
+    },
+    {
+      "material": 7,
+      "shape": 22
+    }
+  ]
+}

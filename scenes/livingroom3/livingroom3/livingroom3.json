@@ -1,0 +1,465 @@
+{
+  "asset": {
+    "copyright": "Model by Wig42 from benedikt-bitterli.me/resources",
+    "generator": "Yocto/GL - https://github.com/xelatihy/yocto-gl",
+    "version": "4.2"
+  },
+  "cameras": [
+    {
+      "aspect": 1.7777777910232544,
+      "focus": 10.0,
+      "frame": [
+        -0.8990300297737122,
+        9.313220195039662e-10,
+        -0.4378870129585266,
+        -0.012566800229251385,
+        0.9995880126953125,
+        0.025801099836826324,
+        0.43770700693130493,
+        0.02869880013167858,
+        -0.8986600041389465,
+        0.2769683599472046,
+        1.017953634262085,
+        -5.1929192543029785
+      ],
+      "lens": 0.03860112279653549
+    }
+  ],
+  "textures": [
+    {
+      "uri": "textures/texture1.png"
+    },
+    {
+      "uri": "textures/texture3.png"
+    },
+    {
+      "uri": "textures/texture2.png"
+    }
+  ],
+  "materials": [
+    {
+      "color": [
+        1.0,
+        0.10000000149011612,
+        0.10000000149011612
+      ],
+      "type": "refractive"
+    },
+    {
+      "color": [
+        0.10000000149011612,
+        0.10000000149011612,
+        0.10000000149011612
+      ],
+      "roughness": 0.3162277638912201,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        0.15232500433921814,
+        0.032489001750946045,
+        0.01934099942445755
+      ],
+      "type": "matte"
+    },
+    {
+      "color": [
+        0.48689699172973633,
+        0.006798999849706888,
+        0.010755999945104122
+      ],
+      "type": "matte"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color_tex": 0,
+      "type": "matte"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.3162277638912201,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "roughness": 0.5,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color_tex": 1,
+      "type": "matte"
+    },
+    {
+      "color": [
+        0.6875475645065308,
+        0.6490657925605774,
+        0.6870107650756836
+      ],
+      "roughness": 0.547722578048706,
+      "type": "reflective"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "color_tex": 2,
+      "roughness": 0.5,
+      "type": "glossy"
+    },
+    {
+      "color": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "type": "matte"
+    },
+    {
+      "color": [
+        0.4819520115852356,
+        0.006585000082850456,
+        0.010397999547421932
+      ],
+      "type": "matte"
+    },
+    {
+      "emission": [
+        112.79885864257812,
+        112.79885864257812,
+        112.79885864257812
+      ],
+      "type": "matte"
+    }
+  ],
+  "shapes": [
+    {
+      "uri": "shapes/shape01.ply"
+    },
+    {
+      "uri": "shapes/shape02.ply"
+    },
+    {
+      "uri": "shapes/shape03.ply"
+    },
+    {
+      "uri": "shapes/shape04.ply"
+    },
+    {
+      "uri": "shapes/shape05.ply"
+    },
+    {
+      "uri": "shapes/shape06.ply"
+    },
+    {
+      "uri": "shapes/shape07.ply"
+    },
+    {
+      "uri": "shapes/shape08.ply"
+    },
+    {
+      "uri": "shapes/shape09.ply"
+    },
+    {
+      "uri": "shapes/shape10.ply"
+    },
+    {
+      "uri": "shapes/shape11.ply"
+    },
+    {
+      "uri": "shapes/shape12.ply"
+    },
+    {
+      "uri": "shapes/shape13.ply"
+    },
+    {
+      "uri": "shapes/shape14.ply"
+    },
+    {
+      "uri": "shapes/shape15.ply"
+    },
+    {
+      "uri": "shapes/shape16.ply"
+    },
+    {
+      "uri": "shapes/shape17.ply"
+    },
+    {
+      "uri": "shapes/shape18.ply"
+    },
+    {
+      "uri": "shapes/shape19.ply"
+    },
+    {
+      "uri": "shapes/shape20.ply"
+    },
+    {
+      "uri": "shapes/shape21.ply"
+    },
+    {
+      "uri": "shapes/shape22.ply"
+    },
+    {
+      "uri": "shapes/shape23.ply"
+    },
+    {
+      "uri": "shapes/shape24.ply"
+    },
+    {
+      "uri": "shapes/shape25.ply"
+    },
+    {
+      "uri": "shapes/shape26.ply"
+    },
+    {
+      "uri": "shapes/shape27.ply"
+    },
+    {
+      "uri": "shapes/shape28.ply"
+    },
+    {
+      "uri": "shapes/shape29.ply"
+    },
+    {
+      "uri": "shapes/shape30.ply"
+    },
+    {
+      "uri": "shapes/shape31.ply"
+    },
+    {
+      "uri": "shapes/shape32.ply"
+    },
+    {
+      "uri": "shapes/shape33.ply"
+    },
+    {
+      "uri": "shapes/shape34.ply"
+    },
+    {
+      "uri": "shapes/shape35.ply"
+    },
+    {
+      "uri": "shapes/shape36.ply"
+    }
+  ],
+  "instances": [
+    {
+      "material": 0,
+      "shape": 0
+    },
+    {
+      "material": 0,
+      "shape": 1
+    },
+    {
+      "material": 1,
+      "shape": 2
+    },
+    {
+      "material": 1,
+      "shape": 3
+    },
+    {
+      "material": 0,
+      "shape": 4
+    },
+    {
+      "material": 0,
+      "shape": 5
+    },
+    {
+      "material": 0,
+      "shape": 6
+    },
+    {
+      "material": 0,
+      "shape": 7
+    },
+    {
+      "material": 0,
+      "shape": 8
+    },
+    {
+      "material": 1,
+      "shape": 9
+    },
+    {
+      "material": 0,
+      "shape": 10
+    },
+    {
+      "material": 1,
+      "shape": 11
+    },
+    {
+      "material": 1,
+      "shape": 12
+    },
+    {
+      "material": 2,
+      "shape": 13
+    },
+    {
+      "material": 3,
+      "shape": 14
+    },
+    {
+      "material": 0,
+      "shape": 15
+    },
+    {
+      "frame": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        -0.5023890137672424,
+        0.0,
+        0.0
+      ],
+      "material": 4,
+      "shape": 16
+    },
+    {
+      "material": 0,
+      "shape": 17
+    },
+    {
+      "material": 5,
+      "shape": 18
+    },
+    {
+      "material": 5,
+      "shape": 19
+    },
+    {
+      "material": 5,
+      "shape": 20
+    },
+    {
+      "material": 5,
+      "shape": 21
+    },
+    {
+      "material": 6,
+      "shape": 22
+    },
+    {
+      "material": 7,
+      "shape": 23
+    },
+    {
+      "material": 7,
+      "shape": 24
+    },
+    {
+      "material": 6,
+      "shape": 25
+    },
+    {
+      "material": 6,
+      "shape": 26
+    },
+    {
+      "material": 8,
+      "shape": 27
+    },
+    {
+      "material": 7,
+      "shape": 28
+    },
+    {
+      "material": 5,
+      "shape": 29
+    },
+    {
+      "material": 8,
+      "shape": 30
+    },
+    {
+      "frame": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        2.308929920196533,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "material": 9,
+      "shape": 31
+    },
+    {
+      "frame": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        2.284019947052002,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "material": 10,
+      "shape": 32
+    },
+    {
+      "material": 11,
+      "shape": 33
+    },
+    {
+      "material": 5,
+      "shape": 34
+    },
+    {
+      "frame": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        -4.508910179138184,
+        1.8144099712371826,
+        -3.771209955215454
+      ],
+      "material": 12,
+      "shape": 35
+    }
+  ]
+}
