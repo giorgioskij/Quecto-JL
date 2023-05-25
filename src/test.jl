@@ -28,23 +28,7 @@ bathroom2 = "scenes/bathroom2/bathroom2.json"
 trace(
     scenePath = kitchen,
     shader = "volumetric",
-    width = 1280,
-    samples = 128,
-    filename = "kitchen_1280_128_v.png",
-)
-
-trace(
-    scenePath = classroom,
-    shader = "volumetric",
-    width = 1280,
-    samples = 128,
-    filename = "classroom_1280_128_v.png",
-)
-
-trace(
-    scenePath = bathroom2,
-    shader = "volumetric",
-    width = 1280,
-    samples = 128,
-    filename = "bathroom2_1280_128_v.png",
+    width = 700,
+    samples = 1,
+    filename = "prova.png",
 )

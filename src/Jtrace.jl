@@ -31,16 +31,19 @@ using .Lights
 
 export trace
 
-# main entry point to the program
+"""
+Main entry point to the program. The parameter shader is a string between:
+eyelight, normal, color, raytrace, material, path, volumetric.
+"""
 function trace(;
     scenePath::String = "03_texture/texture.json",
     shader::String = "eyelight",
-    width = 1920,
-    samples = 2,
-    filename = "jtrace.png",
+    width::Integer = 1920,
+    samples::Integer = 2,
+    filename::Integer = "jtrace.png",
     multithreaded::Bool = true,
     quiet::Bool = false,
-    maxBounces::Int64 = 128,
+    maxBounces::Integer = 128,
 )
     if !quiet
         println(
