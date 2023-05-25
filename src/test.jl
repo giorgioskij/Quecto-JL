@@ -1,6 +1,6 @@
 using Pkg
-using Revise
 using Jtrace
+using Revise
 # using Cthulhu
 # using JET
 # using ProfileView
@@ -26,9 +26,38 @@ classroom = "scenes/classroom/classroom.json"
 bathroom2 = "scenes/bathroom2/bathroom2.json"
 
 trace(
+    scenePath = staircase1,
+    shader = "volumetric",
+    width = 1280,
+    samples = 4096,
+    filename = "staircase1_1280_4096.png",
+)
+
+trace(
+    scenePath = staircase2,
+    shader = "volumetric",
+    width = 1280,
+    samples = 4096,
+    filename = "staircase2_1280_4096.png",
+)
+trace(
     scenePath = kitchen,
     shader = "volumetric",
-    width = 700,
-    samples = 1,
-    filename = "prova.png",
+    width = 1280,
+    samples = 4096,
+    filename = "kitchen_1280_4096.png",
+)
+trace(
+    scenePath = classroom,
+    shader = "volumetric",
+    width = 1280,
+    samples = 4096,
+    filename = "classroom_1280_4096.png",
+)
+trace(
+    scenePath = bathroom2,
+    shader = "volumetric",
+    width = 1280,
+    samples = 4096,
+    filename = "bathroom2_1280_4096.png",
 )
