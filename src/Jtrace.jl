@@ -40,7 +40,7 @@ function trace(;
     shader::String = "eyelight",
     width::Integer = 1920,
     samples::Integer = 2,
-    filename::Integer = "jtrace.png",
+    filename::String = "jtrace.png",
     multithreaded::Bool = true,
     quiet::Bool = false,
     maxBounces::Integer = 128,
