@@ -1,4 +1,5 @@
 using Pkg
+#Pkg.instantiate()
 using Jtrace
 using Revise
 # using Cthulhu
@@ -15,7 +16,7 @@ materials2 = "scenes/materials2/materials2.json"
 materials4 = "scenes/materials4/materials4.json"
 scenePath = "scenes/features2/features2.json"
 coffee = "scenes/coffee/coffee.json"
-bathroom = "scenes/bathroom1/bathroom1.json"
+bathroom1 = "scenes/bathroom1/bathroom1.json"
 livingroom1 = "scenes/livingroom1/livingroom1.json"
 livingroom2 = "scenes/livingroom2/livingroom2.json"
 livingroom3 = "scenes/livingroom3/livingroom3.json"
@@ -25,39 +26,63 @@ kitchen = "scenes/kitchen/kitchen.json"
 classroom = "scenes/classroom/classroom.json"
 bathroom2 = "scenes/bathroom2/bathroom2.json"
 
+# trace(
+#     scenePath = staircase1,
+#     shader = "volumetric",
+#     width = 1280,
+#     samples = 4096,
+#     filename = "staircase1_1280_4096.png",
+# )
+
+# trace(
+#     scenePath = staircase2,
+#     shader = "volumetric",
+#     width = 1280,
+#     samples = 4096,
+#     filename = "staircase2_1280_4096.png",
+# )
+# trace(
+#     scenePath = kitchen,
+#     shader = "volumetric",
+#     width = 1280,
+#     samples = 4096,
+#     filename = "kitchen_1280_4096.png",
+# )
+# trace(
+#     scenePath = classroom,
+#     shader = "volumetric",
+#     width = 1280,
+#     samples = 4096,
+#     filename = "classroom_1280_4096.png",
+# )
+# trace(
+#     scenePath = bathroom2,
+#     shader = "volumetric",
+#     width = 1280,
+#     samples = 4096,
+#     filename = "bathroom2_1280_4096.png",
+# )
+
+# trace(
+#     scenePath = bathroom1,
+#     shader = "volumetric",
+#     width = 1280,
+#     samples = 8192,
+#     filename = "bathroom1_1280_8192_v.png",
+# )
+
 trace(
-    scenePath = staircase1,
+    scenePath = livingroom2,
     shader = "volumetric",
     width = 1280,
-    samples = 4096,
-    filename = "staircase1_1280_4096.png",
+    samples = 8192,
+    filename = "livingroom2_1280_8192_v.png",
 )
 
 trace(
-    scenePath = staircase2,
+    scenePath = livingroom3,
     shader = "volumetric",
     width = 1280,
-    samples = 4096,
-    filename = "staircase2_1280_4096.png",
-)
-trace(
-    scenePath = kitchen,
-    shader = "volumetric",
-    width = 1280,
-    samples = 4096,
-    filename = "kitchen_1280_4096.png",
-)
-trace(
-    scenePath = classroom,
-    shader = "volumetric",
-    width = 1280,
-    samples = 4096,
-    filename = "classroom_1280_4096.png",
-)
-trace(
-    scenePath = bathroom2,
-    shader = "volumetric",
-    width = 1280,
-    samples = 4096,
-    filename = "bathroom2_1280_4096.png",
+    samples = 8192,
+    filename = "livingroom3_1280_8192_v.png",
 )

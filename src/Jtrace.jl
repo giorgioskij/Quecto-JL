@@ -226,7 +226,7 @@ function traceSamples!(
                 end
             end
         end
-        #displayStat("sample $s / $samples", t)
+        displayStat("sample $s / $samples", t)
     end
 
     return nothing
