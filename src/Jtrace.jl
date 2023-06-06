@@ -37,17 +37,18 @@ eyelight, normal, color, raytrace, material, path, volumetric.
 """
 function trace(;
     scenePath::String = "03_texture/texture.json",
-    shader::String = "eyelight",
-    width::Integer = 1920,
-    samples::Integer = 2,
+    shader::String = "volumetric",
+    resolution::Integer = 1280,
+    samples::Integer = 512,
     filename::String = "jtrace.png",
     multithreaded::Bool = true,
     quiet::Bool = false,
-    maxBounces::Integer = 128,
+    maxBounces::Integer = 8,
+    camera::Integer = 1,
 )
     if !quiet
         println(
-            "~~~~~ SHADER $shader, WIDTH $width, SAMPLES $samples, ",
+            "~~~~~ SHADER $shader, RESOLUTION $resolution, SAMPLES $samples, ",
             "THREADS $(Threads.nthreads()) ~~~~~",
         )
     end
@@ -55,8 +56,15 @@ function trace(;
     t = @elapsed scene = loadJsonScene(joinpath(baseDir, scenePath))
     displayStat("Loaded $scenePath", t)
 
-    camera = scene.cameras[1]
-    height = Int(round(width / camera.aspect))
+    camera = scene.cameras[camera]
+
+    if camera.aspect >= 1
+        width  = resolution
+        height = Int(round(resolution / camera.aspect))
+    else
+        height = resolution
+        width  = Int(round(resolution * camera.aspect))
+    end
 
     # build bvh
     t = @elapsed bvh = makeSceneBvh(scene)

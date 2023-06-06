@@ -407,7 +407,7 @@ end
         tMax = tzMax
     end
 
-    # maybe here is tMax > ray.tmin
+    # maybe here is tMax > ray.tmin instead of tMax > 0.0f0
     return (tMax > ray.tmin ) && (tMin < ray.tmax)
 
     #itMin::SVec3f = (bbox.min - ray.origin) * ray.invDirection #rayDInv
