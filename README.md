@@ -1,36 +1,14 @@
----
-author:
-- |
-  **Authors:**\
-  Antonio Andrea Gargiulo - 1769185\
-  Giorgio Strano - 1809528\
-  -\
-  gargiulo.1769185@studenti.uniroma1.it\
-  strano.1809528@studenti.uniroma1.it\
-  -\
-  Sapienza University of Rome\
-  June 2023
-bibliography:
-- References.bib
-title: |
-  []{.smallcaps}\
-  **Quecto-JL\
-  Physically-based path tracing in Julia.**
-
-  ![image](img/livingroom1_1280_4096_v.png){width="100%"}
-
-  \
----
+# **Quecto-JL**
 
 # Introduction
 
-Quecto-JL [^1] is a minimal but capable volumetric and physically-based
+Quecto-JL is a minimal but capable volumetric and physically-based
 path tracer written in Julia from scratch. It aims at rendering
 realistic and complex scenes while being lightweight and user-friendly,
 without sacrificing performance and being comparable in speed with
 reasonably optimized C++ implementations, despite being written in a
 high-level language. It is inspired by Yocto/GL
-[@10.2312:stag.20191373], of which it shares the philosophy, the
+[^1], of which it shares the philosophy, the
 simplicity, the mathematical background, many data structures and the
 majority of design choices.
 
@@ -39,11 +17,11 @@ majority of design choices.
 The library is organized as a standard Julia package. Its dependencies
 are listed in the *Project.toml*. The main entry point is the function:
 
-::: minted
-julia trace(scenePath::String, shader::String, resolution::Integer,
-samples::Integer, filename::String, multithreaded::Bool, quiet::Bool,
-maxBounces::Integer, camera::Integer)
-:::
+```julia 
+trace(scenePath::String, shader::String, resolution::Integer,
+      samples::Integer, filename::String, multithreaded::Bool, quiet::Bool,
+      maxBounces::Integer, camera::Integer)
+```
 
 which takes the path to a scene and outputs the rendered image,
 according to the given parameters, in the directory *out/*.
@@ -139,7 +117,7 @@ that we would much prefer the program crashing rather than having
 
 All of our basic data types are static, immutable, and stack-allocated.
 3D points, for example, are static vectors from the *StaticArrays*
-library [^2], and all structures are immutable. The use of
+library[^2], and all structures are immutable. The use of
 heap-allocated, dynamic collections is very much pondered and restricted
 to few situations, such as storing the scene data. Usually, whenever we
 used heap-allocated structures, we spent some computations to calculate
@@ -170,25 +148,27 @@ threads since the whole stack amounts to barely a few Kilobytes.
 ### Intersection
 
 For *bounding box intersection*, we adopted at first the most intuitive
-implementation, described in [@Shirley2021] and [@Sabino2021], that
+implementation, described in [^3] and [^4], that
 exploits SIMD instruction advantage, as we can see from the following
 lines of code:
 
-::: minted
-julia function intersectBbox(ray::Ray, rayDInv::SVec3f,
-bbox::Bbox3f)::Bool \# Absolute distances to lower and upper box
-coordinates itMin::SVec3f = (bbox.min - ray.origin) \* rayDInv
-itMax::SVec3f = (bbox.max - ray.origin) \* rayDInv \# The four
-t-intervals (for x-/y-/z-slabs, and ray p(t)) maxTmin::SVec4f =
-SVec4f(fastMin.(itMin, itMax)\..., ray.tmin) minTmax::SVec4f =
-SVec4f(fastMax.(itMin, itMax)\..., ray.tmax) \# Easy to remember: \"max
-of mins, and min of maxes\" t0::Float32 = fastMaximumComponent(maxTmin)
-t1::Float32 = fastMinimumComponent(minTmax) return t0 \<= t1
-:::
+```julia 
+function intersectBbox(ray::Ray, rayDInv::SVec3f, bbox::Bbox3f)::Bool 
+    # Absolute distances to lower and upper boxcoordinates 
+    itMin::SVec3f = (bbox.min - ray.origin) * rayDInv
+    itMax::SVec3f = (bbox.max - ray.origin) * rayDInv 
+    # The four t-intervals (for x-/y-/z-slabs, and ray p(t)) 
+    maxTmin::SVec4f = SVec4f(fastMin.(itMin, itMax)\..., ray.tmin) 
+    minTmax::SVec4f = SVec4f(fastMax.(itMin, itMax)\..., ray.tmax) 
+    # Easy to remember: \"max of mins, and min of maxes\" 
+    t0::Float32 = fastMaximumComponent(maxTmin)
+    t1::Float32 = fastMinimumComponent(minTmax) 
+    return t0 <= t1
+```
 
 After some benchmarking and testing, we verified that avoiding the use
 of vectors and unrolling the comparison, as shown in
-[@10.1145/1198555.1198748], brings minor improvements in performance,
+[^5], brings minor improvements in performance,
 reducing the number of computations needed in the optimal case and
 removing the overhead of the 4-element vectors' construction and
 synchronization. Since this function is the major bottleneck of the
@@ -222,64 +202,64 @@ macros that were very useful for optimization purposes.
 
 In this section, we present a gallery of the achieved qualitative
 rendering results for various types of scenes from various sources
-[@McGuire2017Data] using our Julia library Quecto-JL.
+[^6] using our Julia library Quecto-JL.
 
 <figure>
-<img src="img/bathroom1_1280_8192_v.png" style="width:100.0%" />
+<img src="out/bathroom1_1280_8192_v.png" style="width:100.0%" />
 <figcaption>Bathroom scene rendered at a resolution of 1280x720 with
 8192 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/bathroom2_1280_8192_v.png" style="width:100.0%" />
+<img src="out/bathroom2_1280_8192_v.png" style="width:100.0%" />
 <figcaption>Bathroom scene rendered at a resolution of 1280x720 with
 8192 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/kitchen_1280_8192_v.png" style="width:100.0%" />
+<img src="out/kitchen_1280_8192_v.png" style="width:100.0%" />
 <figcaption>Kitchen scene rendered at a resolution of 1280x720 with 8192
 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/livingroom1_1280_4096_v.png" style="width:100.0%" />
+<img src="out/livingroom1_1280_4096_v.png" style="width:100.0%" />
 <figcaption>Livingroom scene rendered at a resolution of 1280x720 with
 4096 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/livingroom2_1280_8192_v.png" style="width:100.0%" />
+<img src="out/livingroom2_1280_8192_v.png" style="width:100.0%" />
 <figcaption>Livingroom scene rendered at a resolution of 1280x720 with
 8192 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/livingroom3_1280_8192_v.png" style="width:100.0%" />
+<img src="out/livingroom3_1280_8192_v.png" style="width:100.0%" />
 <figcaption>Livingroom scene rendered at a resolution of 1280x720 with
 8192 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/staircase1_1280_4096_v.png" />
+<img src="out/staircase1_1280_4096_v.png" />
 <figcaption>Staircase scene rendered at a resolution of 1280x2276 with
 4096 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/staircase2_1280_4096_v.png" style="width:100.0%" />
+<img src="out/staircase2_1280_4096_v.png" style="width:100.0%" />
 <figcaption>Staircase scene rendered at a resolution of 1280x1280 with
 4096 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/coffee_1280_4096_v.png" style="width:100.0%" />
+<img src="out/coffee_1280_4096_v.png" style="width:100.0%" />
 <figcaption>Coffee machine rendered at a resolution of 1280x1600 with
 4096 samples per pixel</figcaption>
 </figure>
 
 <figure>
-<img src="img/classroom_1280_8192_v.png" style="width:100.0%" />
+<img src="out/classroom_1280_8192_v.png" style="width:100.0%" />
 <figcaption>Classroom scene rendered at a resolution of 1280x720 with
 8192 samples per pixel</figcaption>
 </figure>
@@ -292,31 +272,29 @@ Yocto/GL, implemented in C++. We are very satisfied with these results,
 and we believe to have pushed the performance close to the limit of what
 Julia can offer.
 
-::: center
-       Scene        Resolution   Yocto/GL   Quecto-JL
-  ---------------- ------------ ---------- -----------
-   Coffee machine   1280x1024     3.08s       7.00s
-     Features 1      1280x533     1.60s       2.50s
-    Staircase 1      720x1280     3.59s       7.59s
-    Livingroom 1     1280x720     3.52s       8.47s
+-------------------------
 
-  : Average execution time for a single sample, single-threaded
+$ Scene $ | $ Resolution $ | $ Yocto/GL $ | $ Quecto-JL $ |
+|:----------------:|:------------:|:----------:|:-----------:|
+|Coffee machine |  1280x1024   |  3.08s   |   7.00s |
+|Features 1     |   1280x533   |  1.60s   |   2.50s |
+|Staircase 1    |   720x1280   |  3.59s   |   7.59s |
+|Livingroom 1   |   1280x720   |  3.52s   |   8.47s |
 
-\
-:::
+Average execution time for a single sample, single-threaded
 
-::: center
-       Scene        Resolution   Yocto/GL   Quecto-JL
-  ---------------- ------------ ---------- -----------
-   Coffee machine   1280x1024     0.25s       0.62s
-     Features 1      1280x533     0.12s       0.21s
-    Staircase 1      720x1280     0.28s       0.65s
-    Livingroom 1     1280x720     0.26s       0.69s
+-------------------------
 
-  : Average execution time for a single sample, with 20 parallel threads
+$ Scene $ | $ Resolution $ | $ Yocto/GL $ | $ Quecto-JL $ |
+|:----------------:|:------------:|:----------:|:-----------:|
+|Coffee machine |  1280x1024   |  0.25s   |    0.62s |
+|Features 1     |   1280x533   |  0.12s   |    0.21s |
+|Staircase 1    |   720x1280   |  0.28s   |    0.65s |
+|Livingroom 1   |   1280x720   |  0.26s   |    0.69s |
 
-\
-:::
+Average execution time for a single sample, with 20 parallel threads
+
+-------------------------
 
 All the benchmarks were performed on an Intel i9-10900k @ 5.3GHz CPU.
 
@@ -355,6 +333,14 @@ Computer Graphics held at Sapienza University of Rome by Professor Fabio
 Pellacini, whose passion and love for the subject are shown in each and
 every lecture and act as a great source of inspiration.
 
-[^1]: <https://github.com/giorgioskij/Quecto-JL>
 
+## **Authors:**
+Antonio Andrea Gargiulo \
+Giorgio Strano 
+
+[^1]: <https://doi.org/10.2312/stag.20191373>
 [^2]: <https://github.com/JuliaArrays/StaticArrays.jl>
+[^3]: <https://doi.org/10.1007/978-1-4842-7185-8_2>
+[^4]: <https://doi.org/10.1007/978-1-4842-7185-8_32>
+[^5]: <https://doi.org/10.1145/1198555.1198748>
+[^6]: <https://casual-effects.com/data>
