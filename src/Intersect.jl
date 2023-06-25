@@ -6,7 +6,6 @@ using ..Types
 using ..Bvh
 using ..Algebra
 using ..World
-import ..Jtrace
 using LoopVectorization
 
 export Intersection,
@@ -408,7 +407,7 @@ end
     end
 
     # maybe here is tMax > ray.tmin instead of tMax > 0.0f0
-    return (tMax > ray.tmin ) && (tMin < ray.tmax)
+    return (tMax > ray.tmin) && (tMin < ray.tmax)
 
     #itMin::SVec3f = (bbox.min - ray.origin) * ray.invDirection #rayDInv
     #itMax::SVec3f = (bbox.max - ray.origin) * ray.invDirection #rayDInv
