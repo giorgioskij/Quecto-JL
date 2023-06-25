@@ -31,6 +31,33 @@ using .Lights
 
 export trace
 
+function shaderCaller(
+    shader::String,
+    scene::Scene,
+    ray::Ray,
+    bvh::SceneBvh,
+    maxBounces::Int64,
+    lights::Vector{Light},
+)::SVec3f
+    if lowercase(shader) == "volumetric"
+        return shadeVolumetric(scene, ray, bvh, maxBounces, lights)
+    elseif lowercase(shader) == "normal"
+        return shadeNormal(scene, ray, bvh)
+    elseif lowercase(shader) == "color"
+        return shadeColor(scene, ray, bvh)
+    elseif lowercase(shader) == "raytrace"
+        return shadeRaytrace(scene, ray, bvh)
+    elseif lowercase(shader) == "material"
+        return shadeMaterial(scene, ray, bvh, maxBounces, lights)
+    elseif lowercase(shader) == "path"
+        return shadePath(scene, ray, bvh, maxBounces, lights)
+    elseif lowercase(shader) == "eyelight"
+        return shadeEyelight(scene, ray, bvh)
+    else
+        error("No shader named $shader")
+    end
+end
+
 """
 Main entry point to the program. The parameter shader is a string between:
 eyelight, normal, color, raytrace, material, path, volumetric.
@@ -50,7 +77,7 @@ function trace(;
     if !quiet
         println(
             "~~~~~ SHADER $shader, RESOLUTION $resolution, SAMPLES $samples, ",
-            "THREADS $(Threads.nthreads()) ~~~~~",
+            "THREADS $(multithreaded ? Threads.nthreads() : 1) ~~~~~",
         )
     end
     # generate scene
@@ -85,32 +112,13 @@ function trace(;
         displayStat("Lights built", t)
     end
 
-    shaderFunc::Function = if lowercase(shader) == "eyelight"
-        shadeEyelight
-    elseif lowercase(shader) == "normal"
-        shadeNormal
-    elseif lowercase(shader) == "color"
-        shadeColor
-    elseif lowercase(shader) == "raytrace"
-        shadeRaytrace
-    elseif lowercase(shader) == "material"
-        shadeMaterial
-    elseif lowercase(shader) == "path"
-        shadePath
-        # elseif lowercase(shader) == "pathtrace"
-        #     shadePathtrace
-    elseif lowercase(shader) == "volumetric"
-        shadeVolumetric
-    else
-        error("No shader named $shader")
-    end
     # shaderFunc::Function = shadeMaterial
 
     # call the function to trace samples
 
     # GC.enable(false)
     t = @elapsed traceSamples!(
-        shaderFunc,
+        shader,
         image,
         scene,
         width,
@@ -167,7 +175,8 @@ function saveImage(
 end
 
 function traceSamples!(
-    shader, # this is a such pain in the ass the type here is always a function 
+    shader::String,
+    # this is a such pain in the ass the type here is always a function 
     # and each time this is passed to trace sample it is evaluated and
     # after it got a good type different by Any (with Function go to Any idk) 
     image::Matrix{SVec4f},
@@ -246,7 +255,7 @@ function traceSamples!(
 end
 
 @inline function traceSample(
-    shader::Function,
+    shader::String,
     i::Int,
     j::Int,
     scene::Scene,
@@ -263,7 +272,8 @@ end
     ray::Ray = sampleCamera(camera, i - 1, j - 1, imwidth, imheight)
 
     # call the shader
-    radiance::SVec3f = shader(scene, ray, bvh, maxBounces, lights)
+    # radiance::SVec3f = shader(scene, ray, bvh, maxBounces, lights)
+    radiance::SVec3f = shaderCaller(shader, scene, ray, bvh, maxBounces, lights)
 
     return radiance
 end

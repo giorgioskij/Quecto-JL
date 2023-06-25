@@ -13,7 +13,8 @@ ecosys = "scenes/12_ecosys/ecosys.json"
 materials1 = "scenes/materials1/materials1.json"
 materials2 = "scenes/materials2/materials2.json"
 materials4 = "scenes/materials4/materials4.json"
-scenePath = "scenes/features2/features2.json"
+features1 = "scenes/features1/features1.json"
+features2 = "scenes/features2/features2.json"
 coffee = "scenes/coffee/coffee.json"
 bathroom1 = "scenes/bathroom1/bathroom1.json"
 livingroom1 = "scenes/livingroom1/livingroom1.json"
@@ -71,10 +72,12 @@ bathroom2 = "scenes/bathroom2/bathroom2.json"
 #     filename = "bathroom2_1280_8192.png",
 # )
 trace(
-    scenePath = coffee,
+    scenePath = features1,
     shader = "volumetric",
     resolution = 1280,
-    samples = 128,
-    filename = "coffee_1280_128.png",
+    samples = 4096,
+    filename = "features1_1280_4096.png",
     displaySampleTime = false,
+    multithreaded = true,
+    maxBounces = 128,
 )
