@@ -28,7 +28,7 @@ bathroom2 = "scenes/bathroom2/bathroom2.json"
 # trace(
 #     scenePath = livingroom2,
 #     shader = "volumetric",
-#     width = 1280,
+#     resolution = 1280,
 #     samples = 8192,
 #     filename = "livingroom2_1280_8192.png",
 # )
@@ -36,7 +36,7 @@ bathroom2 = "scenes/bathroom2/bathroom2.json"
 # trace(
 #     scenePath = livingroom3,
 #     shader = "volumetric",
-#     width = 1280,
+#     resolution = 1280,
 #     samples = 8192,
 #     filename = "livingroom3_1280_8192.png",
 # )
@@ -44,7 +44,7 @@ bathroom2 = "scenes/bathroom2/bathroom2.json"
 # trace(
 #     scenePath = kitchen,
 #     shader = "volumetric",
-#     width = 1280,
+#     resolution = 1280,
 #     samples = 8192,
 #     filename = "kitchen_1280_8192.png",
 # )
@@ -52,28 +52,29 @@ bathroom2 = "scenes/bathroom2/bathroom2.json"
 # trace(
 #     scenePath = classroom,
 #     shader = "volumetric",
-#     width = 1280,
+#     resolution = 1280,
 #     samples = 8192,
 #     filename = "classroom_1280_8192.png",
 # )
 # trace(
 #     scenePath = bathroom1,
 #     shader = "volumetric",
-#     width = 1280,
+#     resolution = 1280,
 #     samples = 8192,
 #     filename = "bathroom1_1280_8192.png",
 # )
 # trace(
 #     scenePath = bathroom2,
 #     shader = "volumetric",
-#     width = 1280,
+#     resolution = 1280,
 #     samples = 8192,
 #     filename = "bathroom2_1280_8192.png",
 # )
 trace(
     scenePath = coffee,
     shader = "volumetric",
-    width = 1280,
-    samples = 4196,
-    filename = "coffee_1280_4196.png",
+    resolution = 1280,
+    samples = 128,
+    filename = "coffee_1280_128.png",
+    displaySampleTime = false,
 )
