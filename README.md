@@ -20,7 +20,7 @@ are listed in the *Project.toml*. The main entry point is the function:
 ```julia 
 trace(scenePath::String, shader::String, resolution::Integer,
       samples::Integer, filename::String, multithreaded::Bool, quiet::Bool,
-      maxBounces::Integer, camera::Integer)
+      maxBounces::Integer, camera::Integer, displaySampleTime::Bool)
 ```
 
 which takes the path to a scene and outputs the rendered image,
@@ -274,7 +274,7 @@ Julia can offer.
 
 -------------------------
 
-$ Scene $ | $ Resolution $ | $ Yocto/GL $ | $ Quecto-JL $ |
+**Scene**| **Resolution**| **Yocto/GL**| **Quecto-JL**|
 |:----------------:|:------------:|:----------:|:-----------:|
 |Coffee machine |  1280x1024   |  3.08s   |   7.00s |
 |Features 1     |   1280x533   |  1.60s   |   2.50s |
@@ -285,7 +285,7 @@ Average execution time for a single sample, single-threaded
 
 -------------------------
 
-$ Scene $ | $ Resolution $ | $ Yocto/GL $ | $ Quecto-JL $ |
+**Scene**| **Resolution**| **Yocto/GL**| **Quecto-JL**|
 |:----------------:|:------------:|:----------:|:-----------:|
 |Coffee machine |  1280x1024   |  0.25s   |    0.62s |
 |Features 1     |   1280x533   |  0.12s   |    0.21s |

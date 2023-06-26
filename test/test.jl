@@ -74,9 +74,9 @@ bathroom2 = "scenes/bathroom2/bathroom2.json"
 trace(
     scenePath = features1,
     shader = "volumetric",
-    resolution = 1280,
+    resolution = 4000,
     samples = 4096,
-    filename = "features1_1280_4096.png",
+    filename = "features1_4000_4096.png",
     displaySampleTime = false,
     multithreaded = true,
     maxBounces = 128,
